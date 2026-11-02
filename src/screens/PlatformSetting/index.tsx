@@ -15,8 +15,8 @@ import { HEADER_HEIGHT as _HEADER_HEIGHT, COMPONENT_IDS } from '@/config/constan
 import { setComponentId, updateSetting } from '@/core/common'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import WyLoginModal from '@/components/WyLoginModal'
-import { useNetease } from '@/store/netease/hook'
 import { initNetease } from '@/core/netease'
+import { isSaved, verifyAccount, type AccountSnapshot, type PlatformKey } from '@/core/accountStatus'
 import { friendlyError } from '@/utils/errorMsg'
 
 const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
@@ -54,7 +54,27 @@ export default memo(({ componentId }: { componentId: string }) => {
   const [editing, setEditing] = useState<PlatformItem | null>(null)
   const [draft, setDraft] = useState('')
   const [qrVisible, setQrVisible] = useState(false)
-  const { profile } = useNetease()
+  const [statuses, setStatuses] = useState<Record<PlatformKey, AccountSnapshot>>({
+    wy: { status: 'off', name: '', avatar: '' },
+    tx: { status: 'off', name: '', avatar: '' },
+    kg: { status: 'off', name: '', avatar: '' },
+  })
+
+  // Cookie 一变就重新校验，避免「已登录却显示未登录」
+  useEffect(() => {
+    let alive = true
+    PLATFORMS.forEach((item) => {
+      if (!isSaved(item.key)) {
+        if (alive) setStatuses(prev => ({ ...prev, [item.key]: { status: 'off', name: '', avatar: '' } }))
+        return
+      }
+      if (alive) setStatuses(prev => ({ ...prev, [item.key]: { ...prev[item.key], status: 'checking' } }))
+      void verifyAccount(item.key).then((snap) => {
+        if (alive) setStatuses(prev => ({ ...prev, [item.key]: snap }))
+      })
+    })
+    return () => { alive = false }
+  }, [wyCookie, txCookie, kgCookie])
 
   useEffect(() => {
     setComponentId(COMPONENT_IDS.platformSetting, componentId)
@@ -108,7 +128,16 @@ export default memo(({ componentId }: { componentId: string }) => {
       <ScrollView style={styles.body}>
         <Text size={11} color={theme['c-font-label']} style={styles.tip}>{t('platform_tip')}</Text>
         {PLATFORMS.map((item) => {
-          const logged = Boolean(cookies[item.settingKey])
+          const saved = isSaved(item.key)
+          const snap = statuses[item.key]
+          // 只有校验通过才展示昵称；校验中 / 失效各自给一句明确提示
+          let statusText = t('platform_status_off')
+          if (saved) {
+            if (snap.status === 'checking') statusText = t('platform_status_checking')
+            else if (snap.status === 'expired') statusText = t('platform_status_expired')
+            else if (snap.name) statusText = `${snap.name}${snap.vipType ? ' · VIP' : ''}`
+            else statusText = t('platform_status_on')
+          }
           return (
             <TouchableOpacity
               key={item.key}
@@ -122,9 +151,7 @@ export default memo(({ componentId }: { componentId: string }) => {
               <View style={styles.cardContent}>
                 <Text size={14}>{item.name}</Text>
                 <Text size={11} color={theme['c-font-label']} style={styles.cardSub} numberOfLines={1}>
-                  {item.key == 'wy' && logged && profile.nickname
-                    ? `${profile.nickname}${profile.vipType ? ' · VIP' : ''}`
-                    : logged ? t('platform_status_on') : t('platform_status_off')}
+                  {statusText}
                 </Text>
               </View>
               {item.key == 'wy'
@@ -136,8 +163,8 @@ export default memo(({ componentId }: { componentId: string }) => {
                     <Text size={11} color={theme['c-primary-font']}>{t('wy_login_scan')}</Text>
                   </TouchableOpacity>
                 : null}
-              <View style={[styles.badge, { borderColor: logged ? item.color : theme['c-border-background'] }]}>
-                <Text size={10} color={logged ? item.color : theme['c-font-label']}>CK</Text>
+              <View style={[styles.badge, { borderColor: saved ? item.color : theme['c-border-background'] }]}>
+                <Text size={10} color={saved ? item.color : theme['c-font-label']}>CK</Text>
               </View>
               <Icon name="chevron-right" size={14} color={theme['c-350']} />
             </TouchableOpacity>

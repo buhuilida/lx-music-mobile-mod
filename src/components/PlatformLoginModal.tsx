@@ -216,7 +216,18 @@ export default memo(({ visible, platform = 'wy', onClose, onSuccess }: Props) =>
     }
     const task = platform == 'tx' ? sendQQPhoneCode(phone.trim()) : sendWyPhoneCode(phone.trim())
     void task
-      .then(() => {
+      .then((result) => {
+        // QQ 音乐会把「需要安全验证」「发送太频繁」当成正常响应返回
+        if (platform == 'tx' && result && typeof result === 'object') {
+          if (result.event === 'captcha') {
+            toast(t('qq_code_need_verify'), 'long')
+            return
+          }
+          if (result.event === 'frequency') {
+            toast(t('qq_code_frequency'), 'long')
+            return
+          }
+        }
         toast(t('wy_login_code_sent'))
         startCooldown()
       })

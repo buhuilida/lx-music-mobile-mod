@@ -1,5 +1,6 @@
 import { httpFetch } from '../../request'
 import { zzcSign } from './sign'
+import { getQQDevice, getQQQimei } from './qimei'
 import settingState from '@/store/setting/state'
 
 /**
@@ -34,18 +35,57 @@ export const hasTxSession = (cookie = getCookie()) => {
   return /(?:^|;\s*)(?:qqmusic_key|qm_keyst|p_skey|skey)=/.test(cookie)
 }
 
+/** 从 Cookie 里取播放密钥（musickey），comm.authst 用 */
+const getKeyFromCookie = (cookie = getCookie()) => {
+  const match = cookie.match(/(?:^|;\s*)(?:qqmusic_key|qm_keyst)=([^;]+)/)
+  return match ? match[1].trim() : ''
+}
+
+/**
+ * 组装请求公共参数 comm
+ *
+ * 对齐 APK 里的 `buildQQComm`：除版本号外还带设备信息与 QIMEI，
+ * 风控接口（发验证码 / 登录）会看这些字段判断环境是否可信。
+ * QIMEI 取不到时用内置默认值，不阻塞请求。
+ */
+const buildComm = async(extra = {}, cookie = getCookie()) => {
+  const device = getQQDevice()
+  const qimei = await getQQQimei().catch(() => ({ q16: '', q36: '' }))
+  return {
+    ct: 11,
+    cv: 14090008,
+    v: 14090008,
+    chid: '10003505',
+    qq: getUinFromCookie(cookie) || null,
+    authst: getKeyFromCookie(cookie) || null,
+    tmeAppID: 'qqmusic',
+    QIMEI: qimei.q16,
+    QIMEI36: qimei.q36,
+    OpenUDID: device.openUdid,
+    OpenUDID2: device.openUdid,
+    udid: device.openUdid,
+    aid: device.androidId,
+    os_ver: device.release,
+    phonetype: device.model,
+    devicelevel: String(device.sdk),
+    newdevicelevel: String(device.sdk),
+    rom: device.fingerprint,
+    ...extra,
+  }
+}
+
 /**
  * 统一请求
  * @param {string} module 模块名，如 music.login.LoginServer
  * @param {string} method 方法名
  * @param {object} param 参数
- * @param {object} comm 业务参数（ct/cv/tmeLoginMethod 等）
+ * @param {object} comm 业务参数（tmeLoginMethod 等），会覆盖到 comm 上
  * @param {string} cookie 指定 Cookie，默认取设置里的
  * @param {boolean} raw 是否返回原始响应（登录需要响应头里的 Set-Cookie）
  */
 const send = async(module, method, param, comm = {}, cookie = getCookie(), raw = false) => {
   const data = {
-    comm: { ct: 24, cv: 1800, ...comm },
+    comm: await buildComm(comm, cookie),
     req_0: { module, method, param },
   }
   // 注意：这里传对象而不是字符串。request 层会在 Content-Type 为 application/json 时
@@ -173,6 +213,11 @@ export default {
   /**
    * 发送手机验证码
    * module music.login.LoginServer / method SendPhoneAuthCode
+   *
+   * 欢迎页错误码（与 APK 一致）：
+   * - 20276 / data.securityURL 非空：号码被风控，必须先去网页过安全验证
+   * - 100001：发送过于频繁
+   * @returns {Promise<{ event: 'send'|'captcha'|'frequency', securityUrl: string }>}
    */
   async sendPhoneCode(phone, areaCode = '86') {
     const req = await send('music.login.LoginServer', 'SendPhoneAuthCode', {
@@ -180,11 +225,18 @@ export default {
       areaCode: String(areaCode),
       phoneNo: String(phone),
     }, { tmeLoginMethod: 3 })
-    if (req.code !== 0 && req.code !== undefined) {
-      throw new Error(req.data?.errMsg || req.data?.msg || `验证码发送失败（${req.code}）`)
+    const data = req.data ?? {}
+    const code = req.code
+    if (code === 20276 || data.securityURL) {
+      return { event: 'captcha', securityUrl: data.securityURL ?? '' }
     }
-    if (req.data?.securityURL) throw new Error('该号码需要安全验证，请改用 Cookie 登录')
-    return true
+    if (code === 100001) {
+      return { event: 'frequency', securityUrl: '' }
+    }
+    if (code !== 0 && code !== undefined) {
+      throw new Error(data.errMsg || data.msg || `验证码发送失败（${code}）`)
+    }
+    return { event: 'send', securityUrl: '' }
   },
 
   /**

@@ -2,6 +2,7 @@ import { updateSetting } from '@/core/common'
 import settingState from '@/store/setting/state'
 import accountActions from '@/store/account/action'
 import txUser, { getUinFromCookie, hasTxSession } from '@/utils/musicSdk/tx/user'
+import { clearQimeiCache } from '@/utils/musicSdk/tx/qimei'
 import { toNewMusicInfo } from '@/utils'
 
 /**
@@ -42,10 +43,17 @@ export const loginQQWithCookie = async(cookie: string) => {
 export const logoutQQ = async() => {
   updateSetting({ 'platform.txCookie': '' })
   accountActions.resetTx()
+  clearQimeiCache()
 }
 
-export const sendQQPhoneCode = async(phone: string) => {
-  return txUser.sendPhoneCode(phone)
+export interface QQSendCodeResult {
+  event: 'send' | 'captcha' | 'frequency'
+  securityUrl: string
+}
+
+/** 发送验证码：返回 event 区分「已发送 / 需要安全验证 / 发送过频」 */
+export const sendQQPhoneCode = async(phone: string): Promise<QQSendCodeResult> => {
+  return txUser.sendPhoneCode(phone) as Promise<QQSendCodeResult>
 }
 
 /**
