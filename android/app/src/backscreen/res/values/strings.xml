@@ -1,0 +1,4 @@
+<resources>
+    <!-- 小米背屏 / iQOO 原子随身听等按包名白名单渲染，显示名跟随白名单惯例 -->
+    <string name="app_name">汽水音乐</string>
+</resources>

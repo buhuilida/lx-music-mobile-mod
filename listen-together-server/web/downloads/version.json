@@ -1,0 +1,26 @@
+{
+  "version": "1.15.0",
+  "versionCode": 96003,
+  "date": "2026-11-02",
+  "notes": [
+    "新增：播放失败自动使用本地缓存兜底（可关闭），断网/链接失效不断歌",
+    "新增：播放页屏幕常亮开关（原版仅歌词页常亮）",
+    "新增：播放详情页显示当前实际播放音质与音源徽标（如 320K · KW）",
+    "新增：自定义背景不透明度与模糊度调节（设置 → 主题）",
+    "新增：WebDAV 自动备份（每次启动 / 每天一次 / 每周一次）",
+    "新增：关于页列出引用项目（原版洛雪、LX-X Music）与赞赏码",
+    "修复：设置页错误提示与侧边栏类型的历史遗留问题"
+  ],
+  "download": {
+    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.15.0-arm64-v8a.apk?sharecode=MKPWEVLBUS",
+    "universal": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.15.0-universal.apk?sharecode=MKPWEVLBUS"
+  },
+  "downloadBackscreen": {
+    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.15.0-backscreen-arm64-v8a.apk?sharecode=MKPWEVLBUS"
+  },
+  "source": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lx-music-mod-src-v1.15.0.zip?sharecode=MKPWEVLBUS",
+  "repos": {
+    "app": "https://github.com/yzdz666/lx-music-mobile-mod",
+    "server": "https://github.com/yzdz666/listen-together-server"
+  }
+}
