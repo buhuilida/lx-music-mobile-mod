@@ -1,24 +1,24 @@
 {
-  "version": "1.15.0",
-  "versionCode": 96003,
+  "version": "1.16.0",
+  "versionCode": 97003,
   "date": "2026-11-02",
   "notes": [
-    "新增：播放失败自动使用本地缓存兜底（可关闭），断网/链接失效不断歌",
-    "新增：播放页屏幕常亮开关（原版仅歌词页常亮）",
-    "新增：播放详情页显示当前实际播放音质与音源徽标（如 320K · KW）",
-    "新增：自定义背景不透明度与模糊度调节（设置 → 主题）",
-    "新增：WebDAV 自动备份（每次启动 / 每天一次 / 每周一次）",
-    "新增：关于页列出引用项目（原版洛雪、LX-X Music）与赞赏码",
-    "修复：设置页错误提示与侧边栏类型的历史遗留问题"
+    "新增：音效系统——全景环绕 / 电影院 / 音乐厅 / 低音增强预设，多段均衡器与环绕声场（双扬声器立体声扩展）自定义",
+    "新增：音源测试——按平台实测音源实际最高可用音质（酷我/酷狗/QQ/网易/咪咕）",
+    "新增：本地音乐扫描——Music/Download 目录音频一键写入「本地音乐」歌单",
+    "新增：逐字歌词动画——App 歌词页当前行逐字高亮（支持 lxlyric 逐字数据，自动回退整行）",
+    "新增：下载设置——文件命名格式（歌名-歌手/歌手-歌名/歌名）、同时保存 .lrc 歌词文件",
+    "修复：WebDAV 连接（pan.cdn.ad 等 Cloudreve 服务兼容：PROPFIND Depth 头、GET 405 判定、25 秒超时）",
+    "锁屏歌词：系统歌词（MediaSession 通知 / ColorOS lyricInfo）锁屏直接可见，可在设置开关"
   ],
   "download": {
-    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.15.0-arm64-v8a.apk?sharecode=MKPWEVLBUS",
-    "universal": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.15.0-universal.apk?sharecode=MKPWEVLBUS"
+    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.16.0-arm64-v8a.apk?sharecode=MKPWEVLBUS",
+    "universal": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.16.0-universal.apk?sharecode=MKPWEVLBUS"
   },
   "downloadBackscreen": {
-    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.15.0-backscreen-arm64-v8a.apk?sharecode=MKPWEVLBUS"
+    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.16.0-backscreen-arm64-v8a.apk?sharecode=MKPWEVLBUS"
   },
-  "source": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lx-music-mod-src-v1.15.0.zip?sharecode=MKPWEVLBUS",
+  "source": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lx-music-mod-src-v1.16.0.zip?sharecode=MKPWEVLBUS",
   "repos": {
     "app": "https://github.com/yzdz666/lx-music-mobile-mod",
     "server": "https://github.com/yzdz666/listen-together-server"
