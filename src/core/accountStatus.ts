@@ -1,6 +1,6 @@
 import settingState from '@/store/setting/state'
 import neteaseState from '@/store/netease/state'
-import txUser, { hasTxSession } from '@/utils/musicSdk/tx/user'
+import txUser, { getUinFromCookie, hasTxSession } from '@/utils/musicSdk/tx/user'
 import kgUser, { hasKgSession } from '@/utils/musicSdk/kg/user'
 import wyUser from '@/utils/musicSdk/wy/user'
 
@@ -33,6 +33,17 @@ const getCookie = (platform: PlatformKey): string => {
   if (platform == 'wy') return settingState.setting['platform.wyCookie'] ?? ''
   if (platform == 'tx') return settingState.setting['platform.txCookie'] ?? ''
   return settingState.setting['platform.kgCookie'] ?? ''
+}
+
+/**
+ * QQ 网页登录拿不到昵称（官方头部接口要 sig，未做）。
+ * 与 Walnut 一致：昵称用「QQ音乐用户 <uin>」，头像用 QQ 头像接口兜底。
+ */
+export const getQQDisplayFromCookie = (cookie: string) => {
+  const uin = getUinFromCookie(cookie)
+  return uin
+    ? { name: `QQ音乐用户 ${uin}`, avatar: `https://q1.qlogo.cn/g?b=qq&nk=${uin}&s=640` }
+    : { name: '', avatar: '' }
 }
 
 /** 只判断本地有没有存 Cookie，不发请求 */
@@ -80,7 +91,7 @@ export const verifyAccount = async(platform: PlatformKey, cookie = getCookie(pla
       // 拉一次「我创建的歌单」：能返回就说明 uin + musickey 仍然有效
       const list = await txUser.getCreatedPlaylists(undefined, cookie) as unknown[]
       if (!Array.isArray(list)) return { status: 'expired', name: '', avatar: '' }
-      return { status: 'ok', name: '', avatar: '' }
+      return { status: 'ok', ...getQQDisplayFromCookie(cookie) }
     }
     // 酷狗没登录时 getDeviceInfo 也能拿到设备号，这里先卡一道 Cookie 校验
     if (!hasKgSession(cookie)) return { status: 'expired', name: '', avatar: '' }

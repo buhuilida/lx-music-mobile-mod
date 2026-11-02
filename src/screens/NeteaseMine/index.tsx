@@ -6,7 +6,7 @@ import FullScreenHeader from '@/components/FullScreenHeader'
 import Text from '@/components/common/Text'
 import Image from '@/components/common/Image'
 import { Icon } from '@/components/common/Icon'
-import PlatformLoginModal from '@/components/PlatformLoginModal'
+import WebLoginModal from '@/components/WebLoginModal'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { useNetease } from '@/store/netease/hook'
@@ -15,18 +15,8 @@ import { createStyle, toast } from '@/utils/tools'
 import { friendlyError } from '@/utils/errorMsg'
 import playerState from '@/store/player/state'
 import { initNetease, isNeteaseLoggedIn, logoutNetease, getHeartbeatSongs } from '@/core/netease'
-import {
-  getQQDailyRecommend,
-  getQQGuessSongs,
-  getQQHomeRecommend,
-  getQQLikedSongs,
-  getQQNewSongs,
-  getQQRadarSongs,
-  initQQ,
-  isQQLoggedIn,
-  logoutQQ,
-} from '@/core/qq'
-import { getKgDailyRecommend, getKgLikedSongs, isKgLoggedIn, logoutKg } from '@/core/kugou'
+import { initQQ, isQQLoggedIn, logoutQQ } from '@/core/qq'
+import { isKgLoggedIn, logoutKg } from '@/core/kugou'
 import { playList } from '@/core/player/player'
 import { setTempList } from '@/core/list'
 import { COMPONENT_IDS, LIST_IDS } from '@/config/constant'
@@ -40,6 +30,7 @@ import {
   pushNeteaseAlbumsScreen,
   pushPlatformListScreen,
   pushPlatformSettingScreen,
+  pushPlatformSongsScreen,
 } from '@/navigation'
 
 const VIP_LABEL: Record<number, string> = {
@@ -77,7 +68,8 @@ export default memo(({ componentId }: { componentId: string }) => {
   const { profile, followedArtists, cloudCount, loading } = useNetease()
   const txAccount = useTxAccount()
   const kgAccount = useKgAccount()
-  const [loginVisible, setLoginVisible] = useState(false)
+  /** 网页登录：三平台统一，不再有手机号 / 扫码 */
+  const [webLogin, setWebLogin] = useState<PlatformKey | null>(null)
   const [platform, setPlatform] = useState<PlatformKey>('wy')
 
   const wyLoggedIn = isNeteaseLoggedIn()
@@ -95,21 +87,6 @@ export default memo(({ componentId }: { componentId: string }) => {
   useEffect(() => {
     if (txLoggedIn) void initQQ().catch(() => {})
   }, [txLoggedIn])
-
-  const playSongs = useCallback(async(listId: string, loader: () => Promise<LX.Music.MusicInfoOnline[]>) => {
-    toast(t('netease_loading'), 'short')
-    try {
-      const list = await loader()
-      if (!list.length) {
-        toast(t('netease_empty_list'))
-        return
-      }
-      await setTempList(listId, list)
-      await playList(LIST_IDS.TEMP, 0)
-    } catch (err) {
-      toast(friendlyError(err), 'long')
-    }
-  }, [t])
 
   const handleLogout = useCallback(() => {
     if (platform == 'tx') {
@@ -164,20 +141,20 @@ export default memo(({ componentId }: { componentId: string }) => {
   ]
 
   const txEntries: EntryItem[] = [
-    { key: 'daily', icon: 'music_time', title: t('qq_daily'), desc: t('qq_daily_desc'), onPress: () => { void playSongs('qq_daily', getQQDailyRecommend) } },
-    { key: 'liked', icon: 'love', title: t('qq_liked'), desc: t('qq_liked_desc'), onPress: () => { void playSongs('qq_liked', getQQLikedSongs) } },
+    { key: 'daily', icon: 'music_time', title: t('qq_daily'), desc: t('qq_daily_desc'), onPress: () => { pushPlatformSongsScreen(componentId, 'tx-daily') } },
+    { key: 'liked', icon: 'love', title: t('qq_liked'), desc: t('qq_liked_desc'), onPress: () => { pushPlatformSongsScreen(componentId, 'tx-liked') } },
     { key: 'playlists', icon: 'list-order', title: t('qq_my_playlists'), desc: t('qq_my_playlists_desc'), onPress: () => { pushPlatformListScreen(componentId, 'tx-mine') } },
     { key: 'favPlaylists', icon: 'album', title: t('qq_fav_playlists'), desc: t('qq_fav_playlists_desc'), onPress: () => { pushPlatformListScreen(componentId, 'tx-fav') } },
     { key: 'favAlbums', icon: 'album', title: t('qq_fav_albums'), desc: t('qq_fav_albums_desc'), onPress: () => { pushPlatformListScreen(componentId, 'tx-album') } },
-    { key: 'home', icon: 'album', title: t('qq_home_recommend'), desc: t('qq_home_recommend_desc'), onPress: () => { void playSongs('qq_home', getQQHomeRecommend) } },
-    { key: 'radar', icon: 'leaderboard', title: t('qq_radar'), desc: t('qq_radar_desc'), onPress: () => { void playSongs('qq_radar', getQQRadarSongs) } },
-    { key: 'newSongs', icon: 'available_updates', title: t('qq_new_songs'), desc: t('qq_new_songs_desc'), onPress: () => { void playSongs('qq_new', getQQNewSongs) } },
-    { key: 'guess', icon: 'love', title: t('qq_guess'), desc: t('qq_guess_desc'), onPress: () => { void playSongs('qq_guess', getQQGuessSongs) } },
+    { key: 'home', icon: 'album', title: t('qq_home_recommend'), desc: t('qq_home_recommend_desc'), onPress: () => { pushPlatformSongsScreen(componentId, 'tx-home') } },
+    { key: 'radar', icon: 'leaderboard', title: t('qq_radar'), desc: t('qq_radar_desc'), onPress: () => { pushPlatformSongsScreen(componentId, 'tx-radar') } },
+    { key: 'newSongs', icon: 'available_updates', title: t('qq_new_songs'), desc: t('qq_new_songs_desc'), onPress: () => { pushPlatformSongsScreen(componentId, 'tx-new') } },
+    { key: 'guess', icon: 'love', title: t('qq_guess'), desc: t('qq_guess_desc'), onPress: () => { pushPlatformSongsScreen(componentId, 'tx-guess') } },
   ]
 
   const kgEntries: EntryItem[] = [
-    { key: 'daily', icon: 'music_time', title: t('kg_daily'), desc: t('kg_daily_desc'), onPress: () => { void playSongs('kg_daily', getKgDailyRecommend) } },
-    { key: 'liked', icon: 'love', title: t('kg_liked'), desc: t('kg_liked_desc'), onPress: () => { void playSongs('kg_liked', getKgLikedSongs) } },
+    { key: 'daily', icon: 'music_time', title: t('kg_daily'), desc: t('kg_daily_desc'), onPress: () => { pushPlatformSongsScreen(componentId, 'kg-daily') } },
+    { key: 'liked', icon: 'love', title: t('kg_liked'), desc: t('kg_liked_desc'), onPress: () => { pushPlatformSongsScreen(componentId, 'kg-liked') } },
     { key: 'playlists', icon: 'list-order', title: t('kg_my_playlists'), desc: t('kg_my_playlists_desc'), onPress: () => { pushPlatformListScreen(componentId, 'kg-mine') } },
   ]
 
@@ -263,14 +240,7 @@ export default memo(({ componentId }: { componentId: string }) => {
                 </View>
               : <TouchableOpacity
                   style={[styles.loginBtn, { backgroundColor: theme['c-primary-background'] }]}
-                  onPress={() => {
-                    if (platform == 'kg' && !isKgLoggedIn()) {
-                      // 酷狗只支持 Cookie，直接给输入框
-                      setLoginVisible(true)
-                      return
-                    }
-                    setLoginVisible(true)
-                  }}
+                  onPress={() => { setWebLogin(platform) }}
                   activeOpacity={0.8}
                 >
                   <Text size={12} color={theme['c-primary-font']}>{t('kg_login')}</Text>
@@ -289,7 +259,7 @@ export default memo(({ componentId }: { componentId: string }) => {
                 onPress={() => {
                   // 每日推荐（酷狗）免登录，其它需要登录
                   if (!loggedIn && !(platform == 'kg' && item.key == 'daily')) {
-                    setLoginVisible(true)
+                    setWebLogin(platform)
                     return
                   }
                   item.onPress()
@@ -313,13 +283,13 @@ export default memo(({ componentId }: { componentId: string }) => {
         </TouchableOpacity>
       </ScrollView>
 
-      <PlatformLoginModal
-        visible={loginVisible}
-        platform={platform}
-        onClose={() => { setLoginVisible(false) }}
+      <WebLoginModal
+        visible={webLogin != null}
+        platform={webLogin ?? 'wy'}
+        onClose={() => { setWebLogin(null) }}
         onSuccess={() => {
-          if (platform == 'wy') void initNetease(true).catch(() => {})
-          if (platform == 'tx') void initQQ(true).catch(() => {})
+          if (webLogin == 'wy') void initNetease(true).catch(() => {})
+          if (webLogin == 'tx') void initQQ(true).catch(() => {})
         }}
       />
     </PageContent>

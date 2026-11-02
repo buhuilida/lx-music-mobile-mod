@@ -1,5 +1,4 @@
 import { httpFetch } from '../../request'
-import { zzcSign } from './sign'
 import { getQQDevice, getQQQimei } from './qimei'
 import settingState from '@/store/setting/state'
 
@@ -8,15 +7,11 @@ import settingState from '@/store/setting/state'
  *
  * 从 Walnut 版 APK（v26.09.28）的 Hermes 字节码还原：
  * - 所有接口统一走 `https://u.y.qq.com/cgi-bin/musicu.fcg`，
- *   body 为 `{ comm, req_0: { module, method, param } }`，`sign` 由 zzcSign 计算
- * - 登录走后端 `music.login.LoginServer`（SendPhoneAuthCode / Login），
- *   不需要走 ptlogin2 网页流程，也没有滑块
- *
- * 说明：musicu.fcg 对 sign 的校验很松（错误 sign 也能拿到数据），
- * 但部分写接口（收藏、建歌单）会校验，所以这里一律正常签名。
+ *   参数为 `{ comm, req_0: { module, method, param } }`，以 GET data= 传入
+ * - 登录不再自建接口：手机号 / 扫码分支已删除，统一用内置官方网页登录
  */
 
-const UA = 'QQMusic 14090508(android 12)'
+const DESKTOP_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 const PAGE_SIZE = 100
 
 const getCookie = () => settingState.setting['platform.txCookie'] ?? ''
@@ -76,33 +71,33 @@ const buildComm = async(extra = {}, cookie = getCookie()) => {
 
 /**
  * 统一请求
- * @param {string} module 模块名，如 music.login.LoginServer
+ * @param {string} module 模块名，如 music.musicasset.PlaylistBaseRead
  * @param {string} method 方法名
  * @param {object} param 参数
  * @param {object} comm 业务参数（tmeLoginMethod 等），会覆盖到 comm 上
  * @param {string} cookie 指定 Cookie，默认取设置里的
- * @param {boolean} raw 是否返回原始响应（登录需要响应头里的 Set-Cookie）
  */
-const send = async(module, method, param, comm = {}, cookie = getCookie(), raw = false) => {
+const send = async(module, method, param, comm = {}, cookie = getCookie()) => {
   const data = {
     comm: await buildComm(comm, cookie),
     req_0: { module, method, param },
   }
-  // 注意：这里传对象而不是字符串。request 层会在 Content-Type 为 application/json 时
-  // 统一 JSON.stringify 一次，传字符串会被二次转义，签名也会对不上。
-  const bodyText = JSON.stringify(data)
-  const sign = zzcSign(bodyText)
-  const requestObj = httpFetch(`https://u.y.qq.com/cgi-bin/musicu.fcg?sign=${sign}&_=${Date.now()}`, {
-    method: 'post',
+  // 对齐 Walnut APK 与 LX 自带 tx 模块的做法：GET + data= 查询串，
+  // 不带 sign。之前用 POST body + sign 时部分接口会直接返回错误码，
+  // 表现就是「点了功能按钮什么都没发生」。
+  const url = 'https://u.y.qq.com/cgi-bin/musicu.fcg?loginUin=0&hostUin=0&format=json' +
+    '&inCharset=utf-8&outCharset=utf-8&notice=0&platform=wk_v15.json&needNewCode=0' +
+    `&data=${encodeURIComponent(JSON.stringify(data))}`
+  const requestObj = httpFetch(url, {
+    method: 'get',
     headers: {
-      'User-Agent': UA,
+      'User-Agent': DESKTOP_UA,
       Referer: 'https://y.qq.com/',
       ...(cookie ? { Cookie: cookie } : {}),
     },
-    body: data,
   })
   const res = await requestObj.promise
-  if (raw) return res
+  if (res.statusCode !== 200) throw new Error(`QQ 音乐请求失败（${res.statusCode}）`)
   const payload = res.body
   if (!payload || typeof payload !== 'object') throw new Error('QQ 音乐返回异常')
   const req = payload.req_0 ?? {}
@@ -120,6 +115,7 @@ const send = async(module, method, param, comm = {}, cookie = getCookie(), raw =
  */
 const getTracksByIds = async(ids, cookie = getCookie()) => {
   const result = []
+  let lastError = ''
   for (let i = 0; i < ids.length; i += PAGE_SIZE) {
     const part = ids.slice(i, i + PAGE_SIZE)
     const req = await send('music.trackInfo.UniformRuleCtrl', 'CgiGetTrackInfo', {
@@ -129,21 +125,31 @@ const getTracksByIds = async(ids, cookie = getCookie()) => {
       modify_stamp: part.map(() => 0),
       ids: part,
     }, {}, cookie)
-    if (req.code !== 0) continue
+    if (req.code !== 0) {
+      // 10006 是请求过频，把原因带出去，让页面能提示「稍后重试」
+      lastError = req.code === 10006 ? 'QQ 音乐接口繁忙，请稍后重试' : `获取歌曲详情失败（${req.code}）`
+      continue
+    }
     result.push(...(req.data?.tracks ?? []))
   }
+  if (!result.length && lastError) throw new Error(lastError)
   return toMusicList(result)
 }
 
 /**
- * 取推荐流某一页的歌曲
- * @param {number} page 0 主页 / 1 每日 / 2 猜你喜欢 / 3 新歌
+ * 取推荐流歌曲
+ *
+ * 实测（未登录也返回数据）：direction 才是「换一批内容」的开关，
+ * page 传 2 及以上恒为空数组 —— 之前按 page 递增取每日/猜你喜欢，
+ * 结果除主页外全是空，页面看起来就像「点了没反应」。
+ * @param {number} direction 0 主页 / 1 每日 / 2 猜你喜欢 / 3 新歌
  */
-const getFeedSongs = async(page, cookie = getCookie()) => {
+const getFeedSongs = async(direction, cookie = getCookie()) => {
   const req = await send('music.recommend.RecommendFeed', 'get_recommend_feed', {
-    direction: 0,
-    page: page + 1,
+    direction,
+    page: 1,
     s_num: 0,
+    v_cache: [],
   }, {}, cookie)
   if (req.code !== 0) throw new Error(`获取推荐失败（${req.code}）`)
 
@@ -156,7 +162,7 @@ const getFeedSongs = async(page, cookie = getCookie()) => {
       }
     }
   }
-  if (!ids.length) throw new Error('推荐流里没有歌曲，请先登录 QQ 音乐账号')
+  if (!ids.length) return []
   return getTracksByIds(ids, cookie)
 }
 
@@ -208,77 +214,6 @@ const toMusicList = (list) => list.map(toMusicInfo).filter(Boolean)
 
 
 export default {
-  // ---------------------------------------------------------------- 登录
-
-  /**
-   * 发送手机验证码
-   * module music.login.LoginServer / method SendPhoneAuthCode
-   *
-   * 欢迎页错误码（与 APK 一致）：
-   * - 20276 / data.securityURL 非空：号码被风控，必须先去网页过安全验证
-   * - 100001：发送过于频繁
-   * @returns {Promise<{ event: 'send'|'captcha'|'frequency', securityUrl: string }>}
-   */
-  async sendPhoneCode(phone, areaCode = '86') {
-    const req = await send('music.login.LoginServer', 'SendPhoneAuthCode', {
-      tmeAppid: 'qqmusic',
-      areaCode: String(areaCode),
-      phoneNo: String(phone),
-    }, { tmeLoginMethod: 3 })
-    const data = req.data ?? {}
-    const code = req.code
-    if (code === 20276 || data.securityURL) {
-      return { event: 'captcha', securityUrl: data.securityURL ?? '' }
-    }
-    if (code === 100001) {
-      return { event: 'frequency', securityUrl: '' }
-    }
-    if (code !== 0 && code !== undefined) {
-      throw new Error(data.errMsg || data.msg || `验证码发送失败（${code}）`)
-    }
-    return { event: 'send', securityUrl: '' }
-  },
-
-  /**
-   * 验证码登录
-   *
-   * 一次请求就够：Login 返回 musicid + musickey，
-   * Cookie 由这两个值本地拼出来（uin / qqmusic_uin / qm_keyst / qqmusic_key / login_type），
-   * 不需要再走一次换 Cookie 的请求 —— 这一点与 APK 里的 qqCredentialToCookie 完全一致。
-   */
-  async loginByPhone(phone, code, areaCode = '86') {
-    const req = await send('music.login.LoginServer', 'Login', {
-      phoneNo: String(phone),
-      code: String(code),
-      loginMode: 1,
-      areaCode: String(areaCode),
-    }, { tmeLoginMethod: 3, tmeLoginType: 0 })
-    if (req.code !== 0) {
-      throw new Error(req.data?.errMsg || req.data?.msg || `登录失败（${req.code}）`)
-    }
-    const data = req.data ?? {}
-    if (!data.musicid || !data.musickey) {
-      throw new Error(data.errMsg || '登录失败：未拿到账号凭据')
-    }
-
-    const cookie = [
-      `uin=${data.musicid}`,
-      `qqmusic_uin=${data.musicid}`,
-      `qm_keyst=${data.musickey}`,
-      `qqmusic_key=${data.musickey}`,
-      `login_type=${data.loginType ?? 0}`,
-      ...(data.encryptUin ? [`euin=${data.encryptUin}`] : []),
-      ...(data.refreshKey ? [`refresh_key=${data.refreshKey}`] : []),
-    ].join('; ')
-
-    return {
-      cookie,
-      uin: String(data.musicid),
-      nickname: data.nick ?? data.nickname ?? '',
-      avatar: data.logo ?? data.headurl ?? data.avatar ?? '',
-    }
-  },
-
   // ---------------------------------------------------------------- 账号数据
 
   /** 我创建的歌单 */
@@ -360,6 +295,27 @@ export default {
     return toMusicList(list.map(item => (item.track_info ? item.track_info : item)))
   },
 
+  /**
+   * 专辑歌曲
+   * musicu 的 music.musichallAlbum.AlbumSongList 在未授权上下文里恒返回 104403，
+   * 改用 c.y.qq.com 的旧版 fcg 接口（免登录，实测可用）。
+   */
+  async getAlbumSongs(albumMid) {
+    if (!albumMid) throw new Error('专辑 ID 为空')
+    const requestObj = httpFetch(
+      'https://c.y.qq.com/v8/fcg-bin/fcg_v8_album_info_cp.fcg' +
+      `?albummid=${encodeURIComponent(albumMid)}&g_tk=5381&format=json&inCharset=utf8` +
+      '&outCharset=utf-8&notice=0&platform=yqq.json&needNewCode=0',
+      {
+        method: 'get',
+        headers: { 'User-Agent': DESKTOP_UA, Referer: 'https://y.qq.com/' },
+      },
+    )
+    const { body } = await requestObj.promise
+    if (!body || body.code !== 0) throw new Error(`获取专辑歌曲失败（${body?.code ?? '未知'}）`)
+    return toMusicList(body.data?.list ?? [])
+  },
+
   /** 我喜欢的音乐：先找到 dirId=201 的歌单，再拉歌 */
   async getLikedSongs(cookie = getCookie()) {
     const uin = getUinFromCookie(cookie)
@@ -394,12 +350,14 @@ export default {
     }, {}, cookie)
     if (req.code !== 0) throw new Error(`获取雷达推荐失败（${req.code}）`)
     const data = req.data ?? {}
-    const list = pickList(data, ['vec_songs', 'songlist', 'v_shelf'])
+    // 实际返回是 data.VecSongs[].Track（首字母大写，与 musicu 其它模块一致）
+    const list = pickList(data, ['VecSongs', 'vec_songs', 'songlist', 'v_shelf'])
     if (!list.length) return []
-    // 雷达返回的可能是精简对象，也可能只有 id，统一再补一次详情
-    const ids = list.map(item => item.id ?? item.songid).filter(Boolean)
-    if (ids.length && !list[0].mid) return getTracksByIds(ids, cookie)
-    return toMusicList(list.map(item => (item.track_info ? item.track_info : item)))
+    const tracks = list.map(item => item.Track ?? item.track ?? item.track_info ?? item)
+    // 精简对象只有 id 时再补一次详情
+    const ids = tracks.filter(item => !item.mid).map(item => item.id ?? item.songid).filter(Boolean)
+    if (ids.length) return getTracksByIds(ids, cookie)
+    return toMusicList(tracks)
   },
 
   /** 主页推荐（精选推荐） */

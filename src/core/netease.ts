@@ -73,32 +73,6 @@ export const loginWithCookie = async(cookie: string) => {
   return initNetease(true)
 }
 
-/** 二维码登录成功后写入 Cookie */
-export const loginWithQrCookie = async(cookieParts: string[]) => {
-  const cookie = cookieParts.filter(Boolean).join('; ')
-  return loginWithCookie(cookie)
-}
-
-/** 发送手机验证码（1.21.0） */
-export const sendWyPhoneCode = async(phone: string, countrycode = '86') => {
-  return wyUser.sendPhoneCode(phone, countrycode)
-}
-
-/**
- * 手机号登录（1.21.0）：密码或短信验证码，成功后直接写入 Cookie
- */
-export const loginNeteaseWithPhone = async(options: {
-  phone: string
-  countrycode?: string
-  password?: string
-  captcha?: string
-}) => {
-  const result = await wyUser.loginWithPhone(options) as { cookie?: string }
-  const cookie = result?.cookie ?? ''
-  if (!cookie) throw new Error('登录失败：未获取到登录凭据')
-  return loginWithCookie(cookie)
-}
-
 export const logoutNetease = async() => {
   updateSetting({ 'platform.wyCookie': '' })
   neteaseActions.reset()

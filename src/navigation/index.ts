@@ -44,6 +44,7 @@ export {
   pushNeteaseAlbumsScreen,
   pushAlbumSongsScreen,
   pushPlatformListScreen,
+  pushPlatformSongsScreen,
 } from './navigation'
 export * from './event'
 export * from './hooks'

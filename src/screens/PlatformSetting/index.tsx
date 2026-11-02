@@ -14,7 +14,6 @@ import { createStyle, toast } from '@/utils/tools'
 import { HEADER_HEIGHT as _HEADER_HEIGHT, COMPONENT_IDS } from '@/config/constant'
 import { setComponentId, updateSetting } from '@/core/common'
 import { scaleSizeH } from '@/utils/pixelRatio'
-import PlatformLoginModal from '@/components/PlatformLoginModal'
 import WebLoginModal from '@/components/WebLoginModal'
 import { initNetease, logoutNetease } from '@/core/netease'
 import { logoutQQ } from '@/core/qq'
@@ -56,10 +55,9 @@ export default memo(({ componentId }: { componentId: string }) => {
 
   const [editing, setEditing] = useState<PlatformItem | null>(null)
   const [draft, setDraft] = useState('')
-  /** 登录方式选择弹层：点平台卡片先弹出它，再决定网页 / 手机号 / 扫码 / Cookie */
+  /** 已登录平台的二次操作（重新登录 / 退出） */
   const [picker, setPicker] = useState<PlatformItem | null>(null)
-  const [loginTarget, setLoginTarget] = useState<{ platform: PlatformKey, tab: 'qr' | 'phone' } | null>(null)
-  /** 内置官方网页登录 */
+  /** 内置官方网页登录：三平台统一走这条路，不再有手机号 / 扫码分支 */
   const [webLogin, setWebLogin] = useState<PlatformKey | null>(null)
   const [statuses, setStatuses] = useState<Record<PlatformKey, AccountSnapshot>>({
     wy: { status: 'off', name: '', avatar: '' },
@@ -134,10 +132,10 @@ export default memo(({ componentId }: { componentId: string }) => {
     setWebLogin(item.key)
   }
 
-  /** 从「登录方式」进入手机号 / 扫码登录 */
-  const openLogin = (item: PlatformItem, tab: 'qr' | 'phone') => {
-    setPicker(null)
-    setLoginTarget({ platform: item.key, tab })
+  /** 点平台卡片：未登录直接开网页登录页，已登录才给二次操作 */
+  const handleCardPress = (item: PlatformItem) => {
+    if (isSaved(item.key)) setPicker(item)
+    else openWebLogin(item)
   }
 
   return (
@@ -171,7 +169,7 @@ export default memo(({ componentId }: { componentId: string }) => {
               key={item.key}
               activeOpacity={0.7}
               style={[styles.card, { backgroundColor: theme['c-content-background'] }]}
-              onPress={() => { setPicker(item) }}
+              onPress={() => { handleCardPress(item) }}
             >
               <View style={[styles.avatar, { backgroundColor: item.color }]}>
                 <Text size={13} color="#fff">{item.key.toUpperCase()}</Text>
@@ -183,7 +181,7 @@ export default memo(({ componentId }: { componentId: string }) => {
                 </Text>
               </View>
               <View style={[styles.badge, { borderColor: saved ? item.color : theme['c-border-background'] }]}>
-                <Text size={10} color={saved ? item.color : theme['c-font-label']}>CK</Text>
+                <Text size={10} color={saved ? item.color : theme['c-font-label']}>{saved ? 'CK' : t('platform_login_web')}</Text>
               </View>
               <Icon name="chevron-right" size={14} color={theme['c-350']} />
             </TouchableOpacity>
@@ -192,41 +190,20 @@ export default memo(({ componentId }: { componentId: string }) => {
         <Text size={11} color={theme['c-font-label']} style={styles.footTip}>{t('platform_foot_tip')}</Text>
       </ScrollView>
 
-      {/* 登录方式选择：对照 Walnut 的「选择XX登录方式」弹层 */}
+      {/* 已登录后的二次操作：手机号 / 扫码分支已移除，只留重新登录与退出 */}
       <Modal visible={picker != null} transparent animationType="fade" onRequestClose={() => { setPicker(null) }}>
         <TouchableOpacity style={styles.sheetMask} activeOpacity={1} onPress={() => { setPicker(null) }}>
           <View style={[styles.sheet, { backgroundColor: theme['c-content-background'] }]}>
             <Text size={15} style={styles.sheetTitle}>
-              {t('platform_choose_login', { name: picker?.name ?? '' })}
+              {t('platform_account_actions', { name: picker?.name ?? '' })}
             </Text>
             <TouchableOpacity
               style={[styles.sheetBtn, { borderColor: theme['c-border-background'] }]}
               activeOpacity={0.7}
               onPress={() => { picker && openWebLogin(picker) }}
             >
-              <Text size={14}>{t('platform_login_web')}</Text>
+              <Text size={14}>{t('platform_relogin_web')}</Text>
             </TouchableOpacity>
-            {picker?.key != 'kg'
-              ? <TouchableOpacity
-                  style={[styles.sheetBtn, { borderColor: theme['c-border-background'] }]}
-                  activeOpacity={0.7}
-                  onPress={() => { picker && openLogin(picker, 'phone') }}
-                >
-                  <Text size={14}>{t('platform_login_phone')}</Text>
-                </TouchableOpacity>
-              : null}
-            {picker?.key == 'wy'
-              ? <TouchableOpacity
-                  style={[styles.sheetBtn, { borderColor: theme['c-border-background'] }]}
-                  activeOpacity={0.7}
-                  onPress={() => { picker && openLogin(picker, 'qr') }}
-                >
-                  <Text size={14}>{t('platform_login_qr')}</Text>
-                </TouchableOpacity>
-              : null}
-            {picker?.key == 'kg'
-              ? <Text size={11} color={theme['c-font-label']} style={styles.sheetTip}>{t('platform_login_kg_tip')}</Text>
-              : null}
             <TouchableOpacity
               style={[styles.sheetBtn, { borderColor: theme['c-border-background'] }]}
               activeOpacity={0.7}
@@ -234,15 +211,13 @@ export default memo(({ componentId }: { componentId: string }) => {
             >
               <Text size={14}>{t('platform_login_cookie')}</Text>
             </TouchableOpacity>
-            {picker && isSaved(picker.key)
-              ? <TouchableOpacity
-                  style={[styles.sheetBtn, { borderColor: theme['c-border-background'] }]}
-                  activeOpacity={0.7}
-                  onPress={() => { picker && handleLogout(picker) }}
-                >
-                  <Text size={14} color={theme['c-font-label']}>{t('platform_logout')}</Text>
-                </TouchableOpacity>
-              : null}
+            <TouchableOpacity
+              style={[styles.sheetBtn, { borderColor: theme['c-border-background'] }]}
+              activeOpacity={0.7}
+              onPress={() => { picker && handleLogout(picker) }}
+            >
+              <Text size={14} color={theme['c-font-label']}>{t('platform_logout')}</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.sheetBtn, styles.sheetCancel, { borderColor: 'transparent' }]}
               activeOpacity={0.7}
@@ -260,16 +235,6 @@ export default memo(({ componentId }: { componentId: string }) => {
         onClose={() => { setWebLogin(null) }}
         onSuccess={() => {
           if (webLogin == 'wy') void initNetease(true).catch(() => {})
-        }}
-      />
-
-      <PlatformLoginModal
-        visible={loginTarget != null}
-        platform={loginTarget?.platform ?? 'wy'}
-        initialTab={loginTarget?.tab ?? 'qr'}
-        onClose={() => { setLoginTarget(null) }}
-        onSuccess={() => {
-          if (loginTarget?.platform == 'wy') void initNetease(true).catch(() => {})
         }}
       />
 

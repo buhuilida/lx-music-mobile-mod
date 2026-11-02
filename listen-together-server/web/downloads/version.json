@@ -1,8 +1,12 @@
 {
-  "version": "1.22.3",
-  "versionCode": 108,
-  "desc": "新增：设置页可直接用官方网页登录（网易云 / QQ音乐 / 酷狗）——点平台卡片选「网页登录」，在 App 内置的官方页面里正常登录，检测到登录状态自动把 Cookie 存到本机，不用再手动粘贴\n新增：登录方式选择弹层——网页登录 / 手机号登录 / 扫码登录 / 手动填 Cookie / 退出登录\n改进：网易云手机号登录改走官方明文接口（/api/sms/captcha/sent 与 /api/w/login/cellphone，带 music_middleuser_pclogin 标记），weapi 被风控返回空包时仍可用\n改进：验证码错误按服务端码细分——503 验证码错误或过期、501 号码未注册、502 密码错误、400 号码不规范\n修复：网易云登录页「同意协议」勾选点不动——页面拦截了 touchmove，已注入触摸补丁\n修复：酷狗登录判定不再把游客也有的 kg_mid 当成已登录，只认 KuGoo / kg_music\n说明：QQ音乐与酷狗的移动版网页只有「下载App」没有登录入口，因此这两个平台打开的是官方桌面版页面（已开启双指缩放，进页面会自动点开右上角登录框）",
+  "version": "1.22.4",
+  "versionCode": 109,
+  "desc": "移除：手机号验证码登录（QQ 音乐 / 网易云）、网易云扫码登录，登录方式统一为内置官方网页登录\n移除：多余的「选择登录方式」弹层，未登录点平台卡片直接打开官方登录页\n修复：QQ 音乐登录后点功能按钮没有页面——推荐类入口现在会打开歌曲列表页（播放全部 / 单曲播放 / 下载）\n修复：我的歌单、收藏歌单点进去就是标准在线歌单详情页（封面 / 播放全部 / 收藏 / 下载）\n修复：收藏专辑无法播放，现在可以直接取歌播放\n修复：QQ 每日推荐 / 猜你喜欢 / 推荐新歌固定为空（推荐流分页参数用错，已改为 direction 切换）\n修复：QQ 雷达推荐取不到歌（返回字段是 VecSongs.Track，之前大小写写错）\n修复：QQ 音乐账号昵称显示为空，现在显示「QQ音乐用户 <QQ号>」并使用 QQ 头像\n优化：列表加载失败时页面直接显示原因，并提供「重试 / 去登录」，不再只弹一个提示",
   "history": [
+    {
+      "version": "1.22.3",
+      "desc": "新增：设置页可直接用官方网页登录（网易云 / QQ音乐 / 酷狗）——点平台卡片选「网页登录」，在 App 内置的官方页面里正常登录，检测到登录状态自动把 Cookie 存到本机，不用再手动粘贴\n新增：登录方式选择弹层——网页登录 / 手机号登录 / 扫码登录 / 手动填 Cookie / 退出登录\n改进：网易云手机号登录改走官方明文接口（/api/sms/captcha/sent 与 /api/w/login/cellphone，带 music_middleuser_pclogin 标记），weapi 被风控返回空包时仍可用\n改进：验证码错误按服务端码细分——503 验证码错误或过期、501 号码未注册、502 密码错误、400 号码不规范\n修复：网易云登录页「同意协议」勾选点不动——页面拦截了 touchmove，已注入触摸补丁\n修复：酷狗登录判定不再把游客也有的 kg_mid 当成已登录，只认 KuGoo / kg_music\n说明：QQ音乐与酷狗的移动版网页只有「下载App」没有登录入口，因此这两个平台打开的是官方桌面版页面（已开启双指缩放，进页面会自动点开右上角登录框）"
+    },
     {
       "version": "1.22.2",
       "desc": "新增：QQ 音乐补齐 QIMEI 设备指纹——按 Walnut v26.09.28 安装包反编译还原 GetQimei 链路（AES-128-CBC + RSA-1024 + md5 签名），请求 comm 里补上 ct/cv/chid/tmeAppID/OpenUDID/udid/aid/os_ver/phonetype/rom 等字段；拿不到时 3 秒超时降级为默认值，不拖慢登录\n改进：QQ 音乐发验证码按服务端错误码分流——「需要安全验证」提示先去 QQ 安全中心验证或改用 Cookie，「发送太频繁」提示稍后再试\n修复：每日推荐 / 心动模式只报 try max num——根因是失败后无脑重试 3 次再抛一句英文内部错误，真实原因被吞掉；现在 301/-462 直接提示「网易云登录状态已失效」，其它错误重试两次后抛出真实 HTTP/code\n修复：平台设置页登录状态和「我的音乐」对不上——原来只看 Cookie 是否非空就显示已登录，现在真的去拉一次账号信息，区分 未登录 / 校验中 / 已登录 / 登录已失效；Cookie 一改就重新校验\n说明：酷狗仍只支持 Cookie 登录（Walnut 版同样没有内置账号密码登录）"
@@ -61,11 +65,11 @@
     }
   ],
   "download": {
-    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.3-arm64-v8a.apk?sharecode=MKPWEVLBUS",
-    "universal": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.3-universal.apk?sharecode=MKPWEVLBUS",
-    "backscreen": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.3-backscreen-arm64-v8a.apk?sharecode=MKPWEVLBUS"
+    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.4-arm64-v8a.apk?sharecode=MKPWEVLBUS",
+    "universal": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.4-universal.apk?sharecode=MKPWEVLBUS",
+    "backscreen": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.4-backscreen-arm64-v8a.apk?sharecode=MKPWEVLBUS"
   },
-  "source": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lx-music-mod-src-v1.22.3.zip?sharecode=MKPWEVLBUS",
+  "source": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lx-music-mod-src-v1.22.4.zip?sharecode=MKPWEVLBUS",
   "repos": {
     "app": "https://github.com/yzdz666/lx-music-mobile-mod",
     "server": "https://github.com/yzdz666/listen-together-server"

@@ -22,6 +22,7 @@ import {
   NeteaseAlbums,
   NeteaseAlbumSongs,
   PlatformList,
+  PlatformSongs,
   // Setting,
 } from '@/screens'
 import { Provider } from '@/store/Provider'
@@ -46,6 +47,7 @@ import {
   NETEASE_ALBUMS_SCREEN,
   NETEASE_ALBUM_SONGS_SCREEN,
   PLATFORM_LIST_SCREEN,
+  PLATFORM_SONGS_SCREEN,
   VERSION_MODAL,
   PACT_MODAL,
   SYNC_MODE_MODAL,
@@ -89,6 +91,7 @@ export default () => {
   Navigation.registerComponent(NETEASE_ALBUMS_SCREEN, () => WrappedComponent(NeteaseAlbums))
   Navigation.registerComponent(NETEASE_ALBUM_SONGS_SCREEN, () => WrappedComponent(NeteaseAlbumSongs))
   Navigation.registerComponent(PLATFORM_LIST_SCREEN, () => WrappedComponent(PlatformList))
+  Navigation.registerComponent(PLATFORM_SONGS_SCREEN, () => WrappedComponent(PlatformSongs))
   Navigation.registerComponent(VERSION_MODAL, () => WrappedComponent(VersionModal))
   Navigation.registerComponent(PACT_MODAL, () => WrappedComponent(PactModal))
   Navigation.registerComponent(SYNC_MODE_MODAL, () => WrappedComponent(SyncModeModal))

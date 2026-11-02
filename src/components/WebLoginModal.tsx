@@ -53,7 +53,8 @@ const CONFIG: Record<Platform, PlatformConfig> = {
   tx: {
     name: 'QQ 音乐',
     url: 'https://y.qq.com/',
-    cookieUrls: ['https://y.qq.com', 'https://u.y.qq.com', 'https://c.y.qq.com'],
+    // 登录可能先落在 ptlogin2 / graph.qq.com，再回写 y.qq.com，全部读一遍
+    cookieUrls: ['https://y.qq.com', 'https://u.y.qq.com', 'https://c.y.qq.com', 'https://i.y.qq.com', 'https://graph.qq.com'],
     match: /(?:^|;\s*)(?:qm_keyst|qqmusic_key|musickey)=/,
     save: async cookie => loginQQWithCookie(cookie),
     // y.qq.com 的移动版只有「下载 App」，登录入口在桌面版的右上角
@@ -63,7 +64,7 @@ const CONFIG: Record<Platform, PlatformConfig> = {
   kg: {
     name: '酷狗音乐',
     url: 'https://www.kugou.com/',
-    cookieUrls: ['https://www.kugou.com', 'https://m.kugou.com'],
+    cookieUrls: ['https://www.kugou.com', 'https://m.kugou.com', 'https://login.kugou.com', 'https://m3ws.kugou.com'],
     // 注意：kg_mid 是游客也有的设备号，不能作为登录标记；
     // 只有 KuGoo（uid+token）和 kg_music 才是登录票据
     match: /(?:^|;\s*)(?:KuGoo|kg_music)=/,

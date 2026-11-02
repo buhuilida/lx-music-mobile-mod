@@ -4,12 +4,13 @@ import accountActions from '@/store/account/action'
 import txUser, { getUinFromCookie, hasTxSession } from '@/utils/musicSdk/tx/user'
 import { clearQimeiCache } from '@/utils/musicSdk/tx/qimei'
 import { toNewMusicInfo } from '@/utils'
+import { getQQDisplayFromCookie } from '@/core/accountStatus'
 
 /**
  * QQ 音乐账号中心（1.22.0）
  *
  * 能力全部来自 `utils/musicSdk/tx/user.js`，接口与签名从 Walnut 版 APK 还原：
- * - 手机号验证码登录（无需网页 / 无需滑块）
+ * - 登录：内置官方网页登录后写入 Cookie（手机号接口已移除）
  * - 每日推荐、我喜欢、我的歌单、收藏歌单、收藏专辑、雷达推荐、猜你喜欢、推荐新歌
  */
 
@@ -26,7 +27,7 @@ export const initQQ = async(force = false) => {
     return ''
   }
   const uin = getUinFromCookie(cookie)
-  accountActions.setTxAccount({ uid: uin, inited: true })
+  accountActions.setTxAccount({ uid: uin, inited: true, ...getQQDisplayFromCookie(cookie) })
   return uin
 }
 
@@ -44,32 +45,6 @@ export const logoutQQ = async() => {
   updateSetting({ 'platform.txCookie': '' })
   accountActions.resetTx()
   clearQimeiCache()
-}
-
-export interface QQSendCodeResult {
-  event: 'send' | 'captcha' | 'frequency'
-  securityUrl: string
-}
-
-/** 发送验证码：返回 event 区分「已发送 / 需要安全验证 / 发送过频」 */
-export const sendQQPhoneCode = async(phone: string): Promise<QQSendCodeResult> => {
-  return txUser.sendPhoneCode(phone) as Promise<QQSendCodeResult>
-}
-
-/**
- * 手机号验证码登录：成功后把 Cookie 写进设置
- */
-export const loginQQWithPhone = async(phone: string, code: string) => {
-  const result = await txUser.loginByPhone(phone, code)
-  updateSetting({ 'platform.txCookie': result.cookie })
-  accountActions.resetTx()
-  accountActions.setTxAccount({
-    uid: result.uin,
-    nickname: result.nickname,
-    avatar: result.avatar,
-    inited: true,
-  })
-  return result
 }
 
 export const getQQDailyRecommend = async() => {
@@ -100,6 +75,10 @@ export const getQQFavAlbums = async() => {
 
 export const getQQPlaylistSongs = async(tid: string | number, dirid = 0) => {
   return toOnlineList(await txUser.getPlaylistSongs(tid, dirid))
+}
+
+export const getQQAlbumSongs = async(albumMid: string) => {
+  return toOnlineList(await txUser.getAlbumSongs(albumMid))
 }
 
 export const getQQRadarSongs = async() => {

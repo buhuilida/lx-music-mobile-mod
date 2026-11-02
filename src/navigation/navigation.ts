@@ -21,6 +21,7 @@ import {
   NETEASE_ALBUMS_SCREEN,
   NETEASE_ALBUM_SONGS_SCREEN,
   PLATFORM_LIST_SCREEN,
+  PLATFORM_SONGS_SCREEN,
   // SETTING_SCREEN,
 } from './screenNames'
 
@@ -841,4 +842,8 @@ export function pushAlbumSongsScreen(componentId: string, albumId: string | numb
 
 export function pushPlatformListScreen(componentId: string, mode: 'tx-mine' | 'tx-fav' | 'tx-album' | 'kg-mine') {
   pushFullScreen(componentId, PLATFORM_LIST_SCREEN, { mode })
+}
+
+export function pushPlatformSongsScreen(componentId: string, kind: 'tx-daily' | 'tx-liked' | 'tx-home' | 'tx-radar' | 'tx-new' | 'tx-guess' | 'kg-daily' | 'kg-liked') {
+  pushFullScreen(componentId, PLATFORM_SONGS_SCREEN, { kind })
 }
