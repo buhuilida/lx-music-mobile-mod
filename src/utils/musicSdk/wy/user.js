@@ -63,6 +63,35 @@ const parseSetCookie = (headers) => {
 }
 
 /**
+ * 直连 `/api/` 明文接口（不加密）。
+ *
+ * 来自 Walnut v26.09.28 反编译：
+ *   发送验证码 POST /api/sms/captcha/sent
+ *     form: { ctcode: '86', secrete: 'music_middleuser_pclogin', cellphone }
+ *   手机号登录 POST /api/w/login/cellphone?type=1&https=true&phone=&countrycode=86&captcha=&remember=true
+ *     headers: { Referer: 'https://music.163.com' }
+ *   参数走 query，不是 body。
+ *
+ * 实测这两个接口在 weapi 被风控时仍然可用，所以作为主路径。
+ */
+const postApi = async(url, { form, query, cookie = '' } = {}) => {
+  const target = query ? `${url}?${query}` : url
+  const requestObj = httpFetch(target, {
+    method: 'post',
+    headers: {
+      'User-Agent': UA,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Referer: 'https://music.163.com',
+      ...(cookie ? { cookie } : {}),
+    },
+    ...(form ? { form } : {}),
+  })
+  const { body, headers, statusCode } = await requestObj.promise
+  if (statusCode !== 200) throw new Error(`请求失败（${statusCode}）`)
+  return { body, cookie: parseSetCookie(headers) }
+}
+
+/**
  * 登录类请求：不要求已有 cookie（当前就是没有才要登录），
  * 返回值里带上响应下发的 cookie。
  */
@@ -80,6 +109,31 @@ const postWeapi = async(url, data, cookie = '') => {
   const { body, headers, statusCode } = await requestObj.promise
   if (statusCode !== 200) throw new Error(`请求失败（${statusCode}）`)
   return { body, cookie: parseSetCookie(headers) }
+}
+
+/**
+ * 手机号登录的错误码 → 中文（503 验证码错 / 501 账号不存在 / 502 密码错）
+ */
+const phoneLoginError = (body) => {
+  const code = body?.code
+  const text = body?.message || body?.msg
+  if (code === 503 || /验证码/.test(text ?? '')) return new Error('验证码错误或已过期')
+  if (code === 501 || /不存在/.test(text ?? '')) return new Error('该手机号未注册网易云音乐')
+  if (code === 502 || /密码/.test(text ?? '')) return new Error('密码错误')
+  if (code === 400 || /规范/.test(text ?? '')) return new Error('手机号码不符合规范')
+  if (text) return new Error(text)
+  return new Error(`登录失败（${code ?? '未知'}）`)
+}
+
+/** 登录成功后的公共收尾：写 profile 并返回 */
+const finishPhoneLogin = (cookie, body) => {
+  neteaseActions.setWyProfile({
+    uid: String(body?.account?.id ?? body?.profile?.userId ?? ''),
+    nickname: body?.profile?.nickname,
+    avatarUrl: body?.profile?.avatarUrl,
+    vipType: body?.account?.vipType ?? 0,
+  })
+  return { cookie, profile: body?.profile ?? {}, account: body?.account ?? {} }
 }
 
 export default {
@@ -259,23 +313,69 @@ export default {
   },
 
   /**
-   * 手机号登录（1.21.0）
+   * 手机号登录（1.21.0，1.22.3 对齐 Walnut）
    *
-   * 两种方式都走 weapi：
-   * - 密码：password 传 md5，服务端校验
-   * - 验证码：captcha 传短信码（先用 sendPhoneCode 发）
-   * 成功后 weapi 会通过 Set-Cookie 下发 MUSIC_U / __csrf，拼起来就是可用的 Cookie。
+   * 验证码模式主路径走 `/api/` 明文接口（Walnut v26.09.28 同款），
+   * weapi 作兜底 —— 实测 weapi 在风控时会直接返回空包。
+   * 密码模式 Walnut 没有实现，仍走 weapi。
    */
   async sendPhoneCode(phone, countrycode = '86') {
+    const cellphone = String(phone)
+    const ctcode = String(countrycode)
+
+    // 主路径：明文接口，带 Walnut 的 secrete 标记
+    try {
+      const { body } = await postApi('https://music.163.com/api/sms/captcha/sent', {
+        form: { ctcode, secrete: 'music_middleuser_pclogin', cellphone },
+      })
+      if (body.code === 200) return true
+      // 4xx 是参数/风控问题，重试 weapi 也不会好，直接抛
+      if (body.code === 400) throw new Error('手机号码不符合规范')
+      const blocked = body.data?.blockText
+      if (typeof blocked === 'string' && blocked) throw new Error(blocked)
+      if (body.code !== 200 && body.code !== 400) {
+        // 其它情况交给 weapi 再试一次
+        console.log('ACCOUNT send_captcha_api_retry platform=wy code=' + body.code)
+      }
+    } catch (err) {
+      if (err?.message === '手机号码不符合规范' || /频繁|限制|异常/.test(err?.message ?? '')) throw err
+      console.log('ACCOUNT send_captcha_api_failed platform=wy reason=' + (err?.message ?? 'unknown'))
+    }
+
     const { body } = await postWeapi('https://music.163.com/weapi/sms/captcha/sent', {
-      cellphone: String(phone),
-      ctcode: String(countrycode),
+      cellphone,
+      ctcode,
     })
     if (body.code !== 200) throw new Error(body.message || body.msg || '验证码发送失败')
     return true
   },
 
   async loginWithPhone({ phone, countrycode = '86', password = '', captcha = '' }) {
+    // 验证码模式：优先明文接口（Walnut 同款）
+    if (captcha) {
+      const query = [
+        'type=1',
+        'https=true',
+        `phone=${encodeURIComponent(String(phone))}`,
+        `countrycode=${encodeURIComponent(String(countrycode))}`,
+        `captcha=${encodeURIComponent(String(captcha))}`,
+        'remember=true',
+      ].join('&')
+      let apiError = null
+      try {
+        const r = await postApi('https://music.163.com/api/w/login/cellphone', { query })
+        if (r.body.code === 200 && /(^|;\s*)MUSIC_U=/.test(r.cookie)) {
+          return finishPhoneLogin(r.cookie, r.body)
+        }
+        apiError = phoneLoginError(r.body)
+      } catch (err) {
+        apiError = err
+        console.log('ACCOUNT login_api_failed platform=wy reason=' + (err?.message ?? 'unknown'))
+      }
+      // 只有「验证码错误 / 账号问题」这类确定性错误才不重试，其它交给 weapi
+      if (apiError && /验证码|密码|账号|手机号/.test(apiError.message)) throw apiError
+    }
+
     const data = {
       phone: String(phone),
       countrycode: String(countrycode),
@@ -286,17 +386,9 @@ export default {
     else throw new Error('请填写密码或验证码')
 
     const { body, cookie } = await postWeapi('https://music.163.com/weapi/login/cellphone', data)
-    if (body.code !== 200) {
-      // 501/502 一般是账号或密码错误；503 是验证码错误
-      throw new Error(body.message || body.msg || '登录失败')
-    }
+    if (body.code !== 200) throw phoneLoginError(body)
     if (!/(^|;\s*)MUSIC_U=/.test(cookie)) throw new Error('登录成功但没拿到凭据，请改用扫码登录')
-    neteaseActions.setWyProfile({
-      uid: String(body.account?.id ?? body.profile?.userId ?? ''),
-      nickname: body.profile?.nickname,
-      avatarUrl: body.profile?.avatarUrl,
-      vipType: body.account?.vipType ?? 0,
-    })
-    return { cookie, profile: body.profile ?? {}, account: body.account ?? {} }
+    return finishPhoneLogin(cookie, body)
   },
+
 }

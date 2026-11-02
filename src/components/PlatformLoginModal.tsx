@@ -44,11 +44,13 @@ const SMS_COOLDOWN = 60
 interface Props {
   visible: boolean
   platform?: Platform
+  /** 打开时默认停在哪个页签（仅网易云有效） */
+  initialTab?: WyTab
   onClose: () => void
   onSuccess?: () => void
 }
 
-export default memo(({ visible, platform = 'wy', onClose, onSuccess }: Props) => {
+export default memo(({ visible, platform = 'wy', initialTab, onClose, onSuccess }: Props) => {
   const t = useI18n()
   const theme = useTheme()
 
@@ -189,8 +191,8 @@ export default memo(({ visible, platform = 'wy', onClose, onSuccess }: Props) =>
     setCaptcha('')
     setCookieInput('')
     setMessage('')
-    setWyTab(platform == 'wy' ? 'qr' : 'phone')
-  }, [visible, platform])
+    setWyTab(platform == 'wy' ? initialTab ?? 'qr' : 'phone')
+  }, [visible, platform, initialTab])
 
   useEffect(() => {
     aliveRef.current = true
