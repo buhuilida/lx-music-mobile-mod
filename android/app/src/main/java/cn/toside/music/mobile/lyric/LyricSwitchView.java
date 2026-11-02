@@ -155,6 +155,30 @@ public final class LyricSwitchView extends TextSwitcher {
     for (TextView v : viewArray) v.setTextColor(i);
   }
 
+  public void setKaraokeWords(ArrayList<long[]> words) {
+    for (TextView v : viewArray) {
+      if (v instanceof LyricTextView) ((LyricTextView) v).setKaraokeWords(words);
+    }
+  }
+
+  public void setKaraokeClock(LyricTextView.KaraokeClock clock) {
+    for (TextView v : viewArray) {
+      if (v instanceof LyricTextView) ((LyricTextView) v).setKaraokeClock(clock);
+    }
+  }
+
+  public void setPlayedPaintColor(int color) {
+    for (TextView v : viewArray) {
+      if (v instanceof LyricTextView) ((LyricTextView) v).setPlayedPaintColor(color);
+    }
+  }
+
+  public void setUnplayedPaintColor(int color) {
+    for (TextView v : viewArray) {
+      if (v instanceof LyricTextView) ((LyricTextView) v).setUnplayedPaintColor(color);
+    }
+  }
+
   public void setShadowColor(int i) {
     // float radius;
     // if (isSingleLine) {

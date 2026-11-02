@@ -25,6 +25,7 @@ import {
 import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
 import { tranditionalize } from '@/utils/simplify-chinese-main'
+import { hasWordTags, stripWordTags } from '@/utils/wordLyric'
 import { getPosition } from '@/plugins/player'
 export {
   onLyricLinePlay,
@@ -51,11 +52,15 @@ export const showDesktopLyric = async() => {
   let lrc = playerState.musicInfo.lrc ?? ''
   let tlrc = playerState.musicInfo.tlrc ?? ''
   let rlrc = playerState.musicInfo.rlrc ?? ''
+  let wordLyric = playerState.musicInfo.lxlrc ?? ''
   if (setting['player.isS2t']) {
     lrc = tranditionalize(lrc)
     tlrc = tranditionalize(tlrc)
+    if (wordLyric) wordLyric = tranditionalize(wordLyric)
   }
-  await setLyric(lrc, tlrc, rlrc)
+  if (!wordLyric && hasWordTags(lrc)) wordLyric = lrc
+  if (hasWordTags(lrc)) lrc = stripWordTags(lrc)
+  await setLyric(lrc, tlrc, rlrc, wordLyric)
   if (playerState.isPlay && !global.lx.gettingUrlId) {
     void getPosition().then(position => {
       void play(position * 1000)
@@ -101,11 +106,15 @@ export const showRemoteLyric = async(isSend: boolean) => {
     let lrc = playerState.musicInfo.lrc ?? ''
     let tlrc = playerState.musicInfo.tlrc ?? ''
     let rlrc = playerState.musicInfo.rlrc ?? ''
+    let wordLyric = playerState.musicInfo.lxlrc ?? ''
     if (settingState.setting['player.isS2t']) {
       lrc = tranditionalize(lrc)
       tlrc = tranditionalize(tlrc)
+      if (wordLyric) wordLyric = tranditionalize(wordLyric)
     }
-    await setLyric(lrc, tlrc, rlrc)
+    if (!wordLyric && hasWordTags(lrc)) wordLyric = lrc
+    if (hasWordTags(lrc)) lrc = stripWordTags(lrc)
+    await setLyric(lrc, tlrc, rlrc, wordLyric)
     if (playerState.isPlay && !global.lx.gettingUrlId) {
       void getPosition().then(position => {
         void play(position * 1000)

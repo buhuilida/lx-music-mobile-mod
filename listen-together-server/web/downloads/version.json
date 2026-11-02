@@ -1,24 +1,35 @@
 {
-  "version": "1.16.0",
-  "versionCode": 97003,
-  "date": "2026-11-02",
-  "notes": [
-    "新增：音效系统——全景环绕 / 电影院 / 音乐厅 / 低音增强预设，多段均衡器与环绕声场（双扬声器立体声扩展）自定义",
-    "新增：音源测试——按平台实测音源实际最高可用音质（酷我/酷狗/QQ/网易/咪咕）",
-    "新增：本地音乐扫描——Music/Download 目录音频一键写入「本地音乐」歌单",
-    "新增：逐字歌词动画——App 歌词页当前行逐字高亮（支持 lxlyric 逐字数据，自动回退整行）",
-    "新增：下载设置——文件命名格式（歌名-歌手/歌手-歌名/歌名）、同时保存 .lrc 歌词文件",
-    "修复：WebDAV 连接（pan.cdn.ad 等 Cloudreve 服务兼容：PROPFIND Depth 头、GET 405 判定、25 秒超时）",
-    "锁屏歌词：系统歌词（MediaSession 通知 / ColorOS lyricInfo）锁屏直接可见，可在设置开关"
+  "version": "1.17.0",
+  "versionCode": 98,
+  "desc": "新增：侧边栏「本地音乐」入口，一键打开本地音乐歌单\n新增：音质可选 Master（母带级），播放优先尝试 Master → Hi-Res → FLAC → 320K\n新增：桌面歌词逐字卡拉OK动画（洛雪逐字/A2 逐字格式，已唱高亮、未唱暗色）\n修复：App 歌词页显示 <0,200> 之类原始逐字标签的问题\n增强：锁屏歌词兜底——当前歌词行写入媒体卡片，锁屏可见\n修复：WebDAV 兼容 Cloudreve（pan.cdn.ad 实测通过，测试连接/备份/恢复正常）\n修复：赞助码弹窗显示不完整的问题\n音源测试新增 Master 档位实测",
+  "history": [
+    {
+      "version": "1.16.0",
+      "desc": "- 新增自定义音效系统（EQ/预设）\n- 音源测试增强\n- 本地音乐扫描、下载设置\n- WebDAV 兼容 Cloudreve 修复"
+    },
+    {
+      "version": "1.15.0",
+      "desc": "- 关于页新增引用项目致谢\n- 赞助码、免责声明\n- 桌面歌词与逐字歌词增强"
+    },
+    {
+      "version": "1.14.0",
+      "desc": "- 侧边栏新增「一起听」入口\n- 新增小米背屏 / iQOO 原子岛兼容版（backscreen）\n- 新增 WebDAV 歌单/设置备份"
+    },
+    {
+      "version": "1.13.1",
+      "desc": "- 一起听稳定性修复"
+    },
+    {
+      "version": "1.13.0",
+      "desc": "- 一起听（局域网/公网）功能\n- 网页端房间"
+    }
   ],
   "download": {
-    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.16.0-arm64-v8a.apk?sharecode=MKPWEVLBUS",
-    "universal": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.16.0-universal.apk?sharecode=MKPWEVLBUS"
+    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.17.0-arm64-v8a.apk?sharecode=MKPWEVLBUS",
+    "universal": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.17.0-universal.apk?sharecode=MKPWEVLBUS",
+    "backscreen": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.17.0-backscreen-arm64-v8a.apk?sharecode=MKPWEVLBUS"
   },
-  "downloadBackscreen": {
-    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.16.0-backscreen-arm64-v8a.apk?sharecode=MKPWEVLBUS"
-  },
-  "source": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lx-music-mod-src-v1.16.0.zip?sharecode=MKPWEVLBUS",
+  "source": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lx-music-mod-src-v1.17.0.zip?sharecode=MKPWEVLBUS",
   "repos": {
     "app": "https://github.com/yzdz666/lx-music-mobile-mod",
     "server": "https://github.com/yzdz666/listen-together-server"

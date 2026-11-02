@@ -15,6 +15,14 @@ const useActive = (id: LX.Quality) => {
   return isActive
 }
 
+const QUALITY_NAMES: Partial<Record<LX.Quality, string>> = {
+  master: 'Master',
+  flac24bit: 'Hi-Res',
+  flac: 'FLAC',
+  '320k': '320K',
+  '128k': '128K',
+}
+
 const Item = ({ id, name }: {
   id: LX.Quality
   name: string
@@ -34,7 +42,7 @@ export default memo(() => {
     <SubTitle title={t('setting_play_play_quality')}>
       <View style={styles.list}>
         {
-          playQualityList.map((q) => <Item name={q} id={q} key={q} />)
+          playQualityList.map((q) => <Item name={QUALITY_NAMES[q] ?? q} id={q} key={q} />)
         }
       </View>
     </SubTitle>

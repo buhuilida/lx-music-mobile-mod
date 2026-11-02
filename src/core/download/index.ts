@@ -1,10 +1,11 @@
 import RNFS from 'react-native-fs'
 import { getData, saveData } from '@/plugins/storage'
-import { getMusicUrl } from '@/core/music'
+import { getMusicUrl, getLyricInfo } from '@/core/music'
 import { existsFile, mkdir, privateStorageDirectoryPath, stat, unlink } from '@/utils/fs'
 import { checkStoragePermissions, requestStoragePermission, toast } from '@/utils/tools'
 import downloadState from '@/store/download/state'
 import downloadActions from '@/store/download/action'
+import settingState from '@/store/setting/state'
 
 const storageKey = '@__download_list__'
 
@@ -18,6 +19,7 @@ const fileExt = (quality: LX.Quality): string => {
   switch (quality) {
     case 'flac':
     case 'flac24bit':
+    case 'master':
       return 'flac'
     case 'ape':
       return 'ape'
@@ -39,7 +41,7 @@ export const buildItemId = (musicInfo: LX.Music.MusicInfoOnline, quality: LX.Qua
  */
 export const getMusicQualities = (musicInfo: LX.Music.MusicInfoOnline): LX.Quality[] => {
   const qualitys = Object.keys(musicInfo.meta._qualitys ?? {}) as LX.Quality[]
-  const order: LX.Quality[] = ['128k', '192k', '320k', 'flac', 'flac24bit', 'ape', 'wav']
+  const order: LX.Quality[] = ['128k', '192k', '320k', 'flac', 'flac24bit', 'master', 'ape', 'wav']
   const list = qualitys.filter(q => order.includes(q)).sort((a, b) => order.indexOf(a) - order.indexOf(b))
   if (list.length) return list
   // 没有音质信息时给出常见档位，实际下载时由音源自动降级
@@ -174,9 +176,13 @@ export const downloadMusic = async(musicInfo: LX.Music.MusicInfoOnline, quality:
     await ensureDir(privateDownloadDirectoryPath)
   }
   const ext = fileExt(quality)
-  const fileName = `${safeName(musicInfo.name)} - ${safeName(musicInfo.singer)}.${ext}`
+  const style = settingState.setting['download.fileNameStyle'] ?? 'name-singer'
+  const baseName = style == 'singer-name'
+    ? `${safeName(musicInfo.singer)} - ${safeName(musicInfo.name)}`
+    : style == 'name' ? safeName(musicInfo.name) : `${safeName(musicInfo.name)} - ${safeName(musicInfo.singer)}`
+  const fileName = `${baseName}.${ext}`
   let filePath = `${targetDir}/${fileName}`
-  if (await existsFile(filePath)) filePath = `${targetDir}/${safeName(musicInfo.name)} - ${safeName(musicInfo.singer)}_${Date.now()}.${ext}`
+  if (await existsFile(filePath)) filePath = `${targetDir}/${baseName}_${Date.now()}.${ext}`
 
   const startedAt = Date.now()
   const ret = RNFS.downloadFile({
@@ -199,6 +205,14 @@ export const downloadMusic = async(musicInfo: LX.Music.MusicInfoOnline, quality:
   try {
     const result = await ret.promise
     if (result.statusCode && (result.statusCode < 200 || result.statusCode >= 300)) throw new Error(`HTTP ${result.statusCode}`)
+    // 下载完成后按需保存同名 .lrc 歌词文件（1.16.0）
+    if (settingState.setting['download.saveLrcFile']) {
+      void getLyricInfo({ musicInfo }).then(async(lyricInfo) => {
+        if (!lyricInfo?.lyric) return
+        const lrcPath = `${targetDir}/${baseName}.lrc`
+        return RNFS.writeFile(lrcPath, lyricInfo.lyric, 'utf8').catch(() => {})
+      }).catch(() => {})
+    }
     const info = await stat(filePath).catch(() => null)
     const item: LX.Download.ExtItem = {
       id,

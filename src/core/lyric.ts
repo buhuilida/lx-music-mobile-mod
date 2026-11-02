@@ -6,6 +6,7 @@ import {
   toggleTranslation as lrcToggleTranslation,
   toggleRoma as lrcToggleRoma,
   init as lrcInit,
+  onLrcLinePlay,
 } from '@/plugins/lyric'
 import {
   playDesktopLyric,
@@ -19,12 +20,17 @@ import { getPosition } from '@/plugins/player'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { updateNowPlayingTitles } from '@/plugins/player/utils'
-import { publishSystemLyric } from '@/core/player/systemLyric'
+import { publishSystemLyric, publishSystemLyricLine } from '@/core/player/systemLyric'
+import { hasWordTags, stripWordTags } from '@/utils/wordLyric'
 
 /**
  * init lyric
  */
 export const init = async() => {
+  // 锁屏歌词兜底：当前行变化时同步到 MediaSession artist 字段（部分机型不消费 lyricInfo）
+  onLrcLinePlay((_line, text) => {
+    publishSystemLyricLine(text)
+  })
   return lrcInit()
 }
 
@@ -34,17 +40,22 @@ export const init = async() => {
  * @param translation lyric translation
  */
 const handleSetLyric = async(lyric: string, translation = '', romalrc = '') => {
-  lrcSetLyric(lyric, translation, romalrc)
-  await setDesktopLyric(lyric, translation, romalrc)
+  // 逐字歌词：优先用当前歌曲已加载的 lxlyric；歌词本身是逐字格式时直接解析它（1.17.0 修复 <0,200> 裸显）
+  const lxlyric = playerState.musicInfo.lxlrc ?? undefined
+  const inlineWord = !lxlyric && hasWordTags(lyric)
+  const cleanLrc = hasWordTags(lyric) ? stripWordTags(lyric) : lyric
+  const wordSource = lxlyric ?? (inlineWord ? lyric : undefined)
+  lrcSetLyric(cleanLrc, translation, romalrc, wordSource)
+  await setDesktopLyric(cleanLrc, translation, romalrc, wordSource)
   // 按 ColorOS / OPlus 的 lyricInfo 契约，把整首歌词交给系统渲染
-  publishSystemLyric(lyric, translation)
+  publishSystemLyric(cleanLrc, translation)
   if (settingState.setting['player.isShowBluetoothFullLyric']) {
     void updateNowPlayingTitles({
-      lyric,
+      lyric: cleanLrc,
     })
   }
   // 一起听：房主把歌词推给房间（由 listenTogether 注册，避免循环依赖）
-  lyricPublisher?.({ lrc: lyric, tlrc: translation, rlrc: romalrc })
+  lyricPublisher?.({ lrc: cleanLrc, tlrc: translation, rlrc: romalrc })
 }
 
 interface LyricPayload {

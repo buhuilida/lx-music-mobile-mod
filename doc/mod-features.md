@@ -338,3 +338,72 @@ export JAVA_HOME=/path/to/jdk17
 
 - 「引用项目 / 致谢」：原版 lyswhut/lx-music-mobile、LX-X Music（WalnutBai），点击跳转 GitHub。
 - 「赞赏支持」：弹出赞赏码（`src/resources/images/sponsor.png`，Modal 展示）。
+
+## 5.9 1.16.0 新增功能
+
+### 音效系统（原生 android.media.audiofx）
+
+- 新原生模块 `cn.toside.music.mobile.audioeffect`：Equalizer（多段均衡）+ BassBoost（低音增强）+ Virtualizer（环绕声场/立体声扩展，双扬声器完整利用）+ PresetReverb（混响），全局输出混音（audioSession 0），需 `MODIFY_AUDIO_SETTINGS` 权限。
+- 设置 → 播放 → 「音效」：预设（全景环绕 / 电影院 / 音乐厅 / 低音增强）一键应用，或「自定义」逐项调节低音强度、环绕强度、混响空间与各频段均衡器。设置项 `player.audioEffectPreset/Bass/Virtualizer/Reverb/Eq`，应用逻辑 `src/core/audioEffect.ts`。
+
+### 音源测试
+
+- 设置 → 播放 → 「音源测试」：按平台（酷我/酷狗/QQ/网易/咪咕）输入关键词，逐档（128k→192k→320k→flac→flac24bit）实测播放地址可用性，显示实际最高可用音质与 [OK]/[FAIL]。实现 `src/core/musicSourceTest.ts` + `settings/Player/SourceTest.tsx`。
+
+### 本地音乐扫描
+
+- 设置 → 其他 → 「扫描本地音乐」：递归扫描 `/storage/emulated/0/Music`、`Download` 目录音频（mp3/flac/wav/ape/m4a/ogg/aac/wma/opus），按「歌名 - 歌手」解析命名，写入固定歌单「本地音乐」（`userlist_local_music`），列表内可直接播放。实现 `src/core/localMusic.ts`。
+
+### 逐字歌词动画
+
+- `src/utils/wordLyric.ts` 解析 lxlyric（洛雪逐字格式 `<start,dur>`）与 A2 增强 LRC（`<mm:ss.xxx>`）。
+- `components/common/WordLyricText.tsx`：当前行逐字卡拉OK高亮（progress 事件 + rAF 本地插值驱动，暂停/seek 自动重置）。
+- 歌词页（横竖屏）当前行有逐字数据时用逐字渲染，否则回退整行。数据链路：`playerState.musicInfo.lxlrc`（已有）→ `plugins/lyric.ts` `setLyric` 第四参 → `useWordLyricLines`。
+
+### 下载设置
+
+- 设置页新增「下载设置」区块：文件命名格式（歌名-歌手 / 歌手-歌名 / 歌名）、下载同时保存同名 .lrc 歌词文件。
+
+### WebDAV 修复（Cloudreve 兼容）
+
+- `webdav.ts`：PROPFIND 显式 `Depth: 0`；测试连接 GET 回退时把「目录 GET 405」视为认证通过（Cloudreve 特性）；统一 25 秒请求超时（AbortController）；错误信息更明确。已用 https://pan.cdn.ad/dav 实测 PROPFIND 207 / MKCOL 201 / PUT 201 / GET 302 全链路通过。
+
+### 锁屏歌词
+
+- 系统歌词（`player.systemLyric`，MediaSession 通知 + ColorOS lyricInfo 协议）锁屏直接显示当前歌词行，默认开启。
+
+### 限制说明
+
+- 网页版歌词当前为行级渲染（逐字需网页渲染器大改，未实现）；桌面歌词逐字已在 1.17.0 实现。
+- 聚合平台账号页（网易/QQ/酷狗登录、云盘、小爱音箱）依赖平台私有协议，未移植。
+- 源码包与 GitHub 仓库均不含正式签名密钥（`*.keystore` / `keystore.properties` 已排除，仅保留 debug.keystore）。
+
+## 5.10 1.17.0 修复与增强
+
+### 逐字歌词修复（App 内裸显标签）
+
+- 根因：部分音源返回的歌词本身就是逐字格式（如 `<0,200>我<200,232>的`），但按普通 LRC 渲染，标签裸显。
+- 修复：`utils/wordLyric.ts` 重写解析——支持洛雪 `<开始相对行首ms,持续ms>`（含绝对毫秒自动识别）与 A2 `<mm:ss.xx[,dur]>` 两种格式、标签在字前/字后两种顺序；新增 `hasWordTags / stripWordTags`，逐字歌词先剥标签再渲染；逐字源为空时自动回退用带标签的歌词本体解析。
+- `core/lyric.ts` 统一处理：App 歌词页、桌面歌词、锁屏、蓝牙歌词、一起听推流拿到的都是干净文本。
+
+### 桌面歌词逐字卡拉OK（原生）
+
+- 原生链路：`LyricModule.setLyricWithWords(4参)` → `Lyric.setLyric` → `LyricPlayer.setLyric(lyric, extended, wordLyric)` 解析逐字标签并按行时间挂载 words（charStart/charEnd/startMs/endMs），逐字文本与行文本不一致时放弃该行卡拉OK（防错位）。
+- 渲染：`LyricTextView` 卡拉OK模式——先画未唱颜色（unplayColor），按播放时钟（`LyricPlayer.getCurrentTime()`，33ms 帧率）裁剪叠加已唱颜色（playedColor）；支持滚动长行。
+- `LyricSwitchView` 透传到当前 LyricTextView；`LyricView` 恢复/重建时保持时钟与数据。
+
+### 锁屏歌词兜底
+
+- 部分机型锁屏媒体卡片不消费 lyricInfo：`publishSystemLyricLine` 在当前行变化时把歌词行写入 MediaSession artist 字段（与主流音乐 App 一致），切歌/停播时恢复歌手名。`player.systemLyric` 默认开启。
+
+### 侧边栏本地音乐
+
+- 侧边栏新增「本地音乐」：点击后切到「我的列表」视图并自动选中 `userlist_local_music` 歌单（`core/localMusic.ts` 的 `LOCAL_LIST_ID`）。
+
+### Master 音质
+
+- `LX.Quality` 新增 `master`；`TRY_QUALITYS_LIST` 前置 master（播放/试听优先级 Master → Hi-Res → FLAC → 320K）；播放音质设置 UI、下载扩展名（master → flac）、音源测试档位、播放页音质徽标同步支持。
+
+### WebDAV 复验
+
+- pan.cdn.ad（Cloudreve）全链路实测：PROPFIND 207 / MKCOL 201 / PUT 201 / GET 200 / DELETE 204。

@@ -40,22 +40,32 @@ const authHeader = (config: WebDAVConfig) => {
   return `Basic ${token}`
 }
 
+const REQUEST_TIMEOUT = 25_000
+
 const request = async(config: WebDAVConfig, method: string, path: string, body?: string): Promise<{ status: number, text: string }> => {
   const base = normalizeWebdavUrl(config.url)
   if (!base) throw new WebDAVError('bad_url')
   const url = `${base}${path}`
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT)
   let response: Response
   try {
     response = await fetch(url, {
       method,
       headers: {
         Authorization: authHeader(config),
+        // PROPFIND 需要显式 Depth（部分服务器对 infinity 返回 400）
+        ...(method === 'PROPFIND' ? { Depth: '0' } : {}),
         ...(body != null ? { 'Content-Type': 'application/json; charset=utf-8' } : {}),
       },
       body,
-    })
+      signal: controller.signal,
+    } as RequestInit)
   } catch (err) {
-    throw new WebDAVError('network', (err as Error).message)
+    const message = (err as Error).message ?? ''
+    throw new WebDAVError('network', /abort/i.test(message) ? 'request timeout' : message)
+  } finally {
+    clearTimeout(timer)
   }
   let text = ''
   try { text = await response.text() } catch {}
@@ -63,22 +73,25 @@ const request = async(config: WebDAVConfig, method: string, path: string, body?:
 }
 
 /**
- * 测试连接：PROPFIND 根目录（Depth: 0），不支持时退回 GET
+ * 测试连接：PROPFIND 根目录（Depth: 0），不支持时退回 GET。
+ * 注意：Cloudreve 等服务不允许 GET 目录（HTTP 405），认证已通过时也返回 405，应视为连接正常。
  */
 export const testConnection = async(config: WebDAVConfig) => {
   if (!normalizeWebdavUrl(config.url)) throw new WebDAVError('bad_url')
   if (!config.user || !config.password) throw new WebDAVError('bad_auth')
-  let { status } = await request(config, 'PROPFIND', '/', undefined).catch(async(err) => {
-    if ((err as WebDAVError).code == 'network') throw err
-    return { status: 0, text: '' }
-  })
-  if (status === 0) {
-    ({ status } = await request(config, 'GET', '/'))
-  }
+  const { status } = await request(config, 'PROPFIND', '/', undefined)
   // 207 Multi-Status 为 WebDAV 标准成功码；404/401/403 单独提示
   if (status === 207 || status === 200) return
   if (status === 401 || status === 403) throw new WebDAVError('auth_failed')
   if (status === 404) throw new WebDAVError('not_found')
+  if (status === 501 || status === 405) {
+    // 服务器不支持 PROPFIND，退回 GET 验证；目录 GET 收到 405 也说明认证与路径均正常
+    const { status: getStatus } = await request(config, 'GET', '/')
+    if (getStatus === 200 || getStatus === 207 || getStatus === 405) return
+    if (getStatus === 401 || getStatus === 403) throw new WebDAVError('auth_failed')
+    if (getStatus === 404) throw new WebDAVError('not_found')
+    throw new WebDAVError('server_error', `HTTP ${getStatus}`)
+  }
   throw new WebDAVError('server_error', `HTTP ${status}`)
 }
 

@@ -10,6 +10,8 @@ import type { InitState } from '@/store/common/state'
 // import { navigations } from '@/navigation'
 // import commonState from '@/store/common/state'
 import { exitApp, setNavActiveId } from '@/core/common'
+import { setActiveList } from '@/core/list'
+import { LOCAL_LIST_ID } from '@/core/localMusic'
 import Text from '@/components/common/Text'
 import { useSettingValue } from '@/store/setting/hook'
 import { navigations } from '@/navigation'
@@ -73,7 +75,6 @@ const Header = () => {
 }
 
 type IdType = InitState['navActiveId'] | 'nav_listen' | 'nav_exit' | 'back_home'
-
 const MenuItem = ({ id, icon, onPress }: {
   id: IdType
   icon: string
@@ -122,6 +123,12 @@ export default memo(() => {
         // 一起听是独立页面，从侧边栏直接进入
         global.app_event.changeMenuVisible(false)
         if (commonState.componentIds.home) navigations.pushListenTogetherScreen(commonState.componentIds.home)
+        return
+      case 'nav_local':
+        // 本地音乐：切到「我的列表」视图并选中本地音乐歌单
+        global.app_event.changeMenuVisible(false)
+        setActiveList(LOCAL_LIST_ID)
+        setNavActiveId('nav_songlist')
         return
     }
 

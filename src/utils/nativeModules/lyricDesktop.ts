@@ -123,8 +123,8 @@ export const pause = async(): Promise<void> => {
  * @param translation lyric translation
  * @param romalrc lyric translation
  */
-export const setLyric = async(lyric: string, translation: string, romalrc: string): Promise<void> => {
-  return LyricModule.setLyric(lyric, translation || '', romalrc || '')
+export const setLyric = async(lyric: string, translation: string, romalrc: string, wordLyric?: string): Promise<void> => {
+  return LyricModule.setLyricWithWords(lyric, translation ?? '', romalrc ?? '', wordLyric ?? '')
 }
 
 export const setPlaybackRate = async(rate: number): Promise<void> => {

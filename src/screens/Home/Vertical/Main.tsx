@@ -207,6 +207,8 @@ const viewMap = {
   nav_download: 4,
   // 一起听是独立 push 页面，不会切换 pager，这里仅为类型完整（1.14 侧边栏入口）
   nav_listen: 0,
+  // 本地音乐点击后跳到歌单视图并选中「本地音乐」列表（1.17 侧边栏入口）
+  nav_local: 1,
   nav_setting: 5,
 }
 const indexMap = [

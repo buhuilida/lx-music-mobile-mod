@@ -422,6 +422,41 @@ declare global {
       'player.keepScreenOn': boolean
 
       /**
+       * 音效预设：off / surround（全景环绕）/ cinema（电影院）/ hall（音乐厅）/ bass（低音增强）/ custom
+       */
+      'player.audioEffectPreset': 'off' | 'surround' | 'cinema' | 'hall' | 'bass' | 'custom'
+
+      /**
+       * 低音增强强度（0 ~ 100，自定义预设）
+       */
+      'player.audioEffectBass': number
+
+      /**
+       * 环绕声场强度（0 ~ 100，自定义预设）
+       */
+      'player.audioEffectVirtualizer': number
+
+      /**
+       * 混响预设：none / smallroom / mediumroom / largeroom / mediumhall / largehall / plate
+       */
+      'player.audioEffectReverb': string
+
+      /**
+       * 自定义均衡器各频段电平（毫贝数组）
+       */
+      'player.audioEffectEq': number[]
+
+      /**
+       * 下载文件命名格式：name-singer（歌名 - 歌手）/ singer-name（歌手 - 歌名）/ name（歌名）
+       */
+      'download.fileNameStyle': 'name-singer' | 'singer-name' | 'name'
+
+      /**
+       * 下载完成后同时保存同名 .lrc 歌词文件
+       */
+      'download.saveLrcFile': boolean
+
+      /**
        * 是否开启听歌播报（切歌时语音播报歌名与歌手）
        */
       'player.songNotify': boolean

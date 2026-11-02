@@ -83,11 +83,26 @@ export const publishSystemLyric = (lyric: string, translation = '') => {
 }
 
 /**
+ * 锁屏歌词兜底：把当前歌词行写进 MediaSession 的 artist 字段。
+ * 部分机型的锁屏媒体卡片不消费 lyricInfo，但一定显示 artist，
+ * 与主流音乐 App 一致（歌名在上、当前歌词行在下）。
+ */
+export const publishSystemLyricLine = (line: string) => {
+  if (!settingState.setting['player.systemLyric']) return
+  if (!line) return
+  void updateNowPlayingTitles({ artist: line }).catch(() => {})
+}
+
+/**
  * 清空系统歌词（切歌、停止播放、关闭开关时调用）
  */
 export const clearSystemLyric = (bumpGeneration = true) => {
   if (bumpGeneration) sessionGeneration++
   push('')
+  // 恢复 artist 为歌手名（歌词行兜底占用了该字段）
+  const info = getCurrentMusicInfo()
+  const singer = info?.singer ?? playerState.musicInfo.singer ?? ''
+  if (singer) void updateNowPlayingTitles({ artist: singer }).catch(() => {})
 }
 
 /**

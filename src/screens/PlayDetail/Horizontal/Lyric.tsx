@@ -1,12 +1,14 @@
 import { memo, useMemo, useEffect, useRef, useCallback } from 'react'
 import { View, FlatList, type FlatListProps, type NativeSyntheticEvent, type NativeScrollEvent, type LayoutChangeEvent } from 'react-native'
 // import { useLayout } from '@/utils/hooks'
-import { type Line, useLrcPlay, useLrcSet } from '@/plugins/lyric'
+import { type Line, useLrcPlay, useLrcSet, useWordLyricLines } from '@/plugins/lyric'
 import { createStyle } from '@/utils/tools'
 // import { useComponentIds } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { AnimatedColorText } from '@/components/common/Text'
+import WordLyricText from '@/components/common/WordLyricText'
+import type { WordLyricLine } from '@/utils/wordLyric'
 import { setSpText } from '@/utils/pixelRatio'
 import playerState from '@/store/player/state'
 import { scrollTo } from '@/utils/scroll'
@@ -21,9 +23,10 @@ interface LineProps {
   line: Line
   lineNum: number
   activeLine: number
+  wordLine?: WordLyricLine
   onLayout: (lineNum: number, height: number, width: number) => void
 }
-const LrcLine = memo(({ line, lineNum, activeLine, onLayout }: LineProps) => {
+const LrcLine = memo(({ line, lineNum, activeLine, wordLine, onLayout }: LineProps) => {
   const theme = useTheme()
   const lrcFontSize = useSettingValue('playDetail.horizontal.style.lrcFontSize')
   const textAlign = useSettingValue('playDetail.style.align')
@@ -51,11 +54,26 @@ const LrcLine = memo(({ line, lineNum, activeLine, onLayout }: LineProps) => {
   // https://stackoverflow.com/a/72822360
   return (
     <View style={styles.line} onLayout={handleLayout}>
-      <AnimatedColorText style={{
-        ...styles.lineText,
-        textAlign,
-        lineHeight,
-      }} textBreakStrategy="simple" color={colors[0]} opacity={colors[2]} size={size}>{line.text}</AnimatedColorText>
+      {
+        activeLine == lineNum && wordLine
+          ? (
+            <WordLyricText
+              wordLine={wordLine}
+              size={size}
+              lineHeight={lineHeight}
+              textAlign={textAlign}
+              activeColor={colors[0]}
+              inactiveColor={theme['c-350']}
+            />
+            )
+          : (
+            <AnimatedColorText style={{
+              ...styles.lineText,
+              textAlign,
+              lineHeight,
+            }} textBreakStrategy="simple" color={colors[0]} opacity={colors[2]} size={size}>{line.text}</AnimatedColorText>
+            )
+      }
       {
         line.extendedLyrics.map((lrc, index) => {
           return (<AnimatedColorText style={{
@@ -69,6 +87,7 @@ const LrcLine = memo(({ line, lineNum, activeLine, onLayout }: LineProps) => {
   )
 }, (prevProps, nextProps) => {
   return prevProps.line === nextProps.line &&
+    prevProps.wordLine === nextProps.wordLine &&
     prevProps.activeLine != nextProps.lineNum &&
     nextProps.activeLine != nextProps.lineNum
 })
@@ -76,6 +95,12 @@ const wait = async() => new Promise(resolve => setTimeout(resolve, 100))
 
 export default () => {
   const lyricLines = useLrcSet()
+  const wordLines = useWordLyricLines()
+  const wordLineMap = useMemo(() => {
+    const map = new Map<number, WordLyricLine>()
+    for (const wl of wordLines) map.set(Math.round(wl.time / 20), wl)
+    return map
+  }, [wordLines])
   const { line } = useLrcPlay()
   const flatListRef = useRef<FlatList>(null)
   const playLineRef = useRef<PlayLineType>(null)
@@ -259,7 +284,7 @@ export default () => {
 
   const renderItem: FlatListType['renderItem'] = ({ item, index }) => {
     return (
-      <LrcLine line={item} lineNum={index} activeLine={line} onLayout={handleLineLayout} />
+      <LrcLine line={item} lineNum={index} activeLine={line} wordLine={wordLineMap.get(Math.round(item.time / 20))} onLayout={handleLineLayout} />
     )
   }
   const getkey: FlatListType['keyExtractor'] = (item, index) => `${index}${item.text}`

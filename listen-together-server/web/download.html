@@ -46,24 +46,22 @@
 
   <section class="card">
     <h2>安装包</h2>
-    <p class="ver">最新版本 <b id="ver">v1.16.0</b> · 更新于 <span id="date">2026-11-02</span></p>
-    <a class="btn primary" id="btnArm" href="downloads/LXMusic-Mod-v1.16.0-arm64-v8a.apk">下载安卓安装包（推荐）<small>arm64-v8a · 2016 年后的绝大多数手机</small></a>
-    <a class="btn ghost" id="btnUni" href="downloads/LXMusic-Mod-v1.16.0-universal.apk">下载全架构安装包<small>universal · 兼容老旧设备 / 模拟器</small></a>
-    <a class="btn ghost" id="btnBackscreen" href="downloads/LXMusic-Mod-v1.16.0-backscreen-arm64-v8a.apk">下载背屏 / 原子岛兼容版<small>小米背屏 · iQOO 原子随身听（包名白名单版，与正版汽水音乐不能共存）</small></a>
+    <p class="ver">最新版本 <b id="ver">v1.17.0</b> · 更新于 <span id="date">2026-11-02</span></p>
+    <a class="btn primary" id="btnArm" href="downloads/LXMusic-Mod-v1.17.0-arm64-v8a.apk">下载安卓安装包（推荐）<small>arm64-v8a · 2016 年后的绝大多数手机</small></a>
+    <a class="btn ghost" id="btnUni" href="downloads/LXMusic-Mod-v1.17.0-universal.apk">下载全架构安装包<small>universal · 兼容老旧设备 / 模拟器</small></a>
+    <a class="btn ghost" id="btnBackscreen" href="downloads/LXMusic-Mod-v1.17.0-backscreen-arm64-v8a.apk">下载背屏 / 原子岛兼容版<small>小米背屏 · iQOO 原子随身听（包名白名单版，与正版汽水音乐不能共存）</small></a>
     <div class="warn muted">安装时如提示「未知来源」，允许一次即可；与原版包名不同，可共存。覆盖安装旧版二改版会保留数据。</div>
   </section>
 
   <section class="card">
-    <h2>本版更新（v1.16.0）</h2>
+    <h2>本版更新（v1.17.0）</h2>
     <ul>
-      <li>新增：音效系统——全景环绕 / 电影院 / 音乐厅 / 低音增强预设，多段均衡器 + 环绕声场自定义（双扬声器立体声扩展）</li>
-      <li>新增：音源测试——按平台实测音源实际最高可用音质（酷我 / 酷狗 / QQ / 网易 / 咪咕）</li>
-      <li>新增：本地音乐扫描——Music / Download 目录音频一键写入「本地音乐」歌单</li>
-      <li>新增：逐字歌词动画——App 歌词页当前行逐字高亮（有逐字数据时生效，自动回退整行）</li>
-      <li>新增：下载设置——文件命名格式、下载同时保存 .lrc 歌词文件</li>
-      <li>修复：WebDAV 连接 pan.cdn.ad 等 Cloudreve 服务（PROPFIND Depth / GET 405 判定 / 25 秒超时）</li>
-      <li>锁屏歌词：系统歌词锁屏直接可见（设置 → 播放 → 系统歌词）</li>
-      <li>历史（1.15.0）：播放失败本地兜底、音质徽标、播放页常亮、背景不透明度/模糊、WebDAV 自动备份</li>
+      <li>新增：侧边栏「本地音乐」入口，一键打开本地音乐歌单</li>
+      <li>新增：音质可选 Master（母带级），播放按 Master → Hi-Res → FLAC → 320K 优先尝试；音源测试同步支持 Master 档</li>
+      <li>新增：桌面歌词逐字卡拉OK动画（洛雪逐字 / A2 逐字格式，已唱高亮、未唱暗色）</li>
+      <li>修复：App 歌词页显示 &lt;0,200&gt; 之类原始逐字标签的问题，逐字歌词正确解析渲染</li>
+      <li>增强：锁屏歌词兜底——当前歌词行写入媒体卡片，锁屏直接可见</li>
+      <li>历史（1.16.0）：音效系统、音源测试、本地音乐扫描、下载设置、WebDAV Cloudreve 兼容修复</li>
     </ul>
     <p class="muted">历史版本说明见源码包内 doc/mod-features.md。</p>
   </section>
@@ -75,10 +73,10 @@
       <li>App 源码：<a href="https://github.com/yzdz666/lx-music-mobile-mod" style="color:var(--primary)">yzdz666/lx-music-mobile-mod</a></li>
       <li>服务端 / 网页版源码：<a href="https://github.com/yzdz666/listen-together-server" style="color:var(--primary)">yzdz666/listen-together-server</a></li>
     </ul>
-    <a class="btn ghost" href="downloads/lx-music-mod-src-v1.16.0.zip">下载二改源码（打包版）<small>含 listen-together-server 与正式签名密钥，可自己部署和编译</small></a>
+    <a class="btn ghost" href="downloads/lx-music-mod-src-v1.17.0.zip">下载二改源码（打包版）<small>含 listen-together-server 与全部二改代码（不含签名密钥）</small></a>
     <ul>
       <li>自建房间服务器：<code>cd listen-together-server && npm install && node index.js</code></li>
-      <li>App 设置 → 其他 → 一起听服务器地址，填 <code>ws://你的服务器:23333</code></li>
+      <li>App 设置 → 其他 → 一起听服务器地址，填 <code>ws://你的服务器:23333</code>（自编译需自配签名）</li>
       <li>网页版直接访问 <code>http://你的服务器:23333/</code></li>
       <li>详细说明见源码包 <code>listen-together-server/README.md</code></li>
     </ul>

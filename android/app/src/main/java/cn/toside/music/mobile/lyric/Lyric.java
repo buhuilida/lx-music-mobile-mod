@@ -25,6 +25,7 @@ public class Lyric extends LyricPlayer {
   boolean isRunPlayer = false;
   // String lastText = "LX Music ^-^";
   int lastLine = 0;
+  HashMap lastLineMap = null;
   List lines = new ArrayList();
   boolean isShowTranslation;
   boolean isShowRoma;
@@ -34,6 +35,7 @@ public class Lyric extends LyricPlayer {
   String lyricText = "";
   String translationText = "";
   String romaLyricText = "";
+  String wordLyricText = "";
 
   Lyric(ReactApplicationContext reactContext, boolean isShowTranslation, boolean isShowRoma, float playbackRate) {
     this.reactAppContext = reactContext;
@@ -115,7 +117,16 @@ public class Lyric extends LyricPlayer {
   private void handleScreenOn() {
     isScreenOff = false;
     if (isDisableAutoPause()) return;
-    if (lyricView == null) lyricView = new LyricView(reactAppContext, lyricEvent);
+    if (lyricView == null) {
+      lyricView = new LyricView(reactAppContext, lyricEvent);
+      lyricView.setKaraokeClock(new LyricTextView.KaraokeClock() {
+        @Override
+        public int now() { return getCurrentTime(); }
+
+        @Override
+        public boolean playing() { return isPlaying(); }
+      });
+    }
     lyricView.runOnUiThread(() -> {
       handleGetCurrentLyric(lastLine);
       setTempPause(false);
@@ -130,7 +141,7 @@ public class Lyric extends LyricPlayer {
 
   private void setCurrentLyric(String lyric, ArrayList<String> extendedLyrics) {
     if (isShowLyricView && !isScreenOff && lyricView != null) {
-      lyricView.setLyric(lyric, extendedLyrics);
+      lyricView.setLyric(lyric, extendedLyrics, lastLineMap == null ? null : (ArrayList<long[]>) lastLineMap.get("words"));
     }
     if (isSendLyricTextEvent) {
       WritableMap params = Arguments.createMap();
@@ -139,14 +150,13 @@ public class Lyric extends LyricPlayer {
       lyricEvent.sendEvent(lyricEvent.LYRIC_Line_PLAY, params);
     }
   }
+  @SuppressWarnings("unchecked")
   private void handleGetCurrentLyric(int lineNum) {
     lastLine = lineNum;
-    if (lineNum >= 0 && lineNum < lines.size()) {
-      HashMap line = (HashMap) lines.get(lineNum);
-      if (line != null) {
-        setCurrentLyric((String) line.get("text"), (ArrayList<String>) line.get("extendedLyrics"));
-        return;
-      }
+    lastLineMap = lineNum >= 0 && lineNum < lines.size() ? (HashMap) lines.get(lineNum) : null;
+    if (lastLineMap != null) {
+      setCurrentLyric((String) lastLineMap.get("text"), (ArrayList<String>) lastLineMap.get("extendedLyrics"));
+      return;
     }
     setCurrentLyric("", new ArrayList<>(0));
   }
@@ -166,7 +176,16 @@ public class Lyric extends LyricPlayer {
     if (isShowLyricView) return;
     if (lyricEvent == null) lyricEvent = new LyricEvent(reactAppContext);
     isShowLyricView = true;
-    if (lyricView == null) lyricView = new LyricView(reactAppContext, lyricEvent);
+    if (lyricView == null) {
+      lyricView = new LyricView(reactAppContext, lyricEvent);
+      lyricView.setKaraokeClock(new LyricTextView.KaraokeClock() {
+        @Override
+        public int now() { return getCurrentTime(); }
+
+        @Override
+        public boolean playing() { return isPlaying(); }
+      });
+    }
     try {
       lyricView.showLyricView(options);
     } catch (Exception e) {
@@ -193,13 +212,18 @@ public class Lyric extends LyricPlayer {
     ArrayList<String> extendedLyrics = new ArrayList<>(2);
     if (isShowTranslation && !"".equals(translationText)) extendedLyrics.add(translationText);
     if (isShowRoma && !"".equals(romaLyricText)) extendedLyrics.add(romaLyricText);
-    super.setLyric(lyricText, extendedLyrics);
+    super.setLyric(lyricText, extendedLyrics, wordLyricText);
   }
 
   public void setLyric(String lyric, String translation, String romaLyric) {
+    setLyric(lyric, translation, romaLyric, null);
+  }
+
+  public void setLyric(String lyric, String translation, String romaLyric, String wordLyric) {
     lyricText = lyric;
     translationText = translation;
     romaLyricText = romaLyric;
+    wordLyricText = wordLyric == null ? "" : wordLyric;
     refreshLyric();
   }
 

@@ -8,6 +8,8 @@ import android.util.Log;
 import android.view.Gravity;
 import android.widget.TextView;
 
+import java.util.ArrayList;
+
 // https://github.com/Block-Network/StatusBarLyric/blob/main/app/src/main/java/statusbar/lyric/view/LyricTextView.kt
 @SuppressLint("AppCompatCustomView")
 public class LyricTextView extends TextView {
@@ -23,17 +25,80 @@ public class LyricTextView extends TextView {
   private float y = 0F;
   private String text = null;
   private final Paint mPaint;
+  private final Paint playedPaint;
+  private final Paint unplayedPaint;
   private final Runnable mStartScrollRunnable;
   private final Runnable invalidateRunnable;
+  private final Runnable karaokeInvalidateRunnable;
   public static final int startScrollDelay = 1500;
   public static final int invalidateDelay = 10;
+  public static final int karaokeInvalidateDelay = 33;
+
+  /** 逐字卡拉OK：words 每项 {charStart, charEnd, startMs, endMs} */
+  private ArrayList<long[]> words = null;
+  private KaraokeClock karaokeClock = null;
+
+  public interface KaraokeClock {
+    int now();
+    boolean playing();
+  }
 
   public LyricTextView(Context context) {
     super(context);
     mStartScrollRunnable = LyricTextView.this::startScroll;
     invalidateRunnable = LyricTextView.this::invalidate;
+    karaokeInvalidateRunnable = LyricTextView.this::invalidate;
     mPaint = getPaint();
+    playedPaint = new Paint(mPaint);
+    unplayedPaint = new Paint(mPaint);
     speed = SPEED_LIMIT * getTextSize();
+  }
+
+  public void setKaraokeClock(KaraokeClock clock) {
+    this.karaokeClock = clock;
+    postInvalidate();
+  }
+
+  public void setKaraokeWords(ArrayList<long[]> newWords) {
+    this.words = (newWords == null || newWords.isEmpty()) ? null : newWords;
+    postInvalidate();
+  }
+
+  public void setPlayedPaintColor(int color) {
+    playedPaint.setColor(color);
+    if (words != null) postInvalidate();
+  }
+
+  public void setUnplayedPaintColor(int color) {
+    unplayedPaint.setColor(color);
+    if (words != null) postInvalidate();
+  }
+
+  public void setTextPaintSize(float size) {
+    playedPaint.setTextSize(size);
+    unplayedPaint.setTextSize(size);
+  }
+
+  /** 计算已演唱部分的像素宽度 */
+  private float computePlayedWidth(String str, int nowMs) {
+    if (words == null) return 0F;
+    float width = 0F;
+    for (long[] word : words) {
+      int charStart = (int) word[0];
+      int charEnd = (int) word[1];
+      long startMs = word[2];
+      long endMs = word[3];
+      if (nowMs >= endMs) {
+        width += mPaint.measureText(str, charStart, charEnd);
+        continue;
+      }
+      if (nowMs > startMs && endMs > startMs) {
+        float frac = (nowMs - startMs) / (float) (endMs - startMs);
+        width += mPaint.measureText(str, charStart, charEnd) * frac;
+      }
+      break;
+    }
+    return width;
   }
 
   private void init() {
@@ -67,6 +132,8 @@ public class LyricTextView extends TextView {
   @Override
   public void setShadowLayer(float radius, float dx, float dy, int shadowColor) {
     if (mPaint != null) mPaint.setShadowLayer(radius, dx, dy, shadowColor);
+    playedPaint.setShadowLayer(radius, dx, dy, shadowColor);
+    unplayedPaint.setShadowLayer(radius, dx, dy, shadowColor);
     post(mStartScrollRunnable);
   }
 
@@ -74,6 +141,7 @@ public class LyricTextView extends TextView {
   public void setTextSize(float size) {
     super.setTextSize(size);
     speed = SPEED_LIMIT * size;
+    setTextPaintSize(getTextSize());
     if (text == null) return;
     post(mStartScrollRunnable);
   }
@@ -118,8 +186,23 @@ public class LyricTextView extends TextView {
   protected void onDraw(Canvas canvas) {
     float mSpeed = speed;
     if (text != null) {
-      Log.d("Lyric", "getHeight: " + getHeight() + " y: " + y);
-      canvas.drawText(text, getDrawX(), y, mPaint);
+      float drawX = getDrawX();
+      boolean karaoke = words != null && karaokeClock != null && text.length() > 0;
+      if (karaoke) {
+        // 逐字卡拉OK：先画未唱颜色，再裁剪叠加已唱颜色
+        int now = karaokeClock.now();
+        canvas.drawText(text, drawX, y, unplayedPaint);
+        float playedWidth = computePlayedWidth(text, now);
+        if (playedWidth > 0F) {
+          canvas.save();
+          canvas.clipRect(drawX, 0F, drawX + playedWidth, getHeight());
+          canvas.drawText(text, drawX, y, playedPaint);
+          canvas.restore();
+        }
+        if (karaokeClock.playing()) postDelayed(karaokeInvalidateRunnable, karaokeInvalidateDelay);
+      } else {
+        canvas.drawText(text, drawX, y, mPaint);
+      }
       if (getText().length() >= 20) {
         mSpeed += mSpeed;
       }

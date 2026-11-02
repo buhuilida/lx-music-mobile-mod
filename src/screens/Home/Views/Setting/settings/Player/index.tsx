@@ -8,6 +8,8 @@ import IsEnableAudioOffload from './IsEnableAudioOffload'
 import IsAutoCleanPlayedList from './IsAutoCleanPlayedList'
 import IsFailureFallback from './IsFailureFallback'
 import IsKeepScreenOn from './IsKeepScreenOn'
+import AudioEffect from './AudioEffect'
+import SourceTest from './SourceTest'
 import IsShowBluetoothLyric from './IsShowBluetoothLyric'
 import IsShowBluetoothFullLyric from './IsShowBluetoothFullLyric'
 import IsShowNotificationImage from './IsShowNotificationImage'
@@ -39,6 +41,8 @@ export default memo(() => {
       <SongNotify />
       <MaxCache />
       <PlayHighQuality />
+      <AudioEffect />
+      <SourceTest />
     </Section>
   )
 })

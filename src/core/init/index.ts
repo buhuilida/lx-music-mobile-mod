@@ -59,6 +59,8 @@ export default async() => {
   bootLog('Playback Service Registered.')
   await initPlayer(setting)
   bootLog('Player inited.')
+  // 音效（1.16.0）：播放器就绪后应用 EQ/环绕/混响设置
+  void import('@/core/audioEffect').then(({ initAudioEffect }) => initAudioEffect()).catch(() => {})
   await dataInit(setting)
   bootLog('Data inited.')
   await initCommonState(setting)

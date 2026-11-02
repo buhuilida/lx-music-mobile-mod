@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Lyric, { type Lines } from 'lrc-file-parser'
+import { parseWordLyric, type WordLyricLine } from '@/utils/wordLyric'
 // import { getStore, subscribe } from '@/store'
 export type Line = Lines[number]
 type PlayHook = (line: number, text: string) => void
@@ -10,6 +11,8 @@ const lrcTools = {
   lrc: null as Lyric | null,
   currentLineData: { line: 0, text: '' },
   currentLines: [] as Lines,
+  /** 逐字歌词（解析后的行+字时间），无逐字数据为空数组（1.16.0） */
+  currentWordLines: [] as WordLyricLine[],
   playHooks: [] as PlayHook[],
   setLyricHooks: [] as SetLyricHook[],
   isPlay: false,
@@ -18,6 +21,7 @@ const lrcTools = {
   lyricText: '',
   translationText: '' as string | null | undefined,
   romaText: '' as string | null | undefined,
+  lxlyricText: '' as string | null | undefined,
   init() {
     if (this.isInited) return
     this.isInited = true
@@ -67,12 +71,36 @@ export const init = async() => {
   lrcTools.init()
 }
 
-export const setLyric = (lyric: string, translation?: string, romalrc?: string) => {
+export const setLyric = (lyric: string, translation?: string, romalrc?: string, lxlyric?: string) => {
   lrcTools.isPlay = false
   lrcTools.lyricText = lyric
   lrcTools.translationText = translation
   lrcTools.romaText = romalrc
+  lrcTools.lxlyricText = lxlyric
+  lrcTools.currentWordLines = parseWordLyric(lxlyric)
   lrcTools.setLyric()
+}
+
+/** 订阅当前播放行变化（非 hook，供 core 层锁屏歌词等使用） */
+export const onLrcLinePlay = (hook: PlayHook) => {
+  lrcTools.addPlayHook(hook)
+  return () => {
+    lrcTools.removePlayHook(hook)
+  }
+}
+/** 当前逐字歌词（无逐字数据时为空数组，UI 回退整行渲染） */
+export const useWordLyricLines = () => {
+  const [lines, setLines] = useState(lrcTools.currentWordLines)
+  useEffect(() => {
+    const callback: SetLyricHook = () => {
+      setLines(lrcTools.currentWordLines)
+    }
+    lrcTools.addSetLyricHook(callback)
+    return () => {
+      lrcTools.removeSetLyricHook(callback)
+    }
+  }, [])
+  return lines
 }
 export const setPlaybackRate = (playbackRate: number) => {
   lrcTools.lrc!.setPlaybackRate(playbackRate)

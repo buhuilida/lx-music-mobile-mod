@@ -67,6 +67,13 @@ public class LyricView extends Activity implements View.OnTouchListener {
   private int maxLineNum = 5;
   // private float lineHeight = 1;
   private String currentLyric = "LX Music ^-^";
+  private ArrayList<long[]> currentWords = null;
+  private LyricTextView.KaraokeClock karaokeClock = null;
+
+  public void setKaraokeClock(LyricTextView.KaraokeClock clock) {
+    this.karaokeClock = clock;
+    if (textView != null) textView.setKaraokeClock(clock);
+  }
   private ArrayList<String> currentExtendedLyrics = new ArrayList<>();
 
   private int mLastRotation;
@@ -249,10 +256,13 @@ public class LyricView extends Activity implements View.OnTouchListener {
 
   private void createTextView() {
     textView = new LyricSwitchView(reactContext, isSingleLine, isShowToggleAnima);
+    if (karaokeClock != null) textView.setKaraokeClock(karaokeClock);
     textView.setText("");
     textView.setText(currentLyric);
 
     textView.setTextColor(parseColor(playedColor));
+    textView.setPlayedPaintColor(parseColor(playedColor));
+    textView.setUnplayedPaintColor(parseColor(unplayColor));
     textView.setShadowColor(parseColor(shadowColor));
     textView.setAlpha(alpha);
     textView.setTextSize(textSize);
@@ -370,10 +380,16 @@ public class LyricView extends Activity implements View.OnTouchListener {
   }
 
   public void setLyric(String text, ArrayList<String> extendedLyrics) {
+    setLyric(text, extendedLyrics, null);
+  }
+
+  public void setLyric(String text, ArrayList<String> extendedLyrics, ArrayList<long[]> words) {
     if (text.equals("") && text.equals(currentLyric) && extendedLyrics.size() == 0) return;
     currentLyric = text;
     currentExtendedLyrics = extendedLyrics;
+    currentWords = words;
     if (textView == null) return;
+    textView.setKaraokeWords(currentWords);
     if (extendedLyrics.size() > 0 && maxLineNum > 1 && !isSingleLine) {
       int num = maxLineNum - 1;
       StringBuilder textBuilder = new StringBuilder(text);
@@ -518,6 +534,8 @@ public class LyricView extends Activity implements View.OnTouchListener {
     this.shadowColor = shadowColor;
     if (textView == null) return;
     textView.setTextColor(parseColor(playedColor));
+    textView.setPlayedPaintColor(parseColor(playedColor));
+    textView.setUnplayedPaintColor(parseColor(unplayColor));
     textView.setShadowColor(parseColor(shadowColor));
     // windowManager.updateViewLayout(textView, layoutParams);
   }
@@ -575,7 +593,7 @@ public class LyricView extends Activity implements View.OnTouchListener {
     if (isLock) lockView();
     else unlockView();
 
-    setLyric(currentLyric, currentExtendedLyrics);
+    setLyric(currentLyric, currentExtendedLyrics, currentWords);
   }
 
   public void setShowToggleAnima(boolean showToggleAnima) {

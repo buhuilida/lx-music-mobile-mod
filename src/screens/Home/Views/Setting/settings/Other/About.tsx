@@ -40,6 +40,8 @@ export default memo(() => {
   const theme = useTheme()
   const windowSize = useWindowSize()
   const sponsorModalRef = useRef<ModalType>(null)
+  // 赞助码按屏幕较小的一边自适应，避免弹窗里被裁剪（图太高时底部会被截断）
+  const sponsorSize = Math.min(windowSize.width - 96, windowSize.height * 0.5)
 
   const openModHome = () => {
     void openUrl(MOD_HOME_URL)
@@ -97,7 +99,7 @@ export default memo(() => {
         <View style={{ ...styles.sponsorContent, width: windowSize.width, backgroundColor: theme['c-main-background'] }}>
           <ScrollView contentContainerStyle={styles.sponsorScroll}>
             <Text size={15} style={styles.sponsorTitle}>{t('about_sponsor_thanks')}</Text>
-            <Image source={sponsorImage} style={styles.sponsorImage} resizeMode="contain" />
+            <Image source={sponsorImage} style={{ ...styles.sponsorImage, width: sponsorSize, height: sponsorSize }} resizeMode="contain" />
           </ScrollView>
           <TouchableOpacity style={styles.sponsorClose} activeOpacity={0.7} onPress={() => sponsorModalRef.current?.setVisible(false)}>
             <Text size={14} color={theme['c-primary-font']}>{t('about_sponsor_close')}</Text>
@@ -137,8 +139,6 @@ const styles = createStyle({
     marginBottom: 12,
   },
   sponsorImage: {
-    width: '100%',
-    aspectRatio: 1,
     borderRadius: 12,
   },
   sponsorClose: {

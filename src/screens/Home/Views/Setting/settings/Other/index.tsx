@@ -6,6 +6,7 @@ import MetaCache from './MetaCache'
 import DislikeList from './DislikeList'
 import Log from './Log'
 import ListenTogether from './ListenTogether'
+import ScanLocalMusic from './ScanLocalMusic'
 import DownloadManager from './DownloadManager'
 import About from './About'
 // import MaxCache from './MaxCache'
@@ -22,6 +23,7 @@ export default memo(() => {
       <Log />
       <DownloadManager />
       <ListenTogether />
+      <ScanLocalMusic />
       <About />
       {/* <MaxCache /> */}
     </Section>

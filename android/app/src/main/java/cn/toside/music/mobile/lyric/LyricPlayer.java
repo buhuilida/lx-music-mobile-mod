@@ -21,7 +21,11 @@ public class LyricPlayer {
   Pattern msTimePattern;
 
   String lyric = "";
+  String wordLyric = "";
   ArrayList<String> extendedLyrics = new ArrayList<>();
+  // 逐字标签：<开始毫秒,持续毫秒>（洛雪，时间相对行首）与 <mm:ss.xx[,dur]>（A2，绝对时间）
+  final java.util.regex.Pattern lxWordPattern = Pattern.compile("<(\\d{1,7}),(\\d+(?:\\.\\d+)?)>");
+  final java.util.regex.Pattern a2WordPattern = Pattern.compile("<(\\d{1,3}):(\\d{1,2})(?:[.:](\\d{1,3}))?(?:,(\\d+(?:\\.\\d+)?))?>");
   List<HashMap> lines = new ArrayList<>();
   HashMap tags = new HashMap();
   boolean isPlay = false;
@@ -87,7 +91,7 @@ public class LyricPlayer {
     return (int)(System.nanoTime() / 1000000);
   }
 
-  private int getCurrentTime() {
+  public int getCurrentTime() {
     return (int)((getNow() - this.performanceTime) * this.playbackRate) + startPlayTime;
   }
 
@@ -242,7 +246,121 @@ public class LyricPlayer {
       lines.add((HashMap) linesMap.get(entry.getKey()));
     }
 
+    if (wordLyric != null && wordLyric.length() > 0) parseWordLyric(linesMap, timeMap);
+
     this.maxLine = lines.size() - 1;
+  }
+
+  /**
+   * 解析逐字歌词并按行时间匹配挂到 lines 上（word: charStart, charEnd, startMs, endMs）
+   */
+  @SuppressWarnings("unchecked")
+  private void parseWordLyric(HashMap<String, HashMap> linesMap, HashMap<String, Integer> timeMap) {
+    if (wordLyric == null || wordLyric.length() == 0) return;
+    String[] wordLines = wordLyric.split("\r\n|\n|\r");
+    for (String lineStr : wordLines) {
+      String line = lineStr.trim();
+      Matcher timeFieldResult = timeFieldPattern.matcher(line);
+      if (!timeFieldResult.find()) continue;
+      String timeField = timeFieldResult.group();
+      String content = line.replaceAll(timeFieldExp, "").trim();
+      if (content.length() == 0) continue;
+
+      Matcher timeMatchResult = timePattern.matcher(timeField);
+      while (timeMatchResult.find()) {
+        String timeStr = formatTimeLabel(timeMatchResult.group());
+        HashMap targetLine = linesMap.get(timeStr);
+        if (targetLine == null) continue;
+
+        // 逐 token 切分：[isTag, text, startMs, durMs]
+        ArrayList<Object[]> tokens = new ArrayList<>();
+        String rest = content;
+        StringBuilder pending = new StringBuilder();
+        while (rest.length() > 0) {
+          java.util.regex.Matcher lx = lxWordPattern.matcher(rest);
+          java.util.regex.Matcher a2 = a2WordPattern.matcher(rest);
+          boolean lxHit = lx.lookingAt();
+          boolean a2Hit = !lxHit && a2.lookingAt();
+          if (lxHit) {
+            if (pending.length() > 0) { tokens.add(new Object[]{false, pending.toString(), 0, 0}); pending.setLength(0); }
+            tokens.add(new Object[]{true, "", Integer.parseInt(lx.group(1)), Math.round(Float.parseFloat(lx.group(2)))});
+            rest = rest.substring(lx.end());
+          } else if (a2Hit) {
+            if (pending.length() > 0) { tokens.add(new Object[]{false, pending.toString(), 0, 0}); pending.setLength(0); }
+            int min = Integer.parseInt(a2.group(1));
+            int sec = Integer.parseInt(a2.group(2));
+            int frac = 0;
+            if (a2.group(3) != null) {
+              String msStr = a2.group(3);
+              if (msStr.length() < 3) msStr = padEnd(msStr, 3, '0');
+              frac = Integer.parseInt(msStr);
+            }
+            long start = min * 60000L + sec * 1000L + frac;
+            long dur = a2.group(4) == null ? 0 : Math.round(Float.parseFloat(a2.group(4)) * 1000);
+            tokens.add(new Object[]{true, "", (int) start, (int) dur});
+            rest = rest.substring(a2.end());
+          } else {
+            pending.append(rest.charAt(0));
+            rest = rest.substring(1);
+          }
+        }
+        if (pending.length() > 0) tokens.add(new Object[]{false, pending.toString(), 0, 0});
+        if (tokens.isEmpty()) continue;
+
+        int lineTime = (int) targetLine.get("time");
+        StringBuilder cleanText = new StringBuilder();
+        ArrayList<long[]> words = new ArrayList<>();
+        Integer pendingStart = null, pendingDur = null;
+        long[] lastWord = null;
+        for (int i = 0; i < tokens.size(); i++) {
+          Object[] tk = tokens.get(i);
+          boolean isTag = (Boolean) tk[0];
+          if (isTag) {
+            pendingStart = (Integer) tk[2];
+            pendingDur = (Integer) tk[3];
+            continue;
+          }
+          String wordText = (String) tk[1];
+          Integer start = pendingStart;
+          Integer dur = pendingDur;
+          pendingStart = null;
+          pendingDur = null;
+          if (start == null) {
+            // 文本在标签之前（A2）：向后找最近的标签
+            for (int j = i + 1; j < tokens.size(); j++) {
+              Object[] nt = tokens.get(j);
+              if (!(Boolean) nt[0]) continue;
+              start = (Integer) nt[2];
+              if (dur == null || dur == 0) dur = (Integer) nt[3];
+              break;
+            }
+          }
+          if (start == null) {
+            // 尾部无标签文本并入最后一个字，避免丢字
+            if (lastWord != null) lastWord[1] += wordText.length();
+            continue;
+          }
+          // 洛雪格式开始时间相对行首：明显小于行时间时按相对处理
+          if (start < lineTime) start += lineTime;
+          long[] word = { cleanText.length(), cleanText.length() + wordText.length(), start, start + dur };
+          cleanText.append(wordText);
+          words.add(word);
+          lastWord = word;
+        }
+        if (words.isEmpty()) continue;
+        String lineText = (String) targetLine.get("text");
+        // 逐字文本必须与行文本完全一致才启用卡拉OK（避免错位高亮）
+        if (!cleanText.toString().equals(lineText)) continue;
+        for (int i = 0; i < words.size(); i++) {
+          long[] w = words.get(i);
+          if (w[3] <= w[2]) {
+            long nextStart = i + 1 < words.size() ? words.get(i + 1)[2] : lineTime + (w[1] - w[0]) * 200L;
+            w[3] = Math.max(w[2] + 60, nextStart);
+          }
+        }
+        targetLine.put("words", words);
+      }
+    }
   }
 
   private void  init() {
@@ -346,10 +464,19 @@ public class LyricPlayer {
   }
 
   public void setLyric(String lyric, ArrayList<String> extendedLyrics) {
+    setLyric(lyric, extendedLyrics, null);
+  }
+
+  public void setLyric(String lyric, ArrayList<String> extendedLyrics, String wordLyric) {
     if (isPlay) pause();
     this.lyric = lyric;
     this.extendedLyrics = extendedLyrics;
+    this.wordLyric = wordLyric == null ? "" : wordLyric;
     init();
+  }
+
+  public boolean isPlaying() {
+    return isPlay;
   }
 
   public void setPlaybackRate(float playbackRate) {

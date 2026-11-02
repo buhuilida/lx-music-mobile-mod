@@ -16,6 +16,7 @@ const QUALITY_LABELS: Record<string, string> = {
   '320k': '320K',
   flac: 'FLAC',
   flac24bit: 'Hi-Res',
+  master: 'Master',
   ape: 'APE',
   wav: 'WAV',
   local: '本地',
