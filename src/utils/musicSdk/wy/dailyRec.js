@@ -7,7 +7,6 @@ export default {
   _requestObj: null,
   async getList(cookie, retryNum = 0) {
     if (this._requestObj) this._requestObj.cancelHttp()
-    if (retryNum > 2) return Promise.reject(new Error('try max num'))
 
     try {
       const csrfToken = (cookie.match(/_csrf=([^(;|$)]+)/) || [])[1]
@@ -29,7 +28,12 @@ export default {
       const { body, statusCode } = await _requestObj.promise
 
       if (statusCode !== 200 || body.code !== 200 || !body.data) {
-        throw new Error('获取每日推荐失败或返回数据无效');
+        // 301 / -462 是网易云的「未登录 / 登录态失效」，
+        // 之前一律重试 3 次再抛 try max num，用户只看到一句英文内部错误
+        if (body.code === 301 || body.code === -462) {
+          throw new Error('网易云登录状态已失效，请重新登录')
+        }
+        throw new Error(`获取每日推荐失败（HTTP ${statusCode} / code ${body.code}）`)
       }
 
       const filteredList = await musicDetailApi.filterList({ songs: body.data.dailySongs, privileges: [] });
@@ -38,14 +42,14 @@ export default {
         source: 'wy',
       }
     } catch (error) {
+      // 登录失效重试没意义；其它错误重试 2 次后把真实原因抛出去
+      if (/登录|失效|301|-462/.test(error.message) || retryNum >= 2) throw error
       console.log(`获取日推失败，正在进行第 ${retryNum + 1} 次重试...`, error.message)
       return this.getList(cookie, retryNum + 1)
     }
   },
 
   async saveStylizedTag(cookie, categoryId, tagIds, retryNum = 0) {
-    if (retryNum > 2) return Promise.reject(new Error('try max num'))
-
     try {
       const csrfToken = (cookie.match(/_csrf=([^(;|$)]+)/) || [])[1]
       const tagsStr = JSON.stringify({ categoryId, tagIds })
@@ -70,6 +74,7 @@ export default {
 
       return true
     } catch (error) {
+      if (retryNum >= 2) throw error
       console.log(`保存风格化标签失败，正在进行第 ${retryNum + 1} 次重试...`, error.message)
       return this.saveStylizedTag(cookie, categoryId, tagIds, retryNum + 1)
     }
@@ -77,8 +82,6 @@ export default {
 
   async getStylizedList(cookie, retryNum = 0) {
     if (this._requestObj) this._requestObj.cancelHttp()
-    if (retryNum > 2) return Promise.reject(new Error('try max num'))
-
     try {
       const csrfToken = (cookie.match(/_csrf=([^(;|$)]+)/) || [])[1]
 
@@ -107,14 +110,13 @@ export default {
         source: 'wy',
       }
     } catch (error) {
+      if (retryNum >= 2) throw error
       console.log(`获取风格化推荐失败，正在进行第 ${retryNum + 1} 次重试...`, error.message)
       return this.getStylizedList(cookie, retryNum + 1)
     }
   },
 
   async getRecPlaylists(cookie, retryNum = 0) {
-    if (retryNum > 2) return Promise.reject(new Error('try max num'))
-
     try {
       const _requestObj = httpFetch('https://music.163.com/weapi/v1/discovery/recommend/resource', {
         method: 'post',
@@ -133,6 +135,7 @@ export default {
       if (statusCode !== 200 || body.code !== 200) throw new Error('获取每日推荐歌单失败')
       return body.recommend || []
     } catch (error) {
+      if (retryNum >= 2) throw error
       return this.getRecPlaylists(cookie, retryNum + 1);
     }
   },
@@ -177,8 +180,6 @@ export default {
   },
 
   async getHeartbeatModeList(cookie, playlistId, songId, retryNum = 0) {
-    if (retryNum > 2) return Promise.reject(new Error('try max num'))
-
     try {
       const csrfToken = (cookie.match(/_csrf=([^(;|$)]+)/) || [])[1]
       const requestObj = httpFetch(`https://music.163.com/weapi/playmode/intelligence/list?csrf_token=${csrfToken || ''}`, {
@@ -209,6 +210,7 @@ export default {
       if (!ids.length) return { list: [], source: 'wy' }
       return await musicDetailApi.getList(ids)
     } catch (error) {
+      if (retryNum >= 2) throw error
       console.log(`获取心动模式列表失败，正在进行第 ${retryNum + 1} 次重试...`, error.message)
       return this.getHeartbeatModeList(cookie, playlistId, songId, retryNum + 1)
     }
