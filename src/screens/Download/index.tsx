@@ -10,6 +10,7 @@ import { useStatusbarHeight } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
 import { useDownloadList } from '@/store/download/hook'
 import { useI18n } from '@/lang'
+import { getQualityLabel } from '@/config/quality'
 import { buildLocalMusicInfo, formatSize, removeDownload } from '@/core/download'
 import { playMusicInfo } from '@/core/player/player'
 import { confirmDialog, createStyle, toast } from '@/utils/tools'
@@ -31,7 +32,7 @@ const DownloadItem = memo(({ item, onPlay, onDelete }: {
       <View style={styles.itemContent}>
         <Text numberOfLines={1} size={14}>{item.musicInfo.name}</Text>
         <Text numberOfLines={1} size={11} color={theme['c-font-label']} style={styles.itemSub}>
-          {`${item.musicInfo.singer} · ${item.quality} · ${formatSize(item.size)}`}
+          {`${item.musicInfo.singer} · ${getQualityLabel(item.quality)} · ${formatSize(item.size)}`}
         </Text>
       </View>
       <TouchableOpacity style={styles.deleteBtn} onPress={() => { onDelete(item) }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>

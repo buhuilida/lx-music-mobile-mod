@@ -9,30 +9,21 @@ import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
 import { useBufferProgress } from '@/plugins/player'
 import { usePlayingInfo } from '@/store/playingInfo/hook'
-
-const QUALITY_LABELS: Record<string, string> = {
-  '128k': '128K',
-  '192k': '192K',
-  '320k': '320K',
-  flac: 'FLAC',
-  flac24bit: 'Hi-Res',
-  master: 'Master',
-  ape: 'APE',
-  wav: 'WAV',
-  local: '本地',
-}
+import { getQualityColor, getQualityLabel, resolveDisplayQuality } from '@/config/quality'
 
 /** 当前实际播放音质/音源徽标（1.15.0，移植自 LX-X） */
 const QualityBadge = memo(() => {
-  const theme = useTheme()
-  const { quality, source } = usePlayingInfo()
+  const { quality, source, requested } = usePlayingInfo()
   if (!quality) return null
-  const label = QUALITY_LABELS[quality] ?? quality.toUpperCase()
-  const text = source == 'download' || quality == 'local' ? label : `${label} · ${source.toUpperCase()}`
+  // 母带 / 空间音频在部分音源里以 FLAC 容器返回，按实际请求成功的档位显示
+  const displayQuality = resolveDisplayQuality(quality, requested)
+  const label = getQualityLabel(displayQuality)
+  const color = getQualityColor(displayQuality)
+  const text = source == 'download' || displayQuality == 'local' ? label : `${label} · ${source.toUpperCase()}`
 
   return (
-    <View style={[styles.badge, { borderColor: theme['c-500'] }]}>
-      <Text size={10} color={theme['c-500']}>{text}</Text>
+    <View style={[styles.badge, { borderColor: color, backgroundColor: `${color}14` }]}>
+      <Text size={10} color={color} style={styles.badgeText}>{text}</Text>
     </View>
   )
 })
@@ -85,6 +76,11 @@ const styles = createStyle({
     paddingHorizontal: 6,
     paddingVertical: 1,
     overflow: 'hidden',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   progress: {
     flexGrow: 1,

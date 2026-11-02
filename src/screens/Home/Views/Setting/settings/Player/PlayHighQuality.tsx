@@ -7,20 +7,12 @@ import CheckBox from '@/components/common/CheckBox'
 import { useSettingValue } from '@/store/setting/hook'
 import { updateSetting } from '@/core/common'
 import { useI18n } from '@/lang'
-import { TRY_QUALITYS_LIST } from '@/core/music/utils'
+import { QUALITY_LABELS, QUALITY_ORDER } from '@/config/quality'
 
 const useActive = (id: LX.Quality) => {
   const q = useSettingValue('player.playQuality')
   const isActive = useMemo(() => q == id, [q, id])
   return isActive
-}
-
-const QUALITY_NAMES: Partial<Record<LX.Quality, string>> = {
-  master: 'Master',
-  flac24bit: 'Hi-Res',
-  flac: 'FLAC',
-  '320k': '320K',
-  '128k': '128K',
 }
 
 const Item = ({ id, name }: {
@@ -35,14 +27,15 @@ const Item = ({ id, name }: {
 export default memo(() => {
   const t = useI18n()
   const playQualityList = useMemo(() => {
-    return [...TRY_QUALITYS_LIST, '128k'].reverse() as LX.Quality[]
+    // 由高到低展示：Master / Atmos+ / Atmos / Hi-Res / FLAC 24bit / FLAC / 320K / 192K / 128K
+    return QUALITY_ORDER.filter(q => q != 'ape' && q != 'wav').reverse()
   }, [])
 
   return (
     <SubTitle title={t('setting_play_play_quality')}>
       <View style={styles.list}>
         {
-          playQualityList.map((q) => <Item name={QUALITY_NAMES[q] ?? q} id={q} key={q} />)
+          playQualityList.map((q) => <Item name={QUALITY_LABELS[q] ?? q} id={q} key={q} />)
         }
       </View>
     </SubTitle>

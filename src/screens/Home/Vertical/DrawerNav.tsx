@@ -10,8 +10,6 @@ import type { InitState } from '@/store/common/state'
 // import { navigations } from '@/navigation'
 // import commonState from '@/store/common/state'
 import { exitApp, setNavActiveId } from '@/core/common'
-import { setActiveList } from '@/core/list'
-import { LOCAL_LIST_ID } from '@/core/localMusic'
 import Text from '@/components/common/Text'
 import { useSettingValue } from '@/store/setting/hook'
 import { navigations } from '@/navigation'
@@ -125,10 +123,9 @@ export default memo(() => {
         if (commonState.componentIds.home) navigations.pushListenTogetherScreen(commonState.componentIds.home)
         return
       case 'nav_local':
-        // 本地音乐：切到「我的列表」视图并选中本地音乐歌单
+        // 本地音乐：打开独立的本地音乐页面（1.17.1）
         global.app_event.changeMenuVisible(false)
-        setActiveList(LOCAL_LIST_ID)
-        setNavActiveId('nav_songlist')
+        if (commonState.componentIds.home) navigations.pushLocalMusicScreen(commonState.componentIds.home)
         return
     }
 

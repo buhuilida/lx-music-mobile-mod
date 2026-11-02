@@ -61,6 +61,8 @@ export const showDesktopLyric = async() => {
   if (!wordLyric && hasWordTags(lrc)) wordLyric = lrc
   if (hasWordTags(lrc)) lrc = stripWordTags(lrc)
   await setLyric(lrc, tlrc, rlrc, wordLyric)
+  // 桌面歌词独立控制翻译显示：只要歌曲有翻译就默认展示（1.18.0）
+  await toggleTranslation(setting['desktopLyric.showTranslation'] && !!tlrc)
   if (playerState.isPlay && !global.lx.gettingUrlId) {
     void getPosition().then(position => {
       void play(position * 1000)

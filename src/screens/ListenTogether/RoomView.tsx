@@ -16,18 +16,10 @@ import {
   useListenTogetherLyric,
 } from '@/store/listenTogether/hook'
 import { sendChat, transferHost } from '@/core/listenTogether'
+import { getQualityLabel } from '@/config/quality'
 
 const QUICK_MESSAGES = ['listen_together_quick_1', 'listen_together_quick_2', 'listen_together_quick_3', 'listen_together_quick_4'] as const
 
-const QUALITY_NAMES: Record<string, string> = {
-  '128k': '128K',
-  '192k': '192K',
-  '320k': '320K',
-  flac: 'FLAC',
-  flac24bit: 'FLAC 24bit',
-  ape: 'APE',
-  wav: 'WAV',
-}
 
 const getMusicInfo = (musicInfo: LX.Player.PlayMusic | null) => {
   if (!musicInfo) return null
@@ -96,7 +88,7 @@ const NowPlayingCard = ({ isHost }: { isHost: boolean }) => {
 
   const cover = musicInfo?.meta.picUrl ?? pendingMusic?.picUrl ?? ''
 
-  const roomQuality = playback?.quality ? QUALITY_NAMES[playback.quality] ?? playback.quality : null
+  const roomQuality = playback?.quality ? getQualityLabel(playback.quality) : null
 
   return (
     <View style={{ ...styles.card, ...surface.card }}>

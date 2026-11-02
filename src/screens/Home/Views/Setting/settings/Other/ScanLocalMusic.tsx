@@ -7,6 +7,8 @@ import { useI18n } from '@/lang'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle, toast } from '@/utils/tools'
 import { scanAndSyncLocalList } from '@/core/localMusic'
+import { navigations } from '@/navigation'
+import commonState from '@/store/common/state'
 
 /**
  * 本地音乐扫描入口（1.16.0，参照 LX-X 本地音乐）
@@ -16,14 +18,19 @@ export default memo(() => {
   const t = useI18n()
   const theme = useTheme()
   const [scanning, setScanning] = useState(false)
+  const [count, setCount] = useState(0)
 
   const handleScan = () => {
     if (scanning) return
     setScanning(true)
-    void scanAndSyncLocalList().then((count) => {
-      toast(t('setting_local_music_done', { count }))
+    setCount(0)
+    void scanAndSyncLocalList(setCount).then((total) => {
+      toast(t('setting_local_music_done', { count: total }))
+      const ids = commonState.componentIds
+      const componentId = ids.home ?? ids.playDetail ?? Object.values(ids)[0]
+      if (componentId) navigations.pushLocalMusicScreen(componentId)
     }).catch((err: Error) => {
-      toast(t('setting_local_music_failed', { msg: err.message ?? '' }))
+      toast(t('setting_local_music_failed', { msg: err.message ?? '' }), 'long')
     }).finally(() => {
       setScanning(false)
     })
@@ -34,7 +41,9 @@ export default memo(() => {
       <Text size={13} color={theme['c-600']} style={styles.label}>{t('setting_local_music')}</Text>
       <Text size={11} color={theme['c-font-label']} style={styles.tip}>{t('setting_local_music_tip')}</Text>
       <View style={styles.btnContent}>
-        <Button onPress={handleScan}>{scanning ? t('setting_local_music_scanning') : t('setting_local_music_scan')}</Button>
+        <Button onPress={handleScan} disabled={scanning}>
+          {scanning ? t('setting_local_music_scanning_progress', { count }) : t('setting_local_music_scan')}
+        </Button>
       </View>
     </View>
   )

@@ -2,7 +2,7 @@ import { memo } from 'react'
 import { View } from 'react-native'
 import Button from '@/components/common/Button'
 
-import { createStyle } from '@/utils/tools'
+import { confirmDialog, createStyle, toast } from '@/utils/tools'
 import { pop } from '@/navigation'
 import { useTheme } from '@/store/theme/hook'
 import commonState from '@/store/common/state'
@@ -11,6 +11,7 @@ import { handleCollect, handlePlay } from './listAction'
 import songlistState from '@/store/songlist/state'
 import { useI18n } from '@/lang'
 import { useListInfo } from './state'
+import { downloadMusics } from '@/core/download'
 // import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
 
 export default memo(() => {
@@ -27,6 +28,26 @@ export default memo(() => {
     void handlePlay(info.id, info.source, songlistState.listDetailInfo.list)
   }
 
+  const handleDownloadAll = () => {
+    const list = songlistState.listDetailInfo.list
+    if (!list?.length) {
+      toast(t('download_all_none'))
+      return
+    }
+    void confirmDialog({
+      message: t('download_all_confirm', { count: list.length }),
+      confirmButtonText: t('download_all'),
+    }).then((confirm) => {
+      if (!confirm) return
+      toast(t('download_all_started', { count: list.length }))
+      void downloadMusics(list as LX.Music.MusicInfo[]).then(({ success, failed }) => {
+        toast(t('download_all_done', { success, failed }), 'long')
+      }).catch((err: Error) => {
+        toast(err?.message ?? 'download failed', 'long')
+      })
+    })
+  }
+
   const handleCollection = () => {
     if (!songlistState.listDetailInfo.info.name) return
     void handleCollect(info.id, info.source, songlistState.listDetailInfo.info.name || info.name)
@@ -39,6 +60,9 @@ export default memo(() => {
       </Button>
       <Button onPress={handlePlayAll} style={styles.controlBtn}>
         <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('play_all')}</Text>
+      </Button>
+      <Button onPress={handleDownloadAll} style={styles.controlBtn}>
+        <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('download_all')}</Text>
       </Button>
       <Button onPress={back} style={styles.controlBtn}>
         <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('back')}</Text>
@@ -57,7 +81,7 @@ const styles = createStyle({
   controlBtn: {
     flexGrow: 1,
     flexShrink: 1,
-    width: '33%',
+    width: '25%',
     paddingTop: 12,
     paddingBottom: 12,
     paddingLeft: 10,

@@ -90,7 +90,8 @@ export default {
 // console.log(buildParams('207527604', false))
 // console.log(buildParams('207527604', true))
 
-const timeExp = /^\[([\d:.]*)\]{1}/g
+const timeExp = /^\[([\d:.]*)\]/
+const timeExpAll = /^\[[\d:.]*\]/g
 const existTimeExp = /\[\d{1,2}:.*\d{1,4}]/
 const lyricxTag = /^<-?\d+,-?\d+>/
 export default {
@@ -186,7 +187,7 @@ export default {
       const line = lines[i].trim()
       let result = timeExp.exec(line)
       if (result) {
-        const text = line.replace(timeExp, '').trim()
+        const text = line.replace(timeExpAll, '').trim()
         let time = RegExp.$1
         if (/\.\d\d$/.test(time)) time += '0'
         lrcArr.push({

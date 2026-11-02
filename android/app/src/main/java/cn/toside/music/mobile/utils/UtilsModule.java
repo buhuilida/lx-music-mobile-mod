@@ -262,6 +262,15 @@ public class UtilsModule extends ReactContextBaseJavaModule {
   }
 
   @ReactMethod
+  public void openLockScreenSettings(Promise promise) {
+    new Thread(() -> {
+      boolean result = NotificationPermissionUtil.openLockScreenSettings(
+        reactContext.getApplicationContext());
+      promise.resolve(result);
+    }).start();
+  }
+
+  @ReactMethod
   public void shareText(String shareTitle, String title, String text) {
     Intent shareIntent = new Intent(Intent.ACTION_SEND);
     shareIntent.setType("text/plain");

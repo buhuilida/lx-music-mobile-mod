@@ -2,10 +2,8 @@ package cn.toside.music.mobile.lyric;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.graphics.Color;
 import android.graphics.Typeface;
 import android.text.TextPaint;
-import android.text.TextUtils;
 import android.view.View;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
@@ -35,26 +33,13 @@ public final class LyricSwitchView extends TextSwitcher {
     this.isShowAnima = isShowAnima;
     this.isSingleLine = isSingleLine;
 
-    if (isSingleLine) {
-      viewArray = new ArrayList<>(2);
-      textView = new LyricTextView(context);
-      textView2 = new LyricTextView(context);
-      viewArray.add(textView);
-      viewArray.add(textView2);
-//      for (TextView v : viewArray) {
-//        v.setShadowLayer(0.1f, 0, 0, Color.BLACK);
-//      }
-    } else {
-      viewArray = new ArrayList<>(2);
-      textView = new TextView(context);
-      textView2 = new TextView(context);
-      viewArray.add(textView);
-      viewArray.add(textView2);
-      for (TextView v : viewArray) {
-//        v.setShadowLayer(0.2f, 0, 0, Color.BLACK);
-        v.setEllipsize(TextUtils.TruncateAt.END);
-      }
-    }
+    // 单行 / 多行都使用自绘的 LyricTextView（1.18.0）：
+    // 多行模式下也要支持逐字染色与翻译小字，普通 TextView 无法混排。
+    viewArray = new ArrayList<>(2);
+    textView = new LyricTextView(context);
+    textView2 = new LyricTextView(context);
+    viewArray.add(textView);
+    viewArray.add(textView2);
     setAnima();
     this.addView(textView);
     this.addView(textView2);

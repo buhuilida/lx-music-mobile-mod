@@ -339,7 +339,7 @@ export const removeListMusics = async(ids: string[]): Promise<void> => {
   // delaySaveListScrollPosition(global.lx.listScrollPosition)
 }
 
-export const qualitys = ['128k', '320k', 'flac', 'flac24bit']
+export const qualitys = ['128k', '320k', 'flac', 'flac24bit', 'hires', 'atmos', 'atmos_plus', 'master']
 export const hasMusicUrlByMusic = async(musicInfo: LX.Music.MusicInfo) => {
   return getDataMultiple(qualitys.map(q => `${storageDataPrefix.musicUrl}${musicInfo.id}_${q}`)).then((urls) => {
     return urls.some(([, url]) => !!url)

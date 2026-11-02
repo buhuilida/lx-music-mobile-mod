@@ -5,6 +5,7 @@ import IsShowLyric from './IsShowLyric'
 import IsLockLyric from './IsLockLyric'
 import IsShowToggleAnima from './IsShowToggleAnima'
 import IsSingleLine from './IsSingleLine'
+import IsShowTranslation from './IsShowTranslation'
 import TextSize from './TextSize'
 import ViewWidth from './ViewWidth'
 import MaxLineNum from './MaxLineNum'
@@ -24,6 +25,7 @@ export default memo(() => {
       <IsLockLyric />
       <IsShowToggleAnima />
       <IsSingleLine />
+      <IsShowTranslation />
       <Theme />
       <TextSize />
       <ViewWidth />

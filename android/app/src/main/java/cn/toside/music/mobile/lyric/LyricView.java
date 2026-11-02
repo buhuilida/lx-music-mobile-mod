@@ -390,10 +390,12 @@ public class LyricView extends Activity implements View.OnTouchListener {
     currentWords = words;
     if (textView == null) return;
     textView.setKaraokeWords(currentWords);
-    if (extendedLyrics.size() > 0 && maxLineNum > 1 && !isSingleLine) {
-      int num = maxLineNum - 1;
+    // 翻译 / 音译：单行模式也显示一行，多行模式最多补满剩余行数（1.18.0）
+    if (extendedLyrics.size() > 0 && (isSingleLine || maxLineNum > 1)) {
+      int num = isSingleLine ? 1 : maxLineNum - 1;
       StringBuilder textBuilder = new StringBuilder(text);
       for (String lrc : extendedLyrics) {
+        if (lrc == null || lrc.isEmpty()) continue;
         textBuilder.append("\n").append(lrc);
         if (--num < 1) break;
       }

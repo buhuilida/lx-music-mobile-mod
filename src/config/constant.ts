@@ -27,6 +27,7 @@ export enum COMPONENT_IDS {
   comment = 'comment',
   listenTogether = 'listenTogether',
   download = 'download',
+  localMusic = 'localMusic',
 }
 
 export enum NAV_SHEAR_NATIVE_IDS {

@@ -8,6 +8,7 @@ import { useI18n } from '@/lang'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import { TEST_SOURCES, testSource, type SourceTestId, type SourceTestResult } from '@/core/musicSourceTest'
+import { getQualityLabel } from '@/config/quality'
 
 const DEFAULT_KEYWORDS: Record<SourceTestId, string> = {
   kw: '晴天',
@@ -17,14 +18,6 @@ const DEFAULT_KEYWORDS: Record<SourceTestId, string> = {
   mg: '晴天',
 }
 
-const QUALITY_LABELS: Record<string, string> = {
-  '128k': '128K',
-  '192k': '192K',
-  '320k': '320K',
-  flac: 'FLAC',
-  flac24bit: 'Hi-Res',
-  master: 'Master',
-}
 
 /**
  * 音源测试（1.16.0，参照 LX-X）：按平台搜索一首歌，实测各档音质可用性，
@@ -71,7 +64,7 @@ export default memo(() => {
   const statusText = (result?: SourceTestResult) => {
     if (!result || result.status == 'idle') return t('setting_source_test_idle')
     if (result.status == 'testing') return t('setting_source_test_testing')
-    if (result.status == 'ok') return `[OK] ${QUALITY_LABELS[result.quality ?? ''] ?? result.quality}`
+    if (result.status == 'ok') return `[OK] ${getQualityLabel(result.quality)}`
     return `[FAIL] ${result.message ?? ''}`
   }
 

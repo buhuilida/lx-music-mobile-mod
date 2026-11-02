@@ -18,6 +18,7 @@ export const audioEffectModule = AudioEffect as {
   setBassBoost: (strength: number) => Promise<boolean>
   setVirtualizer: (strength: number) => Promise<boolean>
   setReverb: (preset: string) => Promise<boolean>
+  setLoudnessGain: (gain: number) => Promise<boolean>
 }
 
 /** 解析原生返回的均衡器信息（[bands, min, max, c0, l0, c1, l1 ...]） */

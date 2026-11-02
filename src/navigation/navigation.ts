@@ -8,6 +8,7 @@ import {
   COMMENT_SCREEN,
   LISTEN_TOGETHER_SCREEN,
   DOWNLOAD_SCREEN,
+  LOCAL_MUSIC_SCREEN,
   // SETTING_SCREEN,
 } from './screenNames'
 
@@ -666,6 +667,57 @@ export function pushDownloadScreen(componentId: string) {
           },
           layout: {
             componentBackgroundColor: theme['c-content-background'],
+          },
+        },
+      },
+    })
+  })
+}
+
+export function pushLocalMusicScreen(componentId: string) {
+  requestAnimationFrame(() => {
+    const theme = themeState.theme
+
+    void Navigation.push(componentId, {
+      component: {
+        name: LOCAL_MUSIC_SCREEN,
+        options: {
+          topBar: {
+            visible: false,
+            height: 0,
+            drawBehind: false,
+          },
+          statusBar: {
+            drawBehind: true,
+            visible: true,
+            style: getStatusBarStyle(theme.isDark),
+            backgroundColor: 'transparent',
+          },
+          navigationBar: {
+            backgroundColor: theme['c-content-background'],
+          },
+          layout: {
+            componentBackgroundColor: theme['c-content-background'],
+          },
+          animations: {
+            push: {
+              content: {
+                translationX: {
+                  from: windowSizeTools.getSize().width,
+                  to: 0,
+                  duration: 260,
+                },
+              },
+            },
+            pop: {
+              content: {
+                translationX: {
+                  from: 0,
+                  to: windowSizeTools.getSize().width,
+                  duration: 240,
+                },
+              },
+            },
           },
         },
       },

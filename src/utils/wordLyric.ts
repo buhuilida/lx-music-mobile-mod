@@ -147,3 +147,54 @@ export const parseWordLyric = (raw: string | null | undefined): WordLyricLine[] 
   lines.sort((a, b) => a.time - b.time)
   return lines
 }
+
+/**
+ * 自动生成逐字时间轴（1.17.1）
+ *
+ * 部分音源只返回普通 LRC（没有逐字标签），这里按「行时间 → 下一行时间」的间隔
+ * 平均分配给每个字，生成洛雪逐字格式 `[mm:ss.xx]<偏移ms,时长ms>字`，
+ * 让所有平台都能有卡拉 OK 式逐字滚动。
+ */
+const AUTO_LINE_TAG = /^\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?\]/
+
+const msToTag = (ms: number) => {
+  const total = Math.max(0, Math.round(ms))
+  const min = Math.floor(total / 60_000)
+  const sec = Math.floor((total % 60_000) / 1000)
+  const frac = total % 1000
+  return `[${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(frac).padStart(3, '0')}]`
+}
+
+export const buildAutoWordLyric = (lyric: string | null | undefined): string => {
+  if (!lyric) return ''
+  if (hasWordTags(lyric)) return ''
+  const parsed: Array<{ time: number, text: string }> = []
+  for (const raw of lyric.split(/\r\n|\n|\r/)) {
+    const line = raw.trim()
+    const m = AUTO_LINE_TAG.exec(line)
+    if (!m) continue
+    const text = stripWordTags(line.slice(m[0].length)).trim()
+    if (!text) continue
+    parsed.push({ time: tagToMs(m as RegExpMatchArray), text })
+  }
+  if (parsed.length < 2) return ''
+
+  const out: string[] = []
+  for (let i = 0; i < parsed.length; i++) {
+    const cur = parsed[i]
+    const next = parsed[i + 1]
+    let lineDuration = next ? next.time - cur.time : Math.min(cur.text.length * 220, 8000)
+    if (lineDuration < 300) lineDuration = 300
+    if (lineDuration > 12_000) lineDuration = 12_000
+    const chars = Array.from(cur.text)
+    const per = Math.max(60, Math.round(lineDuration / Math.max(chars.length, 1)))
+    let offset = 0
+    let body = ''
+    for (const ch of chars) {
+      body += `<${offset},${per}>${ch}`
+      offset += per
+    }
+    out.push(`${msToTag(cur.time)}${body}`)
+  }
+  return out.join('\n')
+}

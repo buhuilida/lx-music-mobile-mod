@@ -235,6 +235,7 @@ declare global {
        * 是否启用桌面歌词
        */
       'desktopLyric.enable': boolean
+      'desktopLyric.showTranslation': boolean
 
       /**
        * 是否锁定桌面歌词
@@ -424,7 +425,7 @@ declare global {
       /**
        * 音效预设：off / surround（全景环绕）/ cinema（电影院）/ hall（音乐厅）/ bass（低音增强）/ custom
        */
-      'player.audioEffectPreset': 'off' | 'surround' | 'cinema' | 'hall' | 'bass' | 'custom'
+      'player.audioEffectPreset': 'off' | 'vocal' | 'bass' | 'surround' | 'live' | 'electronic' | 'rock' | 'folk' | 'classical' | 'jazz' | 'cinema' | 'hall' | 'custom'
 
       /**
        * 低音增强强度（0 ~ 100，自定义预设）
@@ -445,6 +446,7 @@ declare global {
        * 自定义均衡器各频段电平（毫贝数组）
        */
       'player.audioEffectEq': number[]
+      'player.audioEffectLoudness': number
 
       /**
        * 下载文件命名格式：name-singer（歌名 - 歌手）/ singer-name（歌手 - 歌名）/ name（歌名）

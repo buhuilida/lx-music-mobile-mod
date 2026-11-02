@@ -9,6 +9,7 @@ import IsAutoCleanPlayedList from './IsAutoCleanPlayedList'
 import IsFailureFallback from './IsFailureFallback'
 import IsKeepScreenOn from './IsKeepScreenOn'
 import AudioEffect from './AudioEffect'
+import LockScreen from './LockScreen'
 import SourceTest from './SourceTest'
 import IsShowBluetoothLyric from './IsShowBluetoothLyric'
 import IsShowBluetoothFullLyric from './IsShowBluetoothFullLyric'
@@ -41,6 +42,7 @@ export default memo(() => {
       <SongNotify />
       <MaxCache />
       <PlayHighQuality />
+      <LockScreen />
       <AudioEffect />
       <SourceTest />
     </Section>

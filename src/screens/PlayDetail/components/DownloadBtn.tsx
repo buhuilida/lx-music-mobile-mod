@@ -8,18 +8,9 @@ import { useTheme } from '@/store/theme/hook'
 import { usePlayMusicInfo } from '@/store/player/hook'
 import { useDownloadList } from '@/store/download/hook'
 import { useI18n } from '@/lang'
-import { buildItemId, downloadMusic, getMusicQualities } from '@/core/download'
+import { buildItemId, downloadMusic, getBestQuality, getMusicQualities } from '@/core/download'
+import { getQualityLabel } from '@/config/quality'
 import { createStyle, toast } from '@/utils/tools'
-
-const qualityNames: Record<string, string> = {
-  '128k': '标准 128k',
-  '192k': '较高 192k',
-  '320k': '高品质 320k',
-  flac: '无损 FLAC',
-  flac24bit: 'Hi-Res FLAC',
-  ape: '无损 APE',
-  wav: '无损 WAV',
-}
 
 export default memo(() => {
   const t = useI18n()
@@ -69,6 +60,16 @@ export default memo(() => {
       </TouchableOpacity>
       <Popup ref={popupRef} title={t('download_select_quality')} position="bottom">
         <View style={styles.qualityList}>
+          {musicInfo
+            ? <TouchableOpacity
+                style={styles.qualityItem}
+                onPress={() => { startDownload(getBestQuality(musicInfo)) }}
+                activeOpacity={0.6}
+              >
+                <Text size={14} color={theme['c-primary-font']}>{t('download_best_quality')}</Text>
+                <Text size={11} color={theme['c-font-label']}>{getQualityLabel(getBestQuality(musicInfo))}</Text>
+              </TouchableOpacity>
+            : null}
           {qualities.map(quality => (
             <TouchableOpacity
               key={quality}
@@ -76,7 +77,7 @@ export default memo(() => {
               onPress={() => { startDownload(quality) }}
               activeOpacity={0.6}
             >
-              <Text size={14}>{qualityNames[quality] ?? quality}</Text>
+              <Text size={14}>{getQualityLabel(quality)}</Text>
               <Text size={11} color={theme['c-font-label']}>{`${musicInfo?.name ?? ''}`}</Text>
             </TouchableOpacity>
           ))}

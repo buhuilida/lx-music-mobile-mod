@@ -44,6 +44,9 @@ export const requestNotificationPermission = async() => new Promise<boolean>((re
   })
 })
 
+/** 打开系统「锁屏显示 / 通知管理」设置页（MIUI/HyperOS 优先直达） */
+export const openLockScreenSettings = UtilsModule.openLockScreenSettings as () => Promise<boolean>
+
 export const shareText = async(shareTitle: string, title: string, text: string): Promise<void> => {
   UtilsModule.shareText(shareTitle, title, text)
 }

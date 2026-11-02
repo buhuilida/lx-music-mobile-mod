@@ -22,7 +22,7 @@ export interface SourceTestResult {
   message?: string
 }
 
-const QUALITY_ORDER = ['128k', '192k', '320k', 'flac', 'flac24bit', 'master'] as const
+const QUALITY_ORDER = ['128k', '192k', '320k', 'flac', 'flac24bit', 'hires', 'atmos', 'atmos_plus', 'master'] as const
 
 const withTimeout = async<T>(promise: Promise<T>, ms: number): Promise<T> => {
   let timer: ReturnType<typeof setTimeout> | null = null

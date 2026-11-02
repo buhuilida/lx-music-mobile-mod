@@ -2,6 +2,7 @@ package cn.toside.music.mobile.audioeffect;
 
 import android.media.audiofx.BassBoost;
 import android.media.audiofx.Equalizer;
+import android.media.audiofx.LoudnessEnhancer;
 import android.media.audiofx.PresetReverb;
 import android.media.audiofx.Virtualizer;
 import android.util.Log;
@@ -33,7 +34,9 @@ public class AudioEffectModule extends ReactContextBaseJavaModule {
   private BassBoost bassBoost;
   private Virtualizer virtualizer;
   private PresetReverb reverb;
+  private LoudnessEnhancer loudnessEnhancer;
   private boolean effectEnabled = false;
+  private int loudnessGain = 0;
   private short reverbPreset = PresetReverb.PRESET_NONE;
 
   public AudioEffectModule(ReactApplicationContext reactContext) {
@@ -73,6 +76,14 @@ public class AudioEffectModule extends ReactContextBaseJavaModule {
         reverb = new PresetReverb(0, AUDIO_SESSION_GLOBAL);
       } catch (Exception err) {
         Log.w(TAG, "reverb unsupported: " + err);
+      }
+    }
+    if (loudnessEnhancer == null) {
+      try {
+        loudnessEnhancer = new LoudnessEnhancer(AUDIO_SESSION_GLOBAL);
+        loudnessEnhancer.setTargetGain(loudnessGain);
+      } catch (Exception err) {
+        Log.w(TAG, "loudness enhancer unsupported: " + err);
       }
     }
   }
@@ -136,6 +147,7 @@ public class AudioEffectModule extends ReactContextBaseJavaModule {
     try { if (bassBoost != null) bassBoost.setEnabled(enabled); } catch (Exception ignored) {}
     try { if (virtualizer != null) virtualizer.setEnabled(enabled); } catch (Exception ignored) {}
     try { if (reverb != null) reverb.setEnabled(enabled); } catch (Exception ignored) {}
+    try { if (loudnessEnhancer != null) loudnessEnhancer.setEnabled(enabled); } catch (Exception ignored) {}
   }
 
   private synchronized void releaseEffects() {
@@ -143,10 +155,12 @@ public class AudioEffectModule extends ReactContextBaseJavaModule {
     try { if (bassBoost != null) bassBoost.release(); } catch (Exception ignored) {}
     try { if (virtualizer != null) virtualizer.release(); } catch (Exception ignored) {}
     try { if (reverb != null) reverb.release(); } catch (Exception ignored) {}
+    try { if (loudnessEnhancer != null) loudnessEnhancer.release(); } catch (Exception ignored) {}
     equalizer = null;
     bassBoost = null;
     virtualizer = null;
     reverb = null;
+    loudnessEnhancer = null;
   }
 
   /** 设置某个均衡器频段电平（毫贝，范围见 getEqualizerInfo） */
@@ -196,6 +210,27 @@ public class AudioEffectModule extends ReactContextBaseJavaModule {
       promise.resolve(true);
     } catch (Exception err) {
       promise.reject("VIRTUAL_FAILED", err);
+    }
+  }
+
+  /**
+   * 响度增强（0 ~ 1500 毫贝，约 0 ~ 15dB）
+   * 对应大厂播放器的「响度均衡 / 音量增强」，在不削波的前提下提升小音量细节。
+   */
+  @ReactMethod
+  public void setLoudnessGain(int gain, Promise promise) {
+    try {
+      ensureEffects();
+      loudnessGain = Math.max(0, Math.min(1500, gain));
+      if (loudnessEnhancer == null) {
+        promise.resolve(false);
+        return;
+      }
+      loudnessEnhancer.setTargetGain(loudnessGain);
+      if (effectEnabled) loudnessEnhancer.setEnabled(true);
+      promise.resolve(true);
+    } catch (Exception err) {
+      promise.reject("LOUDNESS_FAILED", err);
     }
   }
 

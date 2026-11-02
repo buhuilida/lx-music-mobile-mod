@@ -130,6 +130,21 @@ public class LyricPlayer {
       .replaceAll(t_rxp_3, ".$1");
   }
 
+  /**
+   * 归一化时间键（1.18.0）
+   *
+   * LRC 的毫秒位可能是 2 位（[00:05.50]）或 3 位（[00:05.500]），
+   * 逐字歌词与翻译行如果精度不同就会匹配不上，这里统一补成 3 位。
+   */
+  private String normalizeTimeKey(String label) {
+    int dot = label.lastIndexOf('.');
+    if (dot < 0) return label + ".000";
+    String frac = label.substring(dot + 1);
+    if (frac.length() > 3) frac = frac.substring(0, 3);
+    while (frac.length() < 3) frac += "0";
+    return label.substring(0, dot + 1) + frac;
+  }
+
   private void parseExtendedLyric(HashMap linesMap, String extendedLyric) {
     String[] extendedLyricLines = extendedLyric.split("\r\n|\n|\r");
     for (String translationLine : extendedLyricLines) {
@@ -142,7 +157,7 @@ public class LyricPlayer {
           Matcher timeMatchResult = timePattern.matcher(timeField);
           while (timeMatchResult.find()) {
             String timeStr = timeMatchResult.group();
-            timeStr = formatTimeLabel(timeStr);
+            timeStr = normalizeTimeKey(formatTimeLabel(timeStr));
             HashMap targetLine = (HashMap) linesMap.get(timeStr);
             if (targetLine != null) ((ArrayList<String>) targetLine.get("extendedLyrics")).add(text);
           }
@@ -175,7 +190,7 @@ public class LyricPlayer {
         if (text.length() > 0) {
           Matcher timeMatchResult = timePattern.matcher(timeField);
           while (timeMatchResult.find()) {
-            String timeStr = formatTimeLabel(timeMatchResult.group());
+            String timeStr = normalizeTimeKey(formatTimeLabel(timeMatchResult.group()));
             if (linesMap.containsKey(timeStr)) {
               ((ArrayList<String>) ((HashMap) linesMap.get(timeStr)).get("extendedLyrics")).add(text);
               continue;
@@ -268,7 +283,7 @@ public class LyricPlayer {
 
       Matcher timeMatchResult = timePattern.matcher(timeField);
       while (timeMatchResult.find()) {
-        String timeStr = formatTimeLabel(timeMatchResult.group());
+        String timeStr = normalizeTimeKey(formatTimeLabel(timeMatchResult.group()));
         HashMap targetLine = linesMap.get(timeStr);
         if (targetLine == null) continue;
 

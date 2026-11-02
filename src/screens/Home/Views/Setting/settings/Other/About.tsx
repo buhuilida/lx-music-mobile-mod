@@ -1,5 +1,5 @@
 import { memo, useRef, useEffect } from 'react'
-import { View, TouchableOpacity, Image, ScrollView } from 'react-native'
+import { View, TouchableOpacity, Image } from 'react-native'
 
 import SubTitle from '../../components/SubTitle'
 import Text from '@/components/common/Text'
@@ -40,8 +40,8 @@ export default memo(() => {
   const theme = useTheme()
   const windowSize = useWindowSize()
   const sponsorModalRef = useRef<ModalType>(null)
-  // 赞助码按屏幕较小的一边自适应，避免弹窗里被裁剪（图太高时底部会被截断）
-  const sponsorSize = Math.min(windowSize.width - 96, windowSize.height * 0.5)
+  // 赞助码按屏幕较小的一边自适应，居中显示，避免弹窗里被裁剪
+  const sponsorSize = Math.max(160, Math.min(windowSize.width - 104, windowSize.height * 0.54))
 
   const openModHome = () => {
     void openUrl(MOD_HOME_URL)
@@ -95,14 +95,23 @@ export default memo(() => {
         }
       </View>
 
-      <Modal ref={sponsorModalRef} keyHide bgHide statusBarPadding>
-        <View style={{ ...styles.sponsorContent, width: windowSize.width, backgroundColor: theme['c-main-background'] }}>
-          <ScrollView contentContainerStyle={styles.sponsorScroll}>
+      <Modal ref={sponsorModalRef} keyHide bgHide statusBarPadding bgColor="rgba(0,0,0,0.55)">
+        <View style={styles.sponsorMask}>
+          {/* 卡片自身吃掉点击，避免点图片时被 Modal 背景关闭 */}
+          <TouchableOpacity
+            activeOpacity={1}
+            style={{ ...styles.sponsorCard, backgroundColor: theme['c-main-background'] }}
+            onPress={() => {}}
+          >
             <Text size={15} style={styles.sponsorTitle}>{t('about_sponsor_thanks')}</Text>
-            <Image source={sponsorImage} style={{ ...styles.sponsorImage, width: sponsorSize, height: sponsorSize }} resizeMode="contain" />
-          </ScrollView>
-          <TouchableOpacity style={styles.sponsorClose} activeOpacity={0.7} onPress={() => sponsorModalRef.current?.setVisible(false)}>
-            <Text size={14} color={theme['c-primary-font']}>{t('about_sponsor_close')}</Text>
+            <Image
+              source={sponsorImage}
+              style={{ ...styles.sponsorImage, width: sponsorSize, height: sponsorSize }}
+              resizeMode="contain"
+            />
+            <TouchableOpacity style={styles.sponsorClose} activeOpacity={0.7} onPress={() => sponsorModalRef.current?.setVisible(false)}>
+              <Text size={14} color={theme['c-primary-font']}>{t('about_sponsor_close')}</Text>
+            </TouchableOpacity>
           </TouchableOpacity>
         </View>
       </Modal>
@@ -126,14 +135,25 @@ const styles = createStyle({
     marginTop: 14,
     fontWeight: '600',
   },
-  sponsorContent: {
+  sponsorMask: {
     flex: 1,
-    justifyContent: 'center',
-  },
-  sponsorScroll: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+    padding: 16,
+  },
+  sponsorCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    paddingTop: 18,
+    paddingBottom: 6,
+    paddingHorizontal: 12,
+    // 阴影让卡片在深色遮罩上更有层次
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
   },
   sponsorTitle: {
     marginBottom: 12,
@@ -145,6 +165,6 @@ const styles = createStyle({
     alignSelf: 'center',
     paddingHorizontal: 30,
     paddingVertical: 10,
-    marginBottom: 40,
+    marginTop: 2,
   },
 })

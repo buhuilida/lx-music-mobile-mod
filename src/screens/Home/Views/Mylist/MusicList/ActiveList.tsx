@@ -6,13 +6,15 @@ import { BorderWidths } from '@/theme'
 import { useTheme } from '@/store/theme/hook'
 import { useActiveListId, useListFetching } from '@/store/list/hook'
 import listState from '@/store/list/state'
-import { createStyle } from '@/utils/tools'
+import { createStyle, toast } from '@/utils/tools'
 import { getListPrevSelectId } from '@/utils/data'
 import { setActiveList } from '@/core/list'
 import Text from '@/components/common/Text'
 import { LIST_IDS } from '@/config/constant'
 import Loading from '@/components/common/Loading'
 import { useSettingValue } from '@/store/setting/hook'
+import { downloadListMusics } from '@/core/download'
+import { useI18n } from '@/lang'
 
 export interface ActiveListProps {
   onShowSearchBar: () => void
@@ -24,6 +26,8 @@ export interface ActiveListType {
 
 export default forwardRef<ActiveListType, ActiveListProps>(({ onShowSearchBar, onScrollToTop }, ref) => {
   const theme = useTheme()
+  const t = useI18n()
+  const [downloading, setDownloading] = useState(false)
   const currentListId = useActiveListId()
   const fetching = useListFetching(currentListId)
   const langId = useSettingValue('common.langId')
@@ -48,6 +52,24 @@ export default forwardRef<ActiveListType, ActiveListProps>(({ onShowSearchBar, o
     },
   }))
 
+  const handleDownloadAll = () => {
+    if (downloading) return
+    const listId = currentListId
+    if (!listId || listId == LIST_IDS.TEMP) return
+    setDownloading(true)
+    void downloadListMusics(listId).then(({ total, success, failed }) => {
+      if (!total) {
+        toast(t('download_all_none'))
+        return
+      }
+      toast(t('download_all_done', { success, failed }), 'long')
+    }).catch((err: Error) => {
+      toast(err?.message ?? 'download failed', 'long')
+    }).finally(() => {
+      setDownloading(false)
+    })
+  }
+
   const showList = () => {
     global.app_event.changeLoveListVisible(true)
   }
@@ -63,6 +85,9 @@ export default forwardRef<ActiveListType, ActiveListProps>(({ onShowSearchBar, o
       <Icon style={styles.currentListIcon} color={theme['c-button-font']} name="chevron-right" size={12} />
       { fetching ? <Loading color={theme['c-button-font']} style={styles.loading} /> : null }
       <Text style={styles.currentListText} numberOfLines={1} color={theme['c-button-font']}>{currentListName}</Text>
+      <TouchableOpacity style={styles.currentListBtns} onPress={handleDownloadAll}>
+        <Icon color={downloading ? theme['c-350'] : theme['c-button-font']} name="download-2" />
+      </TouchableOpacity>
       <TouchableOpacity style={styles.currentListBtns} onPress={onShowSearchBar}>
         <Icon color={theme['c-button-font']} name="search-2" />
       </TouchableOpacity>

@@ -9,6 +9,7 @@ import {
   Comment,
   ListenTogether,
   Download,
+  LocalMusic,
   // Setting,
 } from '@/screens'
 import { Provider } from '@/store/Provider'
@@ -20,6 +21,7 @@ import {
   COMMENT_SCREEN,
   LISTEN_TOGETHER_SCREEN,
   DOWNLOAD_SCREEN,
+  LOCAL_MUSIC_SCREEN,
   VERSION_MODAL,
   PACT_MODAL,
   SYNC_MODE_MODAL,
@@ -50,6 +52,7 @@ export default () => {
   Navigation.registerComponent(COMMENT_SCREEN, () => WrappedComponent(Comment))
   Navigation.registerComponent(LISTEN_TOGETHER_SCREEN, () => WrappedComponent(ListenTogether))
   Navigation.registerComponent(DOWNLOAD_SCREEN, () => WrappedComponent(Download))
+  Navigation.registerComponent(LOCAL_MUSIC_SCREEN, () => WrappedComponent(LocalMusic))
   Navigation.registerComponent(VERSION_MODAL, () => WrappedComponent(VersionModal))
   Navigation.registerComponent(PACT_MODAL, () => WrappedComponent(PactModal))
   Navigation.registerComponent(SYNC_MODE_MODAL, () => WrappedComponent(SyncModeModal))

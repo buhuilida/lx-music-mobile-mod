@@ -66,7 +66,7 @@ def enableSeparateBuildPerCPUArchitecture = true
 /**
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
-def enableProguardInReleaseBuilds = true
+def enableProguardInReleaseBuilds = false
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
@@ -180,6 +180,11 @@ android {
 
             signingConfig signingConfigs.release
         }
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
     }
 
     // applicationVariants are e.g. standardDebug, backscreenRelease

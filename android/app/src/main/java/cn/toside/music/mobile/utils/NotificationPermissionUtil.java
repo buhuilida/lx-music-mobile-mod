@@ -16,6 +16,43 @@ import java.util.List;
 
 public class NotificationPermissionUtil {
 
+
+  /**
+   * 打开「锁屏显示」相关设置（1.18.0）
+   *
+   * MIUI / HyperOS 的锁屏显示开关位于「应用通知设置」页，使用 miui 私有 Action 可以直达；
+   * 其他 ROM 依次回退到原生通知设置、应用详情页。
+   */
+  public static boolean openLockScreenSettings(Context context) {
+    String packageName = context.getPackageName();
+    Intent[] candidates = new Intent[] {
+      new Intent("miui.intent.action.APP_NOTIFICATION_SETTINGS")
+        .putExtra("miui.intent.extra.APP_PACKAGE", packageName)
+        .putExtra("app_package", packageName)
+        .putExtra("app_uid", context.getApplicationInfo().uid),
+      new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+        .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+        .putExtra("app_package", packageName)
+        .putExtra("app_uid", context.getApplicationInfo().uid),
+      new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+        .setData(android.net.Uri.parse("package:" + packageName)),
+    };
+
+    PackageManager pm = context.getPackageManager();
+    for (Intent intent : candidates) {
+      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+      List<ResolveInfo> infos = pm.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
+      if (infos.isEmpty()) continue;
+      try {
+        context.startActivity(intent);
+        return true;
+      } catch (Exception e) {
+        Log.w("NotificationUtil", "Failed to open lock screen settings: " + intent.getAction(), e);
+      }
+    }
+    return false;
+  }
+
   /** 检查通知权限是否开启 */
   public static boolean isNotificationsEnabled(Context context) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

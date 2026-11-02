@@ -5,11 +5,13 @@ import {
 } from '@/utils/data'
 import { updateListMusics } from '@/core/list'
 import settingState from '@/store/setting/state'
+import playerState from '@/store/player/state'
 import playingInfoActions from '@/store/playingInfo/action'
 
 import {
   buildLyricInfo,
   getPlayQuality,
+  getSongQuality,
   handleGetOnlineLyricInfo,
   handleGetOnlineMusicUrl,
   handleGetOnlinePicUrl,
@@ -66,16 +68,53 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
   //   // return Promise.reject(new Error('该歌曲没有可播放的音频'))
   // }
   const targetQuality = quality ?? qualityOverride ?? getPlayQuality(settingState.setting['player.playQuality'], musicInfo)
-  const cachedUrl = await getStoreMusicUrl(musicInfo, targetQuality)
-  if (cachedUrl && !isRefresh) return cachedUrl
 
-  return handleGetOnlineMusicUrl({ musicInfo, quality: targetQuality, onToggleSource, isRefresh, allowToggleSource }).then(({ url, quality: targetQuality, musicInfo: targetMusicInfo, isFromCache }) => {
-    if (targetMusicInfo.id != musicInfo.id && !isFromCache) void saveMusicUrl(targetMusicInfo, targetQuality, url)
-    void saveMusicUrl(musicInfo, targetQuality, url)
+  // 只有当前正在播放的歌曲才更新播放页徽标，避免预加载/下载把别的歌的音质写进去
+  const applyPlayingInfo = (actualQuality: LX.Quality, source: LX.OnlineSource, requestedQuality: LX.Quality = targetQuality) => {
+    const current = playerState.playMusicInfo.musicInfo
+    if (current && current.id != musicInfo.id) return
+    playingInfoActions.setPlayingInfo(actualQuality, source, requestedQuality)
+  }
+
+  const cachedUrl = await getStoreMusicUrl(musicInfo, targetQuality)
+  if (cachedUrl && !isRefresh) {
+    // 命中缓存时也要更新徽标，否则切换音质后徽标会停留在上一首/上一次的结果
+    applyPlayingInfo(targetQuality, musicInfo.source)
+    return cachedUrl
+  }
+
+  const applyResult = ({ url, quality: actualQuality, musicInfo: targetMusicInfo, isFromCache }: {
+    url: string
+    quality: LX.Quality
+    musicInfo: LX.Music.MusicInfoOnline
+    isFromCache: boolean
+  }, requestedQuality: LX.Quality) => {
+    if (targetMusicInfo.id != musicInfo.id && !isFromCache) void saveMusicUrl(targetMusicInfo, actualQuality, url)
+    void saveMusicUrl(musicInfo, actualQuality, url)
     // 记录实际播放音质与音源（1.15.0 播放页徽标）
-    playingInfoActions.setPlayingInfo(targetQuality, targetMusicInfo.source)
+    applyPlayingInfo(actualQuality, targetMusicInfo.source, requestedQuality)
     return url
+  }
+
+  const fallbackQuality = getSongQuality(musicInfo)
+  // 用户设置的档位高于歌曲元信息里的档位（元信息可能是旧的），先按高档位请求，失败再快速回退
+  const isUpgraded = fallbackQuality != targetQuality
+
+  const request = async(requestQuality: LX.Quality, allowToggle = allowToggleSource) => handleGetOnlineMusicUrl({
+    musicInfo,
+    quality: requestQuality,
+    onToggleSource,
+    isRefresh,
+    allowToggleSource: allowToggle,
   })
+
+  // 升级档位的首次请求不做跨音源搜索，失败后立刻按歌曲自身档位重试，避免播放前长时间卡住
+  return request(targetQuality, isUpgraded ? false : allowToggleSource)
+    .then(res => applyResult(res, targetQuality))
+    .catch(async(err) => {
+      if (!isUpgraded) throw err
+      return request(fallbackQuality).then(res => applyResult(res, fallbackQuality)).catch(() => { throw err })
+    })
 }
 
 export const getPicUrl = async({ musicInfo, listId, isRefresh, allowToggleSource = true, onToggleSource = () => {} }: {

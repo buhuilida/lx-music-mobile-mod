@@ -5,7 +5,9 @@ import { existsFile, mkdir, privateStorageDirectoryPath, stat, unlink } from '@/
 import { checkStoragePermissions, requestStoragePermission, toast } from '@/utils/tools'
 import downloadState from '@/store/download/state'
 import downloadActions from '@/store/download/action'
+import { getListMusics } from '@/utils/listManage'
 import settingState from '@/store/setting/state'
+import { QUALITY_ORDER, getQualityFileExt } from '@/config/quality'
 
 const storageKey = '@__download_list__'
 
@@ -15,20 +17,7 @@ export const publicDownloadDirectoryPath = RNFS.DownloadDirectoryPath
 export const privateDownloadDirectoryPath = `${privateStorageDirectoryPath}/download`
 export const downloadDirectoryPath = privateDownloadDirectoryPath
 
-const fileExt = (quality: LX.Quality): string => {
-  switch (quality) {
-    case 'flac':
-    case 'flac24bit':
-    case 'master':
-      return 'flac'
-    case 'ape':
-      return 'ape'
-    case 'wav':
-      return 'wav'
-    default:
-      return 'mp3'
-  }
-}
+const fileExt = (quality: LX.Quality): string => getQualityFileExt(quality)
 
 const safeName = (name: string) => name.replace(/[\\/:*?"<>|]/g, '_').trim()
 
@@ -41,7 +30,7 @@ export const buildItemId = (musicInfo: LX.Music.MusicInfoOnline, quality: LX.Qua
  */
 export const getMusicQualities = (musicInfo: LX.Music.MusicInfoOnline): LX.Quality[] => {
   const qualitys = Object.keys(musicInfo.meta._qualitys ?? {}) as LX.Quality[]
-  const order: LX.Quality[] = ['128k', '192k', '320k', 'flac', 'flac24bit', 'master', 'ape', 'wav']
+  const order = QUALITY_ORDER
   const list = qualitys.filter(q => order.includes(q)).sort((a, b) => order.indexOf(a) - order.indexOf(b))
   if (list.length) return list
   // 没有音质信息时给出常见档位，实际下载时由音源自动降级
@@ -236,6 +225,64 @@ export const downloadMusic = async(musicInfo: LX.Music.MusicInfoOnline, quality:
     updateTask(id, { status: 'error', message: err?.message ?? 'download failed' })
     return false
   }
+}
+
+/**
+ * 取歌曲可用的最高音质（用于「一键下载全部」「最高音质下载」）
+ */
+export const getBestQuality = (musicInfo: LX.Music.MusicInfoOnline): LX.Quality => {
+  const qualitys = Object.keys(musicInfo.meta?._qualitys ?? {}) as LX.Quality[]
+  if (!qualitys.length) return '320k'
+  const list = getMusicQualities(musicInfo)
+  return list[list.length - 1] ?? '320k'
+}
+
+/**
+ * 一键下载一组歌曲（1.17.1）
+ * - 自动跳过本地歌曲与已下载过的歌曲
+ * - 不指定音质时逐首取「最高可用音质」
+ * - 并发 3 首，避免同时开太多连接被音源限流
+ */
+export const downloadMusics = async(musics: LX.Music.MusicInfo[], options: {
+  quality?: LX.Quality
+  onProgress?: (done: number, total: number) => void
+} = {}): Promise<{ total: number, success: number, failed: number }> => {
+  const downloadedIds = new Set(downloadState.list.map(item => item.musicInfo.id))
+  const targets = musics.filter((musicInfo) => {
+    if (musicInfo.source == 'local') return false
+    if (downloadedIds.has(musicInfo.id)) return false
+    return true
+  }) as LX.Music.MusicInfoOnline[]
+
+  const result = { total: targets.length, success: 0, failed: 0 }
+  if (!targets.length) return result
+
+  let cursor = 0
+  let done = 0
+  const worker = async() => {
+    while (cursor < targets.length) {
+      const musicInfo = targets[cursor++]
+      const quality = options.quality ?? getBestQuality(musicInfo)
+      const ok = await downloadMusic(musicInfo, quality).catch(() => false)
+      if (ok) result.success++
+      else result.failed++
+      done++
+      options.onProgress?.(done, targets.length)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(3, targets.length) }, worker))
+  return result
+}
+
+/**
+ * 一键下载整个歌单
+ */
+export const downloadListMusics = async(listId: string, options: {
+  quality?: LX.Quality
+  onProgress?: (done: number, total: number) => void
+} = {}) => {
+  const musics = await getListMusics(listId)
+  return downloadMusics(musics, options)
 }
 
 export const removeDownload = async(id: string) => {

@@ -7,6 +7,7 @@ import {
 } from '@/utils/data'
 import { langS2T, toNewMusicInfo, toOldMusicInfo } from '@/utils'
 import { assertApiSupport } from '@/utils/tools'
+import { buildAutoWordLyric } from '@/utils/wordLyric'
 import settingState from '@/store/setting/state'
 import { requestMsg } from '@/utils/message'
 import BackgroundTimer from 'react-native-background-timer'
@@ -76,7 +77,13 @@ export const getOtherSource = async(musicInfo: LX.Music.MusicInfo | LX.Download.
 }
 
 
-export const buildLyricInfo = async(lyricInfo: MakeOptional<LX.Player.LyricInfo, 'rawlrcInfo'>): Promise<LX.Player.LyricInfo> => {
+export const buildLyricInfo = async(_lyricInfo: MakeOptional<LX.Player.LyricInfo, 'rawlrcInfo'>): Promise<LX.Player.LyricInfo> => {
+  // 没有逐字歌词的音源，按行时间自动生成逐字时间轴，保证所有平台都能逐字滚动（1.17.1）
+  let lyricInfo = _lyricInfo
+  if (!lyricInfo.lxlyric && lyricInfo.lyric) {
+    const auto = buildAutoWordLyric(lyricInfo.lyric)
+    if (auto) lyricInfo = { ...lyricInfo, lxlyric: auto }
+  }
   if (!settingState.setting['player.isS2t']) {
     // @ts-expect-error
     if (lyricInfo.rawlrcInfo) return lyricInfo
@@ -213,20 +220,34 @@ export const getOnlineOtherSourcePicByLocal = async(musicInfo: LX.Music.MusicInf
   })
 }
 
-export const TRY_QUALITYS_LIST = ['master', 'flac24bit', 'flac', '320k'] as const
+export const TRY_QUALITYS_LIST = ['master', 'atmos_plus', 'atmos', 'hires', 'flac24bit', 'flac', '320k'] as const
 type TryQualityType = typeof TRY_QUALITYS_LIST[number]
+
+/** 歌曲自身元信息里支持的最高档位（不看音源声明） */
+export const getSongQuality = (musicInfo: LX.Music.MusicInfoOnline): LX.Quality => {
+  const qualitys = musicInfo.meta?._qualitys ?? {}
+  return TRY_QUALITYS_LIST.find(q => qualitys[q]) ?? '128k'
+}
+
 export const getPlayQuality = (highQuality: LX.Quality, musicInfo: LX.Music.MusicInfoOnline): LX.Quality => {
-  let type: LX.Quality = '128k'
-  if (TRY_QUALITYS_LIST.includes(highQuality as TryQualityType)) {
-    let list = global.lx.qualityList[musicInfo.source]
+  if (!TRY_QUALITYS_LIST.includes(highQuality as TryQualityType)) return '128k'
+  const startIndex = TRY_QUALITYS_LIST.indexOf(highQuality as TryQualityType)
+  const candidates = TRY_QUALITYS_LIST.slice(startIndex)
+  const list = global.lx.qualityList[musicInfo.source]
+  const qualitys = musicInfo.meta?._qualitys ?? {}
 
-    let t = TRY_QUALITYS_LIST
-      .slice(TRY_QUALITYS_LIST.indexOf(highQuality as TryQualityType))
-      .find(q => musicInfo.meta._qualitys[q] && list?.includes(q))
+  // 1. 歌曲元信息与音源都支持该档位，直接使用
+  const both = candidates.find(q => qualitys[q] && list?.includes(q))
+  if (both) return both
 
-    if (t) type = t
-  }
-  return type
+  // 2. 歌曲元信息可能是加入歌单时缓存的旧数据（那时音源还没开放母带等高档位），
+  //    只要音源声明支持，就按用户设置的档位请求，实际音质由音源返回
+  //    （1.17.1 修复：设置母带却一直播 FLAC）
+  const supported = candidates.find(q => list?.includes(q))
+  if (supported) return supported
+
+  // 3. 音源信息还没初始化时，退回歌曲自身支持的档位
+  return candidates.find(q => qualitys[q]) ?? '128k'
 }
 
 export const getOnlineOtherSourceMusicUrl = async({ musicInfos, quality, onToggleSource, isRefresh, retryedSource = [] }: {

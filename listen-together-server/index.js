@@ -13,6 +13,7 @@ const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
 const { WebSocketServer } = require('ws')
+const { handleAdminApi } = require('./admin')
 
 const PORT = parseInt(process.env.PORT || '23333', 10)
 const HOST = process.env.HOST || '0.0.0.0'
@@ -798,6 +799,12 @@ const server = http.createServer((req, res) => {
   if (pathname === '/favicon.ico') {
     res.writeHead(204, { 'Access-Control-Allow-Origin': '*' })
     res.end()
+    return
+  }
+
+  // 下载站管理后台（/admin 页面重定向 + /api/admin/* 接口，内部自带鉴权）
+  if (pathname === '/admin' || pathname.startsWith('/api/admin/')) {
+    void handleAdminApi(req, res, pathname)
     return
   }
 

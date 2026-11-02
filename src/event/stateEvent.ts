@@ -128,8 +128,8 @@ export class StateEvent extends Event {
   }
 
   /** 当前实际播放音质/音源变化（1.15.0 音质徽标） */
-  playingInfoUpdated(quality: string, source: string) {
-    this.emit('playingInfoUpdated', quality, source)
+  playingInfoUpdated(quality: string, source: string, requested?: string) {
+    this.emit('playingInfoUpdated', quality, source, requested)
   }
 
   listenTogetherRoomUpdated(room: ListenTogetherState['room'], selfId: ListenTogetherState['selfId'], isHost: ListenTogetherState['isHost']) {

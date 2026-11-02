@@ -128,7 +128,11 @@ export const lrcTools = {
         words = ''
       }
       const wordTimes = words.match(this.rxps.wordTimeAll)
-      if (!wordTimes) return
+      if (!wordTimes) {
+        // 没有逐字标签的行（前奏/纯文本行）也要保留，否则逐字歌词会缺行
+        if (words) this.lines.push(time + words)
+        return
+      }
       // console.log(wordTimes)
       let preTimeInfo
       for (const timeStr of wordTimes) {

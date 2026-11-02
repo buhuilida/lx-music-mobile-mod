@@ -4,35 +4,47 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import android.util.Log;
 import android.view.Gravity;
 import android.widget.TextView;
 
 import java.util.ArrayList;
 
-// https://github.com/Block-Network/StatusBarLyric/blob/main/app/src/main/java/statusbar/lyric/view/LyricTextView.kt
+/**
+ * 桌面歌词文本视图（1.18.0）
+ *
+ * 在原「单行 + 卡拉OK」基础上支持多行：第一行是歌词本体（可逐字染色），
+ * 之后的每一行是翻译 / 音译，使用更小的字号画在歌词正下方，
+ * 与网易云等主流播放器的桌面歌词观感一致。
+ *
+ * 注意：TextView 自带的 Layout 不支持这种混排，所以绘制全部由 onDraw 接管。
+ */
 @SuppressLint("AppCompatCustomView")
 public class LyricTextView extends TextView {
+  /** 翻译行相对主歌词的字号比例 */
+  private static final float TRANSLATION_SCALE = 0.64F;
+  private static final float SPEED_LIMIT = 0.135F;
+  public static final int startScrollDelay = 1500;
+  public static final int invalidateDelay = 10;
+  public static final int karaokeInvalidateDelay = 33;
+
   private boolean isStop = true;
   private float textLength = 0F;
   private float viewWidth = 0F;
   private float viewHeight = 0F;
-  private final float SPEED_LIMIT = 0.135F;
   private float speed;
   private float xx = 0F;
   private int gravityVertical = Gravity.TOP;
   private int gravityHorizontal = Gravity.CENTER;
-  private float y = 0F;
   private String text = null;
+
   private final Paint mPaint;
   private final Paint playedPaint;
   private final Paint unplayedPaint;
+  private final Paint translationPaint;
+
   private final Runnable mStartScrollRunnable;
   private final Runnable invalidateRunnable;
   private final Runnable karaokeInvalidateRunnable;
-  public static final int startScrollDelay = 1500;
-  public static final int invalidateDelay = 10;
-  public static final int karaokeInvalidateDelay = 33;
 
   /** 逐字卡拉OK：words 每项 {charStart, charEnd, startMs, endMs} */
   private ArrayList<long[]> words = null;
@@ -51,6 +63,8 @@ public class LyricTextView extends TextView {
     mPaint = getPaint();
     playedPaint = new Paint(mPaint);
     unplayedPaint = new Paint(mPaint);
+    translationPaint = new Paint(mPaint);
+    translationPaint.setTextSize(mPaint.getTextSize() * TRANSLATION_SCALE);
     speed = SPEED_LIMIT * getTextSize();
   }
 
@@ -71,30 +85,41 @@ public class LyricTextView extends TextView {
 
   public void setUnplayedPaintColor(int color) {
     unplayedPaint.setColor(color);
+    translationPaint.setColor(color);
+    translationPaint.setAlpha(200);
     if (words != null) postInvalidate();
   }
 
   public void setTextPaintSize(float size) {
     playedPaint.setTextSize(size);
     unplayedPaint.setTextSize(size);
+    translationPaint.setTextSize(size * TRANSLATION_SCALE);
+  }
+
+  private static String mainLineOf(String text) {
+    if (text == null) return "";
+    int index = text.indexOf('\n');
+    return index < 0 ? text : text.substring(0, index);
   }
 
   /** 计算已演唱部分的像素宽度 */
-  private float computePlayedWidth(String str, int nowMs) {
+  private float computePlayedWidth(String mainLine, int nowMs) {
     if (words == null) return 0F;
     float width = 0F;
     for (long[] word : words) {
       int charStart = (int) word[0];
       int charEnd = (int) word[1];
+      if (charStart >= mainLine.length()) break;
+      if (charEnd > mainLine.length()) charEnd = mainLine.length();
       long startMs = word[2];
       long endMs = word[3];
       if (nowMs >= endMs) {
-        width += mPaint.measureText(str, charStart, charEnd);
+        width += mPaint.measureText(mainLine, charStart, charEnd);
         continue;
       }
       if (nowMs > startMs && endMs > startMs) {
         float frac = (nowMs - startMs) / (float) (endMs - startMs);
-        width += mPaint.measureText(str, charStart, charEnd) * frac;
+        width += mPaint.measureText(mainLine, charStart, charEnd) * frac;
       }
       break;
     }
@@ -104,7 +129,6 @@ public class LyricTextView extends TextView {
   private void init() {
     xx = 0.0F;
     textLength = getTextLength();
-    // viewWidth = (float) getWidth();
   }
 
   @Override
@@ -125,7 +149,11 @@ public class LyricTextView extends TextView {
 
   @Override
   public void setTextColor(int color) {
-    if (mPaint != null) mPaint.setColor(color);
+    if (mPaint != null) {
+      mPaint.setColor(color);
+      translationPaint.setColor(color);
+      translationPaint.setAlpha(200);
+    }
     postInvalidate();
   }
 
@@ -134,6 +162,7 @@ public class LyricTextView extends TextView {
     if (mPaint != null) mPaint.setShadowLayer(radius, dx, dy, shadowColor);
     playedPaint.setShadowLayer(radius, dx, dy, shadowColor);
     unplayedPaint.setShadowLayer(radius, dx, dy, shadowColor);
+    translationPaint.setShadowLayer(radius, dx, dy, shadowColor);
     post(mStartScrollRunnable);
   }
 
@@ -158,7 +187,6 @@ public class LyricTextView extends TextView {
   public void setHeight(int pixels) {
     super.setHeight(pixels);
     viewHeight = pixels;
-    y = getDrawY();
     if (text == null) return;
     post(mStartScrollRunnable);
   }
@@ -175,35 +203,84 @@ public class LyricTextView extends TextView {
     gravityVertical = gravity & Gravity.VERTICAL_GRAVITY_MASK;
     gravityHorizontal = gravity & Gravity.RELATIVE_HORIZONTAL_GRAVITY_MASK;
 
-    y = getDrawY();
-    // Log.d("Lyric", "gravityVertical: " + gravityVertical + " gravityHorizontal: " + gravityHorizontal);
-
     if (text == null) return;
     post(mStartScrollRunnable);
+  }
+
+  private static float lineHeight(Paint paint) {
+    Paint.FontMetrics metrics = paint.getFontMetrics();
+    return metrics.bottom - metrics.top;
+  }
+
+  /** 单行水平位置：放得下就按对齐方式，放不下就从左侧开始（跟随滚动） */
+  private float getLineX(String line, Paint paint) {
+    float width = paint.measureText(line);
+    if (width < viewWidth) {
+      switch (gravityHorizontal) {
+        case Gravity.CENTER_HORIZONTAL:
+          return (viewWidth - width) / 2;
+        case Gravity.END:
+          return viewWidth - width;
+        default:
+          return 0;
+      }
+    }
+    return xx;
   }
 
   @Override
   protected void onDraw(Canvas canvas) {
     float mSpeed = speed;
     if (text != null) {
-      float drawX = getDrawX();
-      boolean karaoke = words != null && karaokeClock != null && text.length() > 0;
+      String[] lines = text.split("\n", -1);
+      String mainLine = lines.length > 0 ? lines[0] : "";
+      int extraCount = lines.length - 1;
+
+      float mainHeight = lineHeight(mPaint);
+      float transHeight = lineHeight(translationPaint);
+      float totalHeight = mainHeight + extraCount * transHeight;
+
+      float startY;
+      switch (gravityVertical) {
+        case Gravity.CENTER_VERTICAL:
+          startY = (viewHeight - totalHeight) / 2F - mPaint.getFontMetrics().top;
+          break;
+        case Gravity.BOTTOM:
+          startY = viewHeight - totalHeight - mPaint.getFontMetrics().top;
+          break;
+        default:
+          startY = -mPaint.getFontMetrics().ascent;
+          break;
+      }
+
+      float drawX = getLineX(mainLine, mPaint);
+      boolean karaoke = words != null && karaokeClock != null && mainLine.length() > 0;
       if (karaoke) {
         // 逐字卡拉OK：先画未唱颜色，再裁剪叠加已唱颜色
         int now = karaokeClock.now();
-        canvas.drawText(text, drawX, y, unplayedPaint);
-        float playedWidth = computePlayedWidth(text, now);
+        canvas.drawText(mainLine, drawX, startY, unplayedPaint);
+        float playedWidth = computePlayedWidth(mainLine, now);
         if (playedWidth > 0F) {
           canvas.save();
           canvas.clipRect(drawX, 0F, drawX + playedWidth, getHeight());
-          canvas.drawText(text, drawX, y, playedPaint);
+          canvas.drawText(mainLine, drawX, startY, playedPaint);
           canvas.restore();
         }
         if (karaokeClock.playing()) postDelayed(karaokeInvalidateRunnable, karaokeInvalidateDelay);
       } else {
-        canvas.drawText(text, drawX, y, mPaint);
+        canvas.drawText(mainLine, drawX, startY, mPaint);
       }
-      if (getText().length() >= 20) {
+
+      // 翻译 / 音译行：小字号、略淡，居中画在歌词下方
+      float lineY = startY;
+      for (int i = 1; i < lines.length; i++) {
+        lineY += transHeight;
+        String line = lines[i];
+        if (line.isEmpty()) continue;
+        canvas.drawText(line, getLineX(line, translationPaint), lineY, translationPaint);
+      }
+
+      if (mainLine.length() >= 20) {
         mSpeed += mSpeed;
       }
     }
@@ -218,7 +295,6 @@ public class LyricTextView extends TextView {
 
       invalidateAfter();
     }
-
   }
 
   private void invalidateAfter() {
@@ -239,52 +315,8 @@ public class LyricTextView extends TextView {
   }
 
   private float getTextLength() {
-    return mPaint == null ? 0.0F : mPaint.measureText(text);
-  }
-
-  private float getDrawY() {
-    Paint.FontMetrics fontMetrics = mPaint.getFontMetrics();
-    float top = fontMetrics.top;
-    float bottom = fontMetrics.bottom;
-    float ascent = fontMetrics.ascent;
-    // float descent = fontMetrics.descent;
-
-    float y;
-
-    // float y = Math.abs(mPaint.ascent() + mPaint.descent()) / 2;
-    switch (gravityVertical) {
-      case Gravity.CENTER_VERTICAL:
-        y = viewHeight / 2F + (bottom - top) / 2 - bottom;
-        break;
-      case Gravity.BOTTOM:
-        y = viewHeight - bottom;
-        break;
-      default:
-        y = -ascent;
-        break;
-    }
-    return y;
-  }
-
-  private float getDrawX() {
-    float x;
-    if (textLength < viewWidth) {
-      switch (gravityHorizontal) {
-        case Gravity.CENTER_HORIZONTAL:
-          x = (viewWidth - textLength) / 2;
-          break;
-        case Gravity.END:
-          x = viewWidth - textLength;
-          break;
-        default:
-          x = 0;
-          break;
-      }
-      isStop = true;
-    } else {
-      x = xx;
-    }
-    return x;
+    if (mPaint == null) return 0F;
+    return mPaint.measureText(mainLineOf(text));
   }
 
   // public void setSpeed(float speed) {
