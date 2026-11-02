@@ -149,7 +149,7 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
     // 播放失败兜底：在线地址拿不到时，尝试播放本地已下载的同一首歌（1.15.0 移植自 LX-X）
     if (settingState.setting['player.failureFallback'] && !diffCurrentMusicInfo(musicInfo)) {
       const localItem = findDownload(musicInfo.id)
-      if (localItem && localItem.filePath && localItem.filePath.length > 0) {
+      if (localItem?.filePath?.length) {
         const exists = await existsFile(localItem.filePath).catch(() => false)
         if (exists) {
           setStatusText(global.i18n.t('player__fallback_local'))

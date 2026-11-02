@@ -209,6 +209,10 @@ const viewMap = {
   nav_listen: 0,
   // 本地音乐点击后跳到歌单视图并选中「本地音乐」列表（1.17 侧边栏入口）
   nav_local: 1,
+  // 我的音乐 / 在线歌单 / 平台设置都是独立 push 页面，仅用于类型完整
+  nav_mine: 1,
+  nav_online: 1,
+  nav_platform: 5,
   nav_setting: 5,
 }
 const indexMap = [

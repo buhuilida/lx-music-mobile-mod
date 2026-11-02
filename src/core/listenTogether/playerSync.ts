@@ -8,9 +8,11 @@ import { getMusicUrl } from '@/core/music'
 import { setQualityOverride } from '@/core/music/online'
 import { findMusic } from '@/utils/musicSdk'
 import BackgroundTimer from 'react-native-background-timer'
+import { setRemoteMusicUrl, clearRemoteMusicUrl } from '@/core/player/remoteUrl'
 import client from './instance'
 
-const BROADCAST_INTERVAL = 4_000
+// 房间状态广播间隔：2 秒足够让两端进度贴合，又不会把服务端刷爆
+const BROADCAST_INTERVAL = 2_000
 /** 音频直链缓存时长：部分音源链接会过期，过久复用会导致网页端 403 */
 const URL_TTL = 5 * 60 * 1000
 /** 取直链最多等这么久，避免拖慢播放状态广播 */
@@ -296,6 +298,27 @@ const findPlayableMusic = async(snapshot: LX.ListenTogether.MusicSnapshot): Prom
   return null
 }
 
+/**
+ * 没有本地音源时用房间快照构造一个占位歌曲
+ * 播放地址由 remoteUrl 缓存提供，因此不需要本地音源支持
+ */
+const buildPlaceholderMusic = (snapshot: LX.ListenTogether.MusicSnapshot): LX.Music.MusicInfoOnline => {
+  return {
+    id: snapshot.id,
+    name: snapshot.name,
+    singer: snapshot.singer,
+    source: snapshot.source,
+    interval: snapshot.interval ?? undefined,
+    meta: {
+      songId: snapshot.id,
+      albumName: snapshot.album,
+      picUrl: snapshot.picUrl ?? '',
+      qualitys: [],
+      _qualitys: {},
+    },
+  } as unknown as LX.Music.MusicInfoOnline
+}
+
 const switchToRemoteMusic = async(remote: LX.ListenTogether.PlaybackState, receivedAt: number) => {
   const snapshot = remote.music
   if (!snapshot) return
@@ -304,8 +327,13 @@ const switchToRemoteMusic = async(remote: LX.ListenTogether.PlaybackState, recei
   switchingKey = key
 
   ltActions.setSyncStatus('syncing', snapshot.name)
+  // 房主已经解析好直链：直接落到缓存，成员端即使没有这个音源也能播放
+  if (snapshot.url) setRemoteMusicUrl(snapshot.source, snapshot.id, snapshot.url)
+
   let musicInfo: LX.Music.MusicInfo | null = snapshot.musicInfo
-  if (!musicInfo) musicInfo = await findPlayableMusic(snapshot)
+  if (!musicInfo) {
+    musicInfo = snapshot.url ? buildPlaceholderMusic(snapshot) : await findPlayableMusic(snapshot)
+  }
 
   if (!musicInfo) {
     if (switchingKey == key) switchingKey = ''
@@ -349,6 +377,8 @@ export const applyRemoteState = (remote: LX.ListenTogether.PlaybackState | null,
     return
   }
   ltActions.setPlayback(remote)
+  // 每次收到状态都刷新一次直链缓存（音源地址可能中途换签名）
+  if (remote.music?.url) setRemoteMusicUrl(remote.music.source, remote.music.id, remote.music.url)
   // 房间音质以房主为准
   applyRoomQuality(remote.quality)
   if (!remote.music) {
@@ -497,6 +527,7 @@ export const resetPlayerSync = () => {
   fallbackTried.clear()
   urlCache.clear()
   urlPending.clear()
+  clearRemoteMusicUrl()
   lastBroadcast = { position: 0, at: 0 }
   remoteApplyAt = 0
   suppressControlUntil = 0

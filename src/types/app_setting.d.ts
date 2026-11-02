@@ -457,6 +457,14 @@ declare global {
        * 下载完成后同时保存同名 .lrc 歌词文件
        */
       'download.saveLrcFile': boolean
+      /** 自定义下载目录，空字符串表示自动（系统 Download 目录，无权限时用私有目录） */
+      'download.savePath': string
+      /** 同时下载的任务数 1-5 */
+      'download.concurrency': number
+      /** 各平台账号 Cookie（用于在线歌单 / 私有歌单） */
+      'platform.wyCookie': string
+      'platform.txCookie': string
+      'platform.kgCookie': string
 
       /**
        * 是否开启听歌播报（切歌时语音播报歌名与歌手）

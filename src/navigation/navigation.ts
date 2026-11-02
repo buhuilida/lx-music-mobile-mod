@@ -9,6 +9,16 @@ import {
   LISTEN_TOGETHER_SCREEN,
   DOWNLOAD_SCREEN,
   LOCAL_MUSIC_SCREEN,
+  ONLINE_SONGLIST_SCREEN,
+  PLATFORM_SETTING_SCREEN,
+  DIRECTORY_PICKER_SCREEN,
+  NETEASE_MINE_SCREEN,
+  NETEASE_DAILY_SCREEN,
+  NETEASE_FOLLOWED_SCREEN,
+  NETEASE_CLOUD_SCREEN,
+  NETEASE_LIKED_SCREEN,
+  NETEASE_PLAYLISTS_SCREEN,
+  NETEASE_ARTIST_SCREEN,
   // SETTING_SCREEN,
 } from './screenNames'
 
@@ -723,4 +733,102 @@ export function pushLocalMusicScreen(componentId: string) {
       },
     })
   })
+}
+
+
+/**
+ * 通用全屏页面（无原生顶栏，由页面自绘头部）
+ */
+function pushFullScreen(componentId: string, name: string, passProps?: Record<string, any>) {
+  requestAnimationFrame(() => {
+    const theme = themeState.theme
+    const width = windowSizeTools.getSize().width
+
+    void Navigation.push(componentId, {
+      component: {
+        name,
+        passProps,
+        options: {
+          topBar: {
+            visible: false,
+            height: 0,
+            drawBehind: false,
+          },
+          statusBar: {
+            drawBehind: true,
+            visible: true,
+            style: getStatusBarStyle(theme.isDark),
+            backgroundColor: 'transparent',
+          },
+          navigationBar: {
+            backgroundColor: theme['c-content-background'],
+          },
+          layout: {
+            componentBackgroundColor: theme['c-content-background'],
+          },
+          animations: {
+            push: {
+              content: {
+                translationX: {
+                  from: width,
+                  to: 0,
+                  duration: 260,
+                },
+              },
+            },
+            pop: {
+              content: {
+                translationX: {
+                  from: 0,
+                  to: width,
+                  duration: 240,
+                },
+              },
+            },
+          },
+        },
+      },
+    })
+  })
+}
+
+export function pushOnlineSonglistScreen(componentId: string) {
+  pushFullScreen(componentId, ONLINE_SONGLIST_SCREEN)
+}
+
+export function pushPlatformSettingScreen(componentId: string) {
+  pushFullScreen(componentId, PLATFORM_SETTING_SCREEN)
+}
+
+export function pushDirectoryPickerScreen(componentId: string, initialPath?: string) {
+  pushFullScreen(componentId, DIRECTORY_PICKER_SCREEN, { initialPath })
+}
+
+
+export function pushNeteaseMineScreen(componentId: string) {
+  pushFullScreen(componentId, NETEASE_MINE_SCREEN)
+}
+
+export function pushDailyRecScreen(componentId: string) {
+  pushFullScreen(componentId, NETEASE_DAILY_SCREEN)
+}
+
+export function pushFollowedArtistsScreen(componentId: string) {
+  pushFullScreen(componentId, NETEASE_FOLLOWED_SCREEN)
+}
+
+export function pushCloudDiskScreen(componentId: string) {
+  pushFullScreen(componentId, NETEASE_CLOUD_SCREEN)
+}
+
+export function pushLikedSongsScreen(componentId: string) {
+  pushFullScreen(componentId, NETEASE_LIKED_SCREEN)
+}
+
+export function pushMyPlaylistsScreen(componentId: string) {
+  pushFullScreen(componentId, NETEASE_PLAYLISTS_SCREEN)
+}
+
+export function pushArtistSongsScreen(componentId: string, artistId: string | number, artistName?: string) {
+  pushFullScreen(componentId, NETEASE_ARTIST_SCREEN, { artistId, artistName })
 }

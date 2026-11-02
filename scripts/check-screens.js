@@ -31,6 +31,10 @@ const pushed = new Set()
 for (const m of nav.matchAll(/Navigation\.push\([^,]+,\s*\{[\s\S]{0,400}?name:\s*([A-Z0-9_]+_SCREEN)/g)) {
   pushed.add(m[1])
 }
+// 统一走 pushFullScreen 的页面（1.19+）
+for (const m of nav.matchAll(/pushFullScreen\([^,]+,\s*([A-Z0-9_]+_SCREEN)/g)) {
+  pushed.add(m[1])
+}
 
 const pascal = (name) => name
   .toLowerCase()

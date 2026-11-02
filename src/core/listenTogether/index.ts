@@ -9,6 +9,7 @@ import { getListenTogetherErrorText } from './errorText'
 import { localizeSystemMessage } from './systemText'
 import defaultSetting from '@/config/defaultSetting'
 import client from './instance'
+import { showChatNotification } from '@/utils/nativeExt'
 
 /**
  * 规范化用户输入的服务器地址
@@ -129,6 +130,13 @@ export const initListenTogether = () => {
 
   client.on('chat', (message) => {
     ltActions.addMessage(localizeSystemMessage(message))
+    // 房间里其他人发的消息：同步弹系统通知（自己发的不提醒）
+    if (message.type == 'user' && message.senderId != ltState.selfId && message.text) {
+      showChatNotification(
+        global.i18n.t('listen_together_chat_notify_title', { name: message.senderName || global.i18n.t('listen_together_member') }),
+        message.text,
+      )
+    }
   })
 
   client.on('lyric', (lyric) => {

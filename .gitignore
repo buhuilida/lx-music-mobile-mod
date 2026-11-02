@@ -70,7 +70,3 @@ buck-out/
 # 二改发布产物（APK / 源码包只放在发布站点，不入库）
 listen-together-server/web/downloads/*.apk
 listen-together-server/web/downloads/*.zip
-
-# 管理后台只在部署环境使用，不进入公开仓库
-listen-together-server/admin.js
-listen-together-server/web/admin.html

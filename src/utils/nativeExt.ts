@@ -13,6 +13,7 @@ interface ExtNativeModule {
   }) => void
   hideIsland: () => void
   isNotificationEnabled: () => Promise<boolean>
+  showChatNotification: (title: string, text: string) => void
 }
 
 const ext: Partial<ExtNativeModule> = Platform.OS === 'android'
@@ -74,6 +75,16 @@ export const hideIsland = () => {
   if (!ext.hideIsland) return
   try {
     ext.hideIsland()
+  } catch {}
+}
+
+/**
+ * 一起听房间消息通知（高优先级 + 声音/震动）
+ */
+export const showChatNotification = (title: string, text: string) => {
+  if (!ext.showChatNotification) return
+  try {
+    ext.showChatNotification(title, text)
   } catch {}
 }
 

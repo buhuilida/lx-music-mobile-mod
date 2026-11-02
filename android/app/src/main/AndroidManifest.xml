@@ -25,7 +25,29 @@
       android:roundIcon="@mipmap/ic_launcher_round"
       android:allowBackup="false"
       android:theme="@style/AppTheme"
+      android:appCategory="audio"
       tools:targetApi="n">
+      <!-- ColorOS / OPlus：声明本应用可进入系统媒体历史与锁屏歌词管线。
+           缺少这一条时，部分 ColorOS 版本会在会话进入 OPlus 管线前过滤掉播放器包，
+           导致 MediaMetadata["lyricInfo"] 已经写入但锁屏歌词页始终不出现。 -->
+      <meta-data
+        android:name="io.github.andrealtb.lockscreenlyrics.OPLUS_MEDIA_HISTORY"
+        android:value="true" />
+      <!-- 声明为音乐类应用，ColorOS 媒体中心才会把它当作播放器处理 -->
+      <meta-data
+        android:name="com.oplus.music.support_lyric"
+        android:value="true" />
+
+      <!-- 系统媒体浏览服务：ColorOS 的媒体中心 / 锁屏歌词只识别声明了
+           MediaBrowserService 的应用，缺失时只显示普通媒体卡 -->
+      <service
+        android:name=".player.LxMediaBrowserService"
+        android:exported="true"
+        android:foregroundServiceType="mediaPlayback">
+        <intent-filter>
+          <action android:name="android.media.browse.MediaBrowserService" />
+        </intent-filter>
+      </service>
       <activity
         android:name=".MainActivity"
         android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"

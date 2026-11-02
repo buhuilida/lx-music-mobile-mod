@@ -276,7 +276,20 @@ public class UtilsModule extends ReactContextBaseJavaModule {
     shareIntent.setType("text/plain");
     shareIntent.putExtra(Intent.EXTRA_TEXT,text);
     shareIntent.putExtra(Intent.EXTRA_SUBJECT, title);
-    Objects.requireNonNull(reactContext.getCurrentActivity()).startActivity(Intent.createChooser(shareIntent, shareTitle));
+    // 分享面板必须从真实 Activity 启动；Activity 已销毁时退化为应用上下文 + NEW_TASK，
+    // 避免 Objects.requireNonNull 抛 NPE 把应用直接崩到错误页
+    shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    try {
+      Activity current = reactContext.getCurrentActivity();
+      Intent chooser = Intent.createChooser(shareIntent, shareTitle);
+      if (current != null) {
+        current.startActivity(chooser);
+      } else {
+        reactContext.getApplicationContext().startActivity(chooser);
+      }
+    } catch (Exception err) {
+      android.util.Log.w("Utils", "shareText failed: " + err.getMessage());
+    }
   }
 
   // https://stackoverflow.com/questions/73463341/in-per-app-language-how-to-get-app-locale-in-api-33-if-system-locale-is-diffe

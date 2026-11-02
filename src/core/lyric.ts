@@ -6,7 +6,6 @@ import {
   toggleTranslation as lrcToggleTranslation,
   toggleRoma as lrcToggleRoma,
   init as lrcInit,
-  onLrcLinePlay,
 } from '@/plugins/lyric'
 import {
   playDesktopLyric,
@@ -20,17 +19,13 @@ import { getPosition } from '@/plugins/player'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { updateNowPlayingTitles } from '@/plugins/player/utils'
-import { publishSystemLyric, publishSystemLyricLine } from '@/core/player/systemLyric'
+import { publishSystemLyric } from '@/core/player/systemLyric'
 import { hasWordTags, stripWordTags } from '@/utils/wordLyric'
 
 /**
  * init lyric
  */
 export const init = async() => {
-  // 锁屏歌词兜底：当前行变化时同步到 MediaSession artist 字段（部分机型不消费 lyricInfo）
-  onLrcLinePlay((_line, text) => {
-    publishSystemLyricLine(text)
-  })
   return lrcInit()
 }
 
@@ -48,7 +43,7 @@ const handleSetLyric = async(lyric: string, translation = '', romalrc = '') => {
   lrcSetLyric(cleanLrc, translation, romalrc, wordSource)
   await setDesktopLyric(cleanLrc, translation, romalrc, wordSource)
   // 按 ColorOS / OPlus 的 lyricInfo 契约，把整首歌词交给系统渲染
-  publishSystemLyric(cleanLrc, translation)
+  publishSystemLyric(cleanLrc, translation, wordSource)
   if (settingState.setting['player.isShowBluetoothFullLyric']) {
     void updateNowPlayingTitles({
       lyric: cleanLrc,

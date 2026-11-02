@@ -60,7 +60,7 @@ export default async() => {
   await initPlayer(setting)
   bootLog('Player inited.')
   // 音效（1.16.0）：播放器就绪后应用 EQ/环绕/混响设置
-  void import('@/core/audioEffect').then(({ initAudioEffect }) => initAudioEffect()).catch(() => {})
+  void import('@/core/audioEffect').then(async({ initAudioEffect }) => initAudioEffect()).catch(() => {})
   await dataInit(setting)
   bootLog('Data inited.')
   await initCommonState(setting)
@@ -79,9 +79,14 @@ export default async() => {
   void initSync(setting)
   bootLog('Sync inited.')
 
+  // 网易账号（1.20.0）：有 Cookie 时补拉昵称、关注歌手等，失败不影响启动
+  if (setting['platform.wyCookie']) {
+    void import('@/core/netease').then(async({ initNetease }) => initNetease()).catch(() => {})
+  }
+
   // WebDAV 自动备份：启动时静默检查频率，不阻塞主流程（1.15.0）
   if (setting['common.isAgreePact']) {
-    void import('@/core/sync/webdavAuto').then(({ checkWebdavAutoBackup }) => checkWebdavAutoBackup()).catch(() => {})
+    void import('@/core/sync/webdavAuto').then(async({ checkWebdavAutoBackup }) => checkWebdavAutoBackup()).catch(() => {})
   }
 
   // syncSetting()

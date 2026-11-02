@@ -40,6 +40,8 @@ public class ExtModule extends ReactContextBaseJavaModule implements ActivityEve
   private static final int REQUEST_PICK_IMAGE = 0x4c58;
   private static final String CHANNEL_ISLAND = "lx_lyric_island_v2";
   private static final int NOTIFICATION_ISLAND = 0x4c59;
+  private static final String CHANNEL_CHAT = "lx_listen_together_chat_v1";
+  private static final int NOTIFICATION_CHAT = 0x4c5a;
 
   private Promise pickImagePromise;
   private TextToSpeech tts;
@@ -284,6 +286,64 @@ public class ExtModule extends ReactContextBaseJavaModule implements ActivityEve
       manager.notify(NOTIFICATION_ISLAND, builder.build());
     } catch (SecurityException e) {
       Log.w(TAG, "notify failed, notification permission missing", e);
+    }
+  }
+
+  /**
+   * 一起听房间消息通知
+   * 用独立的高优先级渠道，带声音/震动，点击直接回到 App。
+   */
+  @ReactMethod
+  public void showChatNotification(String title, String text) {
+    ReactApplicationContext ctx = getReactApplicationContext();
+    NotificationManager manager = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+    if (manager == null) return;
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      NotificationChannel channel = new NotificationChannel(
+        CHANNEL_CHAT, "一起听消息", NotificationManager.IMPORTANCE_HIGH);
+      channel.enableVibration(true);
+      channel.setShowBadge(true);
+      manager.createNotificationChannel(channel);
+    }
+
+    Intent launch = ctx.getPackageManager().getLaunchIntentForPackage(ctx.getPackageName());
+    PendingIntent contentIntent = null;
+    if (launch != null) {
+      launch.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+      int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+        ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        : PendingIntent.FLAG_UPDATE_CURRENT;
+      contentIntent = PendingIntent.getActivity(ctx, 0, launch, flags);
+    }
+
+    Notification.Builder builder;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      builder = new Notification.Builder(ctx, CHANNEL_CHAT);
+    } else {
+      builder = new Notification.Builder(ctx);
+    }
+    builder.setSmallIcon(android.R.drawable.ic_dialog_email)
+      .setContentTitle(title == null ? "" : title)
+      .setContentText(text == null ? "" : text)
+      .setAutoCancel(true)
+      .setShowWhen(true)
+      .setWhen(System.currentTimeMillis());
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+      builder.setPriority(Notification.PRIORITY_HIGH);
+      builder.setDefaults(Notification.DEFAULT_ALL);
+    }
+    if (contentIntent != null) builder.setContentIntent(contentIntent);
+
+    Notification.BigTextStyle big = new Notification.BigTextStyle();
+    big.setBigContentTitle(title == null ? "" : title);
+    big.bigText(text == null ? "" : text);
+    builder.setStyle(big);
+
+    try {
+      manager.notify(NOTIFICATION_CHAT, builder.build());
+    } catch (SecurityException e) {
+      Log.w(TAG, "chat notify failed, notification permission missing", e);
     }
   }
 

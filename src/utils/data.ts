@@ -590,3 +590,22 @@ export const setUserApiAllowShowUpdateAlert = async(id: string, enable: boolean)
   targetApi.allowShowUpdateAlert = enable
   await saveData(userApiPrefix, userApis)
 }
+
+/** 网易账号 UID 缓存（按 Cookie 的 MD5 索引，避免每次启动都请求账号接口） */
+export const getWyUidCache = async(hashedCookie: string) => {
+  const cache = await getData<Record<string, { uid: string, vipType: number }>>(storageDataPrefix.wyUid) ?? {}
+  return cache[hashedCookie] ?? null
+}
+
+export const saveWyUidCache = async(hashedCookie: string, uid: string, vipType: number) => {
+  const cache = await getData<Record<string, { uid: string, vipType: number }>>(storageDataPrefix.wyUid) ?? {}
+  cache[hashedCookie] = { uid, vipType }
+  // 只保留最近 5 个账号，避免长期堆积
+  const keys = Object.keys(cache)
+  if (keys.length > 5) delete cache[keys[0]]
+  await saveData(storageDataPrefix.wyUid, cache)
+}
+
+export const clearWyUidCache = async() => {
+  await removeData(storageDataPrefix.wyUid)
+}

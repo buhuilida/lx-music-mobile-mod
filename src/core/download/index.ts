@@ -42,22 +42,44 @@ const ensureDir = async(dir = privateDownloadDirectoryPath) => {
   if (!exists) await mkdir(dir)
 }
 
-const storageCache: { granted: boolean | null, writable: boolean | null } = { granted: null, writable: null }
+const storageCache: { granted: boolean | null } = { granted: null }
+const writableCache = new Map<string, boolean>()
 
 /**
- * 公共下载目录是否真的可写（部分系统即使给了权限也会拦截旧式直写）
+ * 目录是否真的可写（部分系统即使给了权限也会拦截旧式直写）
  */
-const probeWritable = async(dir: string) => {
-  if (storageCache.writable != null) return storageCache.writable
+const probeWritable = async(dir: string, useCache = true) => {
+  if (useCache) {
+    const cached = writableCache.get(dir)
+    if (cached != null) return cached
+  }
   const probe = `${dir}/.lx_write_test`
+  let writable = false
   try {
     await RNFS.writeFile(probe, '1', 'utf8')
     await RNFS.unlink(probe).catch(() => {})
-    storageCache.writable = true
+    writable = true
   } catch {
-    storageCache.writable = false
+    writable = false
   }
-  return storageCache.writable
+  writableCache.set(dir, writable)
+  return writable
+}
+
+/** 供目录选择页使用：检查并创建目录，返回是否真的可写 */
+export const checkDirectoryWritable = async(dir: string) => {
+  try {
+    await ensureDir(dir)
+    return await probeWritable(dir, false)
+  } catch {
+    return false
+  }
+}
+
+/** 目录可写性发生变化（例如用户重新授权）时清掉缓存 */
+export const clearDownloadDirCache = () => {
+  writableCache.clear()
+  storageCache.granted = null
 }
 
 let showedPrivateTip = false
@@ -66,6 +88,15 @@ let showedPrivateTip = false
  * 解析下载目录：优先写入系统 Download 文件夹，没有存储权限时回退到私有目录
  */
 export const resolveDownloadDirectory = async(): Promise<string> => {
+  // 1. 用户自定义目录优先
+  const customPath = (settingState.setting['download.savePath'] ?? '').trim()
+  if (customPath) {
+    try {
+      await ensureDir(customPath)
+      if (await probeWritable(customPath)) return customPath
+    } catch {}
+  }
+
   let granted = storageCache.granted
   if (granted == null) {
     try {
@@ -238,10 +269,19 @@ export const getBestQuality = (musicInfo: LX.Music.MusicInfoOnline): LX.Quality 
 }
 
 /**
+ * 并发下载数量（1-5）
+ */
+export const getDownloadConcurrency = () => {
+  const value = Number(settingState.setting['download.concurrency'])
+  if (!Number.isFinite(value)) return 3
+  return Math.min(5, Math.max(1, Math.round(value)))
+}
+
+/**
  * 一键下载一组歌曲（1.17.1）
  * - 自动跳过本地歌曲与已下载过的歌曲
  * - 不指定音质时逐首取「最高可用音质」
- * - 并发 3 首，避免同时开太多连接被音源限流
+ * - 并发数量由设置「并发下载数量」控制（默认 3，避免同时开太多连接被音源限流）
  */
 export const downloadMusics = async(musics: LX.Music.MusicInfo[], options: {
   quality?: LX.Quality
@@ -270,7 +310,8 @@ export const downloadMusics = async(musics: LX.Music.MusicInfo[], options: {
       options.onProgress?.(done, targets.length)
     }
   }
-  await Promise.all(Array.from({ length: Math.min(3, targets.length) }, worker))
+  const limit = Math.min(getDownloadConcurrency(), targets.length)
+  await Promise.all(Array.from({ length: limit }, worker))
   return result
 }
 

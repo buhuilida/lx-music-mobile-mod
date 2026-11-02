@@ -195,17 +195,25 @@ public class LyricModule extends ReactContextBaseJavaModule {
   public void checkOverlayPermission(Promise promise) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(reactContext)) {
       promise.reject(new Exception("Permission denied"));
+      return;
     }
     promise.resolve(null);
   }
 
   @ReactMethod
   public void openOverlayPermissionActivity(Promise promise) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(reactContext)) {
-      Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + reactContext.getApplicationContext().getPackageName()));
-      reactContext.startActivityForResult(intent, 1, null);
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(reactContext)) {
+        Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + reactContext.getApplicationContext().getPackageName()));
+        // 从非 Activity 的 Context 启动必须带 NEW_TASK，否则 Android 10+ 直接抛
+        // AndroidRuntimeException（未捕获异常会弹「Critical Error」错误页）
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        reactContext.startActivity(intent);
+      }
+      promise.resolve(null);
+    } catch (Exception err) {
+      promise.reject(err);
     }
-    promise.resolve(null);
   }
 
 }

@@ -127,6 +127,21 @@ export default memo(() => {
         global.app_event.changeMenuVisible(false)
         if (commonState.componentIds.home) navigations.pushLocalMusicScreen(commonState.componentIds.home)
         return
+      case 'nav_mine':
+        // 我的音乐：网易账号（每日推荐 / 关注歌手 / 云盘 / 我的歌单）
+        global.app_event.changeMenuVisible(false)
+        if (commonState.componentIds.home) navigations.pushNeteaseMineScreen(commonState.componentIds.home)
+        return
+      case 'nav_online':
+        // 在线歌单：粘贴链接打开任意平台的歌单
+        global.app_event.changeMenuVisible(false)
+        if (commonState.componentIds.home) navigations.pushOnlineSonglistScreen(commonState.componentIds.home)
+        return
+      case 'nav_platform':
+        // 平台设置：各平台 Cookie
+        global.app_event.changeMenuVisible(false)
+        if (commonState.componentIds.home) navigations.pushPlatformSettingScreen(commonState.componentIds.home)
+        return
     }
 
     global.app_event.changeMenuVisible(false)

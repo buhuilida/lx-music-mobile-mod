@@ -132,6 +132,11 @@ export class StateEvent extends Event {
     this.emit('playingInfoUpdated', quality, source, requested)
   }
 
+  /** 网易账号信息 / 关注歌手 / 云盘等状态变化（1.20.0） */
+  neteaseUpdated() {
+    this.emit('neteaseUpdated')
+  }
+
   listenTogetherRoomUpdated(room: ListenTogetherState['room'], selfId: ListenTogetherState['selfId'], isHost: ListenTogetherState['isHost']) {
     this.emit('listenTogetherRoomUpdated', room, selfId, isHost)
   }

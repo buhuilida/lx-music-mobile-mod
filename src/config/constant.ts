@@ -28,6 +28,16 @@ export enum COMPONENT_IDS {
   listenTogether = 'listenTogether',
   download = 'download',
   localMusic = 'localMusic',
+  onlineSonglist = 'onlineSonglist',
+  neteaseMine = 'neteaseMine',
+  neteaseDaily = 'neteaseDaily',
+  neteaseFollowed = 'neteaseFollowed',
+  neteaseCloud = 'neteaseCloud',
+  neteaseLiked = 'neteaseLiked',
+  neteasePlaylists = 'neteasePlaylists',
+  neteaseArtist = 'neteaseArtist',
+  platformSetting = 'platformSetting',
+  directoryPicker = 'directoryPicker',
 }
 
 export enum NAV_SHEAR_NATIVE_IDS {
@@ -81,6 +91,8 @@ export const storageDataPrefix = {
   dislikeList: '@dislike_list',
 
   userApi: '@user_api__',
+
+  wyUid: '@wy_uid__',
 } as const
 
 // v0.x.x 版本的 data keys
@@ -109,6 +121,9 @@ export const NAV_MENUS = [
   { id: 'nav_download', icon: 'download-2' },
   { id: 'nav_listen', icon: 'share' },
   { id: 'nav_local', icon: 'music_time' },
+  { id: 'nav_mine', icon: 'music_time' },
+  { id: 'nav_online', icon: 'album' },
+  { id: 'nav_platform', icon: 'setting' },
   { id: 'nav_setting', icon: 'setting' },
 ] as const
 

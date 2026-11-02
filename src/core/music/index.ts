@@ -12,6 +12,7 @@ import {
   getPicUrl as getDownloadPicUrl,
   getLyricInfo as getDownloadLyricInfo,
 } from './download'
+import { getRemoteMusicUrl } from '@/core/player/remoteUrl'
 import {
   getMusicUrl as getLocalMusicUrl,
   getPicUrl as getLocalPicUrl,
@@ -32,6 +33,12 @@ export const getMusicUrl = async({
   onToggleSource?: (musicInfo?: LX.Music.MusicInfoOnline) => void
   allowToggleSource?: boolean
 }): Promise<string> => {
+  // 一起听：成员端优先用房间播放源解析好的直链，本地没有该音源也能播
+  if (!('progress' in musicInfo) && musicInfo.source != 'local') {
+    const remoteUrl = getRemoteMusicUrl(musicInfo.source, musicInfo.id)
+    if (remoteUrl) return remoteUrl
+  }
+
   if ('progress' in musicInfo) {
     return getDownloadMusicUrl({ musicInfo, isRefresh, onToggleSource, allowToggleSource })
   } else if (musicInfo.source == 'local') {

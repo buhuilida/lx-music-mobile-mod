@@ -31,6 +31,17 @@ const init = (callback: () => void | Promise<void>) => {
 }
 
 export * from './utils'
+export {
+  pushPlatformSettingScreen,
+  pushSonglistDetailScreen,
+  pushArtistSongsScreen,
+  pushNeteaseMineScreen,
+  pushDailyRecScreen,
+  pushFollowedArtistsScreen,
+  pushCloudDiskScreen,
+  pushLikedSongsScreen,
+  pushMyPlaylistsScreen,
+} from './navigation'
 export * from './event'
 export * from './hooks'
 

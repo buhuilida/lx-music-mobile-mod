@@ -18,9 +18,19 @@ export default {
       const types = []
       const _types = {}
       let size
-      let privilege = privileges[index]
-      if (privilege.id !== item.id) privilege = privileges.find(p => p.id === item.id)
-      if (!privilege) return
+      // 每日推荐 / 云盘 / 歌手歌曲等接口不一定返回 privileges，
+      // 此时按歌曲自身的码率字段推断可用音质，避免整条列表被过滤掉
+      let privilege = (privileges ?? [])[index] ?? item.privilege
+      if (privilege && privilege.id !== item.id) {
+        privilege = (privileges ?? []).find(p => p.id === item.id) ?? item.privilege
+      }
+      if (!privilege) {
+        privilege = {
+          id: item.id,
+          maxbr: item.h ? 320000 : (item.l ? 128000 : 0),
+          maxBrLevel: item.sq ? 'lossless' : 'standard',
+        }
+      }
 
       if (privilege.maxBrLevel == 'hires') {
         size = item.hr ? sizeFormate(item.hr.size) : null

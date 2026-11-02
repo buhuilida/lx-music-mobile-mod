@@ -10,6 +10,16 @@ import {
   ListenTogether,
   Download,
   LocalMusic,
+  OnlineSonglist,
+  PlatformSetting,
+  DirectoryPicker,
+  NeteaseMine,
+  NeteaseDaily,
+  NeteaseFollowed,
+  NeteaseCloud,
+  NeteaseLiked,
+  NeteasePlaylists,
+  NeteaseArtist,
   // Setting,
 } from '@/screens'
 import { Provider } from '@/store/Provider'
@@ -22,6 +32,16 @@ import {
   LISTEN_TOGETHER_SCREEN,
   DOWNLOAD_SCREEN,
   LOCAL_MUSIC_SCREEN,
+  ONLINE_SONGLIST_SCREEN,
+  PLATFORM_SETTING_SCREEN,
+  DIRECTORY_PICKER_SCREEN,
+  NETEASE_MINE_SCREEN,
+  NETEASE_DAILY_SCREEN,
+  NETEASE_FOLLOWED_SCREEN,
+  NETEASE_CLOUD_SCREEN,
+  NETEASE_LIKED_SCREEN,
+  NETEASE_PLAYLISTS_SCREEN,
+  NETEASE_ARTIST_SCREEN,
   VERSION_MODAL,
   PACT_MODAL,
   SYNC_MODE_MODAL,
@@ -53,6 +73,16 @@ export default () => {
   Navigation.registerComponent(LISTEN_TOGETHER_SCREEN, () => WrappedComponent(ListenTogether))
   Navigation.registerComponent(DOWNLOAD_SCREEN, () => WrappedComponent(Download))
   Navigation.registerComponent(LOCAL_MUSIC_SCREEN, () => WrappedComponent(LocalMusic))
+  Navigation.registerComponent(ONLINE_SONGLIST_SCREEN, () => WrappedComponent(OnlineSonglist))
+  Navigation.registerComponent(PLATFORM_SETTING_SCREEN, () => WrappedComponent(PlatformSetting))
+  Navigation.registerComponent(DIRECTORY_PICKER_SCREEN, () => WrappedComponent(DirectoryPicker))
+  Navigation.registerComponent(NETEASE_MINE_SCREEN, () => WrappedComponent(NeteaseMine))
+  Navigation.registerComponent(NETEASE_DAILY_SCREEN, () => WrappedComponent(NeteaseDaily))
+  Navigation.registerComponent(NETEASE_FOLLOWED_SCREEN, () => WrappedComponent(NeteaseFollowed))
+  Navigation.registerComponent(NETEASE_CLOUD_SCREEN, () => WrappedComponent(NeteaseCloud))
+  Navigation.registerComponent(NETEASE_LIKED_SCREEN, () => WrappedComponent(NeteaseLiked))
+  Navigation.registerComponent(NETEASE_PLAYLISTS_SCREEN, () => WrappedComponent(NeteasePlaylists))
+  Navigation.registerComponent(NETEASE_ARTIST_SCREEN, () => WrappedComponent(NeteaseArtist))
   Navigation.registerComponent(VERSION_MODAL, () => WrappedComponent(VersionModal))
   Navigation.registerComponent(PACT_MODAL, () => WrappedComponent(PactModal))
   Navigation.registerComponent(SYNC_MODE_MODAL, () => WrappedComponent(SyncModeModal))
