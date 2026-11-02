@@ -36,6 +36,9 @@ export enum COMPONENT_IDS {
   neteaseLiked = 'neteaseLiked',
   neteasePlaylists = 'neteasePlaylists',
   neteaseArtist = 'neteaseArtist',
+  neteaseAlbums = 'neteaseAlbums',
+  platformList = 'platformList',
+  neteaseAlbumSongs = 'neteaseAlbumSongs',
   platformSetting = 'platformSetting',
   directoryPicker = 'directoryPicker',
 }
@@ -113,6 +116,8 @@ export const storageDataPrefixOld = {
 export const APP_PROVIDER_NAME = 'cn.toside.music.mobile.provider'
 
 
+// 侧边栏图标必须一一对应，不能两个入口共用同一个图标：
+// nav_local / nav_mine / nav_platform / nav_setting 之前都与别人撞车，这里逐个换开。
 export const NAV_MENUS = [
   { id: 'nav_search', icon: 'search-2' },
   { id: 'nav_songlist', icon: 'album' },
@@ -120,10 +125,9 @@ export const NAV_MENUS = [
   { id: 'nav_love', icon: 'love' },
   { id: 'nav_download', icon: 'download-2' },
   { id: 'nav_listen', icon: 'share' },
-  { id: 'nav_local', icon: 'music_time' },
+  { id: 'nav_local', icon: 'sd-card' },
   { id: 'nav_mine', icon: 'music_time' },
-  { id: 'nav_online', icon: 'album' },
-  { id: 'nav_platform', icon: 'setting' },
+  { id: 'nav_platform', icon: 'dots-vertical' },
   { id: 'nav_setting', icon: 'setting' },
 ] as const
 

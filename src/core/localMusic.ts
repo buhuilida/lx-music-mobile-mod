@@ -19,8 +19,13 @@ import listState from '@/store/list/state'
 
 const AUDIO_EXTS = ['mp3', 'flac', 'wav', 'ape', 'm4a', 'ogg', 'aac', 'wma', 'opus', 'm4b', 'aiff']
 const MAX_FILES = 5000
-const MAX_DEPTH = 5
-const SKIP_DIR_NAMES = new Set(['android', 'data', 'obb', 'lost.dir', '.thumbnails', '$recycle.bin'])
+const MAX_DEPTH = 6
+// 整卡扫描时跳过这些与音乐无关、且体量很大的目录，避免扫一分钟还没结果
+const SKIP_DIR_NAMES = new Set([
+  'android', 'data', 'obb', 'lost.dir', '.thumbnails', '$recycle.bin',
+  'dcim', 'pictures', 'movies', '.trash', '.trashed', '.cache',
+  'whatsapp', 'telegram', 'weixin', 'micromsg', 'backups',
+])
 
 export const LOCAL_LIST_ID = 'userlist_local_music'
 export const LOCAL_LIST_NAME = '本地音乐'
@@ -64,34 +69,59 @@ interface ScannedFile {
   path: string
 }
 
-const getScanDirs = () => {
-  const dirs = [
-    `${externalStorageDirectoryPath}/Music`,
-    `${externalStorageDirectoryPath}/Download`,
-    `${externalStorageDirectoryPath}/Sounds`,
-    RNFS.DownloadDirectoryPath,
+const getScanDirs = (): string[] => {
+  const root = String(externalStorageDirectoryPath ?? '')
+  const dirs: string[] = [
+    // 先扫常见目录，命中快
+    `${root}/Music`,
+    `${root}/Download`,
+    `${root}/Downloads`,
+    `${root}/Sounds`,
+    `${root}/netease/cloudmusic/Music`,
+    `${root}/kgmusic/download`,
+    `${root}/kugou`,
+    `${root}/QQMusic/song`,
+    `${root}/qqmusic/song`,
+    `${root}/tencent/QQMusic/song`,
+    `${root}/音乐`,
+    String(RNFS.DownloadDirectoryPath ?? ''),
+    // 最后兜底整卡扫描（内部会跳过 Android/DCIM/Pictures 等无关目录）
+    root,
   ]
   return Array.from(new Set(dirs.filter(Boolean)))
 }
 
-/** 申请读取音频权限（Android 13+ 用 READ_MEDIA_AUDIO） */
+/**
+ * 申请读取音频权限。
+ *
+ * 之前 Android 13+ 直接申请 READ_MEDIA_AUDIO，但清单里并没有声明这个权限，
+ * 系统会立即返回 DENIED —— 用户点「同意」后扫描结果仍然是 0 首，看起来就是
+ * 「给了权限也扫不到」。本项目 targetSdk 仍是 29（legacy 存储），
+ * READ_EXTERNAL_STORAGE 在所有 Android 版本上都能拿到整卡读权限，
+ * 因此优先申请它；被拒时再补一次 READ_MEDIA_AUDIO。
+ */
 export const requestScanPermission = async(): Promise<boolean> => {
   if (Platform.OS != 'android') return true
   const version = typeof Platform.Version == 'number' ? Platform.Version : parseInt(String(Platform.Version), 10)
-  try {
-    const permission = (version >= 33
-      ? (PermissionsAndroid.PERMISSIONS as unknown as Record<string, string>).READ_MEDIA_AUDIO ?? 'android.permission.READ_MEDIA_AUDIO'
-      : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE) as Parameters<typeof PermissionsAndroid.request>[0]
-    const result = await PermissionsAndroid.request(permission, {
-      title: global.i18n.t('setting_local_music_permission_title'),
-      message: global.i18n.t('setting_local_music_permission_message'),
-      buttonPositive: global.i18n.t('ok'),
-      buttonNegative: global.i18n.t('cancel'),
-    })
-    return result === PermissionsAndroid.RESULTS.GRANTED
-  } catch {
-    return false
+  const perms = PermissionsAndroid.PERMISSIONS as unknown as Record<string, string>
+  const ask = async(permission: string): Promise<boolean> => {
+    try {
+      if (await PermissionsAndroid.check(permission as Parameters<typeof PermissionsAndroid.check>[0])) return true
+      const result = await PermissionsAndroid.request(permission as Parameters<typeof PermissionsAndroid.request>[0], {
+        title: global.i18n.t('setting_local_music_permission_title'),
+        message: global.i18n.t('setting_local_music_permission_message'),
+        buttonPositive: global.i18n.t('ok'),
+        buttonNegative: global.i18n.t('cancel'),
+      })
+      return result === PermissionsAndroid.RESULTS.GRANTED
+    } catch {
+      return false
+    }
   }
+
+  if (await ask(perms.READ_EXTERNAL_STORAGE)) return true
+  if (version >= 33) return ask(perms.READ_MEDIA_AUDIO ?? 'android.permission.READ_MEDIA_AUDIO')
+  return false
 }
 
 type ProgressHandler = (count: number) => void

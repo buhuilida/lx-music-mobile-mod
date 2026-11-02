@@ -1,4 +1,4 @@
-import { init as initLyricPlayer, toggleTranslation, toggleRoma, play, pause, stop, setLyric, setPlaybackRate } from '@/core/lyric'
+import { init as initLyricPlayer, toggleTranslation, toggleRoma, play, pause, stop, setLyric, setPlaybackRate, syncLyricPosition } from '@/core/lyric'
 import { updateSetting } from '@/core/common'
 import { onDesktopLyricPositionChange, showDesktopLyric, hideDesktopLyric, onLyricLinePlay, showRemoteLyric } from '@/core/desktopLyric'
 import { AppState } from 'react-native'
@@ -71,4 +71,6 @@ export default async(setting: LX.AppSetting) => {
   global.app_event.on('error', pause)
   global.app_event.on('musicToggled', stop)
   global.app_event.on('lyricUpdated', setLyric)
+  // 播放位置回绕（单曲循环重播 / 拖回开头）：重新对齐歌词行
+  global.app_event.on('lyricSeek', syncLyricPosition)
 }

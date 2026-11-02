@@ -1,8 +1,24 @@
 {
-  "version": "1.20.0",
-  "versionCode": 102,
-  "desc": "新增：网易云账号体系——侧边栏「我的音乐」，支持扫码登录 / Cookie 登录，每日推荐、关注歌手、音乐云盘、我的歌单、我喜欢的音乐、红心与关注操作全部可用；登录态仅存本机\n新增：一起听同步音频直链——房主把播放地址一起广播，成员本机没有该音源也能播；状态广播 4s→2s，播放/暂停/切歌/拖动即时同步\n新增：一起听房间消息通知——其他成员发言以系统通知弹出（独立高优先级渠道，带声音震动，点击回到 App）\n修复：ColorOS 锁屏歌词仍只有普通媒体卡——补齐 MediaBrowserService 声明（新增 LxMediaBrowserService，把 TrackPlayer 会话 token 交给系统）、appCategory=audio、com.oplus.music.support_lyric；并修正依赖补丁 updateTitles 未接入 lyricInfo 的问题（此前因锚点冲突漏插，导致系统收不到歌词数据）\n新增：平台设置支持网易云扫码登录，卡片直接显示昵称 / VIP；QQ 音乐、酷狗保留 Cookie 方案\n说明：ColorOS 锁屏大歌词页属 SystemUI 白名单能力，第三方无 Root/LSPosed 无法绕过；未放行时可用通知栏 / 灵动岛逐行歌词兜底",
+  "version": "1.22.1",
+  "versionCode": 106,
+  "desc": "修复：桌面歌词最后一句唱完变灰、息屏后消失、拖动回末句逐字失效的问题\n修复：末行结束时间改为按最后一个字精确收尾，不再提前或拖长\n修复：我的音乐里 QQ 音乐 / 酷狗音乐 显示成「未登录网易云账号」\n修复：本地音乐给了存储权限仍扫不到——补齐 Android 13+ 音频权限声明\n增强：本地音乐扫描覆盖网易云 / QQ音乐 / 酷狗下载目录，并兜底扫描整卡（自动跳过无关大目录）\n增强：从侧边栏进本地音乐会自动申请权限并扫描\n修复：音乐云盘已登录仍提示「需要先登录才能查看」\n修复：错误提示不再出现 try max num / Network request failed 等英文内部错误",
   "history": [
+    {
+      "version": "1.22.0",
+      "desc": "更正：上一版说 QQ音乐/酷狗没有账号接口是错的——我这次把 APK 反编译核对，两家都有完整账号体系，已把接口与签名算法全部还原并接进来\n新增 QQ 音乐账号：手机号短信验证码登录（后端 LoginServer，一次请求拿 musicid/musickey，Cookie 按客户端规则本地拼装，无网页无滑块）\n新增 QQ 音乐功能：每日推荐、我喜欢、我的歌单、收藏歌单、收藏专辑、主页推荐、雷达推荐、推荐新歌、猜你喜欢；歌单点进去可整单播放\n新增 酷狗：每日推荐（免登录，实测 30 首）、我的歌单 / 我喜欢（Cookie 登录）；酷狗手机号登录需客户端 RSA+AES 加密与风控头，缺真机验证条件，暂以 Cookie 输入代替并写明要填的字段\n修复：登录弹窗报 undefined is not a function——wy/user.js 从只有 default 导出的模块里做了命名导入，setWyProfile 是 undefined；扫码登录失败也是这个原因\n修复：手机号/验证码输入框显示不全——输入框写死 height:40，系统字体放大后文字被裁；改为 minHeight + 内边距 + 垂直居中\n修复：键盘弹出时登录弹窗被压扁看不见——弹窗内容改用可滚动容器；二维码生成增加 UMD 默认导出兼容与失败提示"
+    },
+    {
+      "version": "1.21.1",
+      "desc": "修复：更新日志是新的、装完还是旧版本——两处根因都修了：① 安装包原来固定下到 cache/lx-music-mobile.apk，残留旧文件会被当成这次更新装上；现在文件名带版本号、下载前清理旧包、下完校验大小；② /downloads 带 cache-control: max-age=3600，同版本号重传安装包会被 CDN 缓存一小时，现在版本检查与安装包地址都加时间戳穿透缓存\n说明：本版内容与 1.21.0 一致，只是改用新版本号 + 新文件名发布，避免任何人命中旧缓存\n新增：我的音乐改成三平台聚合页——顶部 QQ音乐/网易云/酷狗音乐 切换，下面账号状态 + 2 列功能卡片网格，版式对齐截图\n新增：网易云手机号登录——支持「密码」和「短信验证码」两种方式（密码只在本机 MD5 后发出，不落地），与扫码登录走同一套 Cookie 链路\n新增：收藏歌单 / 收藏专辑 / 最新专辑 / 专辑歌曲页 / 心动模式（基于当前歌曲生成相似队列直接播）\n删除：侧边栏「在线歌单」入口、页面与导航注册；侧边栏图标不再重复（本地音乐 sd-card、平台设置 dots-vertical）\n修复：最后一句歌词卡住、切歌才变——① 原生 LyricPlayer 到末行直接 pause 且再没有定时器，末行永远挂在「当前行」；② 单曲循环/拖回开头时播放位置回绕但不触发 play 事件，歌词不回到第一行。现在末行有结束时间并切「已唱完」状态，位置回绕会重新对齐歌词\n说明：QQ 音乐 / 酷狗音乐 没有公开账号接口（需 g_tk / 客户端签名），你给的 Walnut 仓库里也只有网易的账号实现，所以这两个平台不做假登录框，只保留 Cookie 入口；搜索/歌单/榜单/歌词不受影响"
+    },
+    {
+      "version": "1.21.0",
+      "desc": "新增：我的音乐改成三平台聚合页——顶部 QQ音乐/网易云/酷狗音乐 切换，下面账号状态 + 2 列功能卡片网格，版式对齐你给的截图\n新增：网易云手机号登录——支持「密码」和「短信验证码」两种方式（密码只在本机 MD5 后发出，不落地），与扫码登录走同一套 Cookie 链路\n新增：收藏歌单 / 收藏专辑 / 最新专辑 / 专辑歌曲页 / 心动模式（基于当前歌曲生成相似队列直接播）\n删除：侧边栏「在线歌单」入口、页面与导航注册；侧边栏图标不再重复（本地音乐 sd-card、平台设置 dots-vertical）\n修复：最后一句歌词卡住、切歌才变——两处根因：① 原生 LyricPlayer 到末行直接 pause 且再没有定时器，末行永远是「当前行」；② 单曲循环/拖回开头时播放位置回绕但不触发 play 事件，歌词不回到第一行。现在末行有结束时间并切「已唱完」状态，位置回绕会重新对齐歌词\n修复：更新日志是新的、装完还是旧版本——安装包原来固定下到 cache/lx-music-mobile.apk，残留旧文件会被当成这次更新装上去；现在文件名带版本号、下载前清理旧包、下完校验大小\n说明：QQ 音乐 / 酷狗音乐 没有公开账号接口（需 g_tk / 客户端签名），你给的 Walnut 仓库里也只有网易的账号实现，所以这两个平台不提供假的登录框，只保留 Cookie 入口；搜索/歌单/榜单/歌词不受影响"
+    },
+    {
+      "version": "1.20.0",
+      "desc": "新增：网易云账号体系——侧边栏「我的音乐」，支持扫码登录 / Cookie 登录，每日推荐、关注歌手、音乐云盘、我的歌单、我喜欢的音乐、红心与关注操作全部可用；登录态仅存本机\n新增：一起听同步音频直链——房主把播放地址一起广播，成员本机没有该音源也能播；状态广播 4s→2s，播放/暂停/切歌/拖动即时同步\n新增：一起听房间消息通知——其他成员发言以系统通知弹出（独立高优先级渠道，带声音震动，点击回到 App）\n修复：ColorOS 锁屏歌词仍只有普通媒体卡——补齐 MediaBrowserService 声明（新增 LxMediaBrowserService，把 TrackPlayer 会话 token 交给系统）、appCategory=audio、com.oplus.music.support_lyric；并修正依赖补丁 updateTitles 未接入 lyricInfo 的问题（此前因锚点冲突漏插，导致系统收不到歌词数据）\n新增：平台设置支持网易云扫码登录，卡片直接显示昵称 / VIP；QQ 音乐、酷狗保留 Cookie 方案\n说明：ColorOS 锁屏大歌词页属 SystemUI 白名单能力，第三方无 Root/LSPosed 无法绕过；未放行时可用通知栏 / 灵动岛逐行歌词兜底"
+    },
     {
       "version": "1.19.0",
       "desc": "修复：ColorOS / OPlus 锁屏歌词不显示——按官方 lyricInfo 协议补齐 lyricType / noLyric / provider / trackKey，时间轴统一为绝对毫秒，逐字歌词写入 rawLyric（支持扫光），翻译写入 translationLyric；AndroidManifest 增加 OPLUS_MEDIA_HISTORY 声明（缺这条会被系统过滤）；封面加载、切歌不再丢歌词/串歌\n修复：播放中弹出「Critical Error Occurred」白屏——原生异常页中文化并可直接复制堆栈；修复打开悬浮窗权限未加 FLAG_ACTIVITY_NEW_TASK、分享时 Activity 为空 NPE；歌词 payload 限制 64KB 并给所有 setMetadata 加保护，避免 Binder 事务超限崩溃\n新增：下载设置支持「并发下载数量」1-5 与「下载目录」选择（内置目录浏览器，选择前做可写探测，可一键恢复默认）\n新增：侧边栏「在线歌单」——粘贴网易云 / QQ 音乐 / 酷狗歌单链接或 wy:ID / tx:ID / kg:ID 直接打开，播放全部、收藏、下载可用，并记录最近打开\n新增：侧边栏「平台设置」——保存网易云 / QQ / 酷狗 Cookie，网易云私密歌单自动带 MUSIC_U，仅存本机\n优化：移除每行歌词改写 artist 的兜底（污染通知栏且造成高频 metadata 重建）\n"
@@ -37,11 +53,11 @@
     }
   ],
   "download": {
-    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.20.0-arm64-v8a.apk?sharecode=MKPWEVLBUS",
-    "universal": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.20.0-universal.apk?sharecode=MKPWEVLBUS",
-    "backscreen": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.20.0-backscreen-arm64-v8a.apk?sharecode=MKPWEVLBUS"
+    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.1-arm64-v8a.apk?sharecode=MKPWEVLBUS",
+    "universal": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.1-universal.apk?sharecode=MKPWEVLBUS",
+    "backscreen": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.1-backscreen-arm64-v8a.apk?sharecode=MKPWEVLBUS"
   },
-  "source": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lx-music-mod-src-v1.20.0.zip?sharecode=MKPWEVLBUS",
+  "source": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lx-music-mod-src-v1.22.1.zip?sharecode=MKPWEVLBUS",
   "repos": {
     "app": "https://github.com/yzdz666/lx-music-mobile-mod",
     "server": "https://github.com/yzdz666/listen-together-server"

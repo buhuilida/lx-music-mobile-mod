@@ -149,6 +149,17 @@ export const play = () => {
   })
 }
 
+/**
+ * 按指定位置强制对齐歌词（毫秒）
+ *
+ * 原生歌词播放器是按行排定时器自己往前跑的，单曲循环重播、拖回开头这类
+ * 「播放位置大幅回退」不会触发 play 事件，必须显式重新对齐，
+ * 否则桌面歌词 / 通知栏会一直停在上一轮的当前行。
+ */
+export const syncLyricPosition = (positionMs: number) => {
+  handlePlay(positionMs)
+}
+
 
 export const setLyric = async() => {
   const musicInfo = playerState.musicInfo

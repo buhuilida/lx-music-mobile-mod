@@ -9,6 +9,7 @@ import { createStyle, toast } from '@/utils/tools'
 import { scanAndSyncLocalList } from '@/core/localMusic'
 import { navigations } from '@/navigation'
 import commonState from '@/store/common/state'
+import { friendlyError } from '@/utils/errorMsg'
 
 /**
  * 本地音乐扫描入口（1.16.0，参照 LX-X 本地音乐）
@@ -30,7 +31,7 @@ export default memo(() => {
       const componentId = ids.home ?? ids.playDetail ?? Object.values(ids)[0]
       if (componentId) navigations.pushLocalMusicScreen(componentId)
     }).catch((err: Error) => {
-      toast(t('setting_local_music_failed', { msg: err.message ?? '' }), 'long')
+      toast(t('setting_local_music_failed', { msg: friendlyError(err) }), 'long')
     }).finally(() => {
       setScanning(false)
     })

@@ -9,7 +9,6 @@ import {
   LISTEN_TOGETHER_SCREEN,
   DOWNLOAD_SCREEN,
   LOCAL_MUSIC_SCREEN,
-  ONLINE_SONGLIST_SCREEN,
   PLATFORM_SETTING_SCREEN,
   DIRECTORY_PICKER_SCREEN,
   NETEASE_MINE_SCREEN,
@@ -19,6 +18,9 @@ import {
   NETEASE_LIKED_SCREEN,
   NETEASE_PLAYLISTS_SCREEN,
   NETEASE_ARTIST_SCREEN,
+  NETEASE_ALBUMS_SCREEN,
+  NETEASE_ALBUM_SONGS_SCREEN,
+  PLATFORM_LIST_SCREEN,
   // SETTING_SCREEN,
 } from './screenNames'
 
@@ -792,10 +794,6 @@ function pushFullScreen(componentId: string, name: string, passProps?: Record<st
   })
 }
 
-export function pushOnlineSonglistScreen(componentId: string) {
-  pushFullScreen(componentId, ONLINE_SONGLIST_SCREEN)
-}
-
 export function pushPlatformSettingScreen(componentId: string) {
   pushFullScreen(componentId, PLATFORM_SETTING_SCREEN)
 }
@@ -825,10 +823,22 @@ export function pushLikedSongsScreen(componentId: string) {
   pushFullScreen(componentId, NETEASE_LIKED_SCREEN)
 }
 
-export function pushMyPlaylistsScreen(componentId: string) {
-  pushFullScreen(componentId, NETEASE_PLAYLISTS_SCREEN)
+export function pushMyPlaylistsScreen(componentId: string, options?: { onlySubscribed?: boolean }) {
+  pushFullScreen(componentId, NETEASE_PLAYLISTS_SCREEN, options)
 }
 
 export function pushArtistSongsScreen(componentId: string, artistId: string | number, artistName?: string) {
   pushFullScreen(componentId, NETEASE_ARTIST_SCREEN, { artistId, artistName })
+}
+
+export function pushNeteaseAlbumsScreen(componentId: string, mode: 'sub' | 'new' = 'sub') {
+  pushFullScreen(componentId, NETEASE_ALBUMS_SCREEN, { mode })
+}
+
+export function pushAlbumSongsScreen(componentId: string, albumId: string | number, albumName?: string) {
+  pushFullScreen(componentId, NETEASE_ALBUM_SONGS_SCREEN, { albumId, albumName })
+}
+
+export function pushPlatformListScreen(componentId: string, mode: 'tx-mine' | 'tx-fav' | 'tx-album' | 'kg-mine') {
+  pushFullScreen(componentId, PLATFORM_LIST_SCREEN, { mode })
 }

@@ -4,7 +4,7 @@ import SongListView from '@/components/SongListView'
 import { useI18n } from '@/lang'
 import { setComponentId } from '@/core/common'
 import { COMPONENT_IDS } from '@/config/constant'
-import { getCloudSongs } from '@/core/netease'
+import { getCloudSongs, isNeteaseLoggedIn } from '@/core/netease'
 
 /** 网易云云盘（1.20.0） */
 export default memo(({ componentId }: { componentId: string }) => {
@@ -20,7 +20,7 @@ export default memo(({ componentId }: { componentId: string }) => {
       title={t('netease_cloud')}
       listKey="netease_cloud"
       loader={getCloudSongs}
-      requireLogin
+      requireLogin={!isNeteaseLoggedIn()}
       emptyTip={t('netease_cloud_empty')}
     />
   )

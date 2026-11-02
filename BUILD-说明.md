@@ -1,4 +1,4 @@
-# 编译说明（v1.20.0）
+# 编译说明（v1.21.0）
 
 本包已包含签名文件 `android/app/lxmusic-release.keystore` 与 `android/keystore.properties`，
 `android/app/build.gradle` 的 release 构建会直接使用它们（与 1.17.x / 1.18.0 同签名，可覆盖安装）。
@@ -45,4 +45,4 @@ NODE_OPTIONS="--max-old-space-size=4096" ./gradlew assembleStandardRelease \
 补丁是幂等的，重复 `npm install` 不会重复插入。
 
 ## 本次改动
-见 `doc/fix-report-1.19.0.md`。
+见 `更新说明-1.21.0.md`。

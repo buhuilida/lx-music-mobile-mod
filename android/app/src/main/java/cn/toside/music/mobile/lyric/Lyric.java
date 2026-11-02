@@ -249,6 +249,17 @@ public class Lyric extends LyricPlayer {
     handleGetCurrentLyric(-1);
   }
 
+  /**
+   * 歌词播放到结尾：保留最后一句文本并保持已唱高亮，只停掉逐字动画。
+   *
+   * 注意不能把 lastLine 置为 -1：息屏/亮屏回调会调用 handleGetCurrentLyric(lastLine)，
+   * 一旦是 -1，末行会被当成「无歌词」清空 —— 表现为开关屏后最后一句消失。
+   */
+  @Override
+  public void onLyricFinish() {
+    if (lyricView != null) lyricView.finishCurrentLine();
+  }
+
   public void lockLyric() {
     if (lyricView == null) return;
     lyricView.lockView();

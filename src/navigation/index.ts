@@ -41,6 +41,9 @@ export {
   pushCloudDiskScreen,
   pushLikedSongsScreen,
   pushMyPlaylistsScreen,
+  pushNeteaseAlbumsScreen,
+  pushAlbumSongsScreen,
+  pushPlatformListScreen,
 } from './navigation'
 export * from './event'
 export * from './hooks'

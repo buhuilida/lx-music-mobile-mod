@@ -7,6 +7,7 @@ import { clearWyUidCache } from '@/utils/data'
 import { toNewMusicInfo } from '@/utils'
 import wyUser from '@/utils/musicSdk/wy/user'
 import wyDailyRec from '@/utils/musicSdk/wy/dailyRec'
+import wyAlbum from '@/utils/musicSdk/wy/album'
 import wyArtist from '@/utils/musicSdk/wy/artist'
 import wyMusicDetail from '@/utils/musicSdk/wy/musicDetail'
 
@@ -75,6 +76,26 @@ export const loginWithCookie = async(cookie: string) => {
 /** 二维码登录成功后写入 Cookie */
 export const loginWithQrCookie = async(cookieParts: string[]) => {
   const cookie = cookieParts.filter(Boolean).join('; ')
+  return loginWithCookie(cookie)
+}
+
+/** 发送手机验证码（1.21.0） */
+export const sendWyPhoneCode = async(phone: string, countrycode = '86') => {
+  return wyUser.sendPhoneCode(phone, countrycode)
+}
+
+/**
+ * 手机号登录（1.21.0）：密码或短信验证码，成功后直接写入 Cookie
+ */
+export const loginNeteaseWithPhone = async(options: {
+  phone: string
+  countrycode?: string
+  password?: string
+  captcha?: string
+}) => {
+  const result = await wyUser.loginWithPhone(options) as { cookie?: string }
+  const cookie = result?.cookie ?? ''
+  if (!cookie) throw new Error('登录失败：未获取到登录凭据')
   return loginWithCookie(cookie)
 }
 
@@ -198,4 +219,43 @@ export const toggleLikeSong = async(songId: string, like: boolean) => {
   if (like) set.add(songId)
   else set.delete(songId)
   neteaseActions.setLikedIds([...set])
+}
+
+/** 我收藏的歌单（1.21.0） */
+export const getSubscribedPlaylists = async() => {
+  const cookie = getCookie()
+  if (!cookie) return Promise.reject(new Error('请先登录网易云账号'))
+  const list = await wyUser.getUserPlaylists(neteaseState.profile.uid || await wyUser.getUid(cookie), cookie) as WyRaw[]
+  return asRawList(list).filter(item => item.subscribed)
+}
+
+/** 我收藏的专辑（1.21.0） */
+export const getSubAlbums = async() => {
+  const cookie = getCookie()
+  if (!cookie) return Promise.reject(new Error('请先登录网易云账号'))
+  const list = await wyUser.getSubAlbumList(100, 0, cookie) as unknown
+  return asRawList(list)
+}
+
+/** 新碟上架（1.21.0） */
+export const getNewAlbums = async(limit = 30, offset = 0) => {
+  const list = await wyAlbum.getNewAlbums(limit, offset) as unknown
+  return asRawList(list)
+}
+
+/** 专辑歌曲（收藏专辑 / 新碟点击进入） */
+export const getAlbumSongs = async(albumId: string | number) => {
+  const result = await wyAlbum.getAlbum(albumId) as { list?: unknown }
+  return toOnlineList(asRawList(result.list))
+}
+
+/**
+ * 心动模式（1.21.0）：基于当前歌曲生成一串相似推荐
+ * Walnut 分支里就是这个接口，playlistId 传 0 也能出结果
+ */
+export const getHeartbeatSongs = async(songId: string | number, playlistId: string | number = 0) => {
+  const cookie = getCookie()
+  if (!cookie) return Promise.reject(new Error('请先登录网易云账号'))
+  const result = await wyDailyRec.getHeartbeatModeList(cookie, playlistId, songId) as { list?: unknown }
+  return toOnlineList(asRawList(result.list))
 }

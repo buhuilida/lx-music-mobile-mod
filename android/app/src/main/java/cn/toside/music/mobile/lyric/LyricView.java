@@ -383,12 +383,21 @@ public class LyricView extends Activity implements View.OnTouchListener {
     setLyric(text, extendedLyrics, null);
   }
 
-  public void setLyric(String text, ArrayList<String> extendedLyrics, ArrayList<long[]> words) {
-    if (text.equals("") && text.equals(currentLyric) && extendedLyrics.size() == 0) return;
+  /**
+   * 歌词播放结束：保留末行文本与逐字数据，只把该行标记为「已唱完」。
+   * 不能清空 currentWords —— 清空后重新 seek 回末行时逐字高亮会丢失。
+   */
+  public void finishCurrentLine() {
+    if (textView != null) textView.setLineFinished(true);
+  }
+
+  public void setLyric(String text, ArrayList<String> extendedLyrics, ArrayList<long[]> words) {    if (text.equals("") && text.equals(currentLyric) && extendedLyrics.size() == 0) return;
     currentLyric = text;
     currentExtendedLyrics = extendedLyrics;
     currentWords = words;
     if (textView == null) return;
+    // 新的一行进来，先解除上一行的「已唱完」状态
+    textView.setLineFinished(false);
     textView.setKaraokeWords(currentWords);
     // 翻译 / 音译：单行模式也显示一行，多行模式最多补满剩余行数（1.18.0）
     if (extendedLyrics.size() > 0 && (isSingleLine || maxLineNum > 1)) {

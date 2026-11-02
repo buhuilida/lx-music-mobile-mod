@@ -12,7 +12,7 @@ import { useSettingValue } from '@/store/setting/hook'
 import { createStyle } from '@/utils/tools'
 import { setComponentId } from '@/core/common'
 import { COMPONENT_IDS } from '@/config/constant'
-import { getMyPlaylists } from '@/core/netease'
+import { getMyPlaylists, getSubscribedPlaylists } from '@/core/netease'
 import { pushPlatformSettingScreen, pushSonglistDetailScreen } from '@/navigation'
 
 interface WyPlaylist {
@@ -31,8 +31,12 @@ const extractWyToken = (cookie: string) => {
   return match?.[1] ?? ''
 }
 
-/** 我的歌单（创建 + 收藏，1.20.0） */
-export default memo(({ componentId }: { componentId: string }) => {
+/**
+ * 我的歌单 / 收藏歌单（1.20.0，1.21.0 拆出「只看收藏」）
+ *
+ * onlySubscribed 为 true 时只显示收藏别人的歌单，标题也跟着变。
+ */
+export default memo(({ componentId, onlySubscribed = false }: { componentId: string, onlySubscribed?: boolean }) => {
   const t = useI18n()
   const theme = useTheme()
   const cookie = useSettingValue('platform.wyCookie')
@@ -48,14 +52,16 @@ export default memo(({ componentId }: { componentId: string }) => {
     setLoading(true)
     setError('')
     try {
-      const data = await getMyPlaylists() as unknown as WyPlaylist[]
+      const data = onlySubscribed
+        ? await getSubscribedPlaylists() as unknown as WyPlaylist[]
+        : await getMyPlaylists() as unknown as WyPlaylist[]
       setList(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [onlySubscribed])
 
   useEffect(() => {
     void refresh()
@@ -93,7 +99,10 @@ export default memo(({ componentId }: { componentId: string }) => {
 
   return (
     <PageContent>
-      <FullScreenHeader componentId={componentId} title={`${t('netease_my_playlists')}${list.length ? ` (${list.length})` : ''}`} />
+      <FullScreenHeader
+        componentId={componentId}
+        title={`${onlySubscribed ? t('netease_sub_playlists') : t('netease_my_playlists')}${list.length ? ` (${list.length})` : ''}`}
+      />
       {
         error
           ? <View style={styles.center}>
@@ -117,7 +126,9 @@ export default memo(({ componentId }: { componentId: string }) => {
                 ? null
                 : <View style={styles.center}>
                     <Icon name="list-order" size={42} color={theme['c-350']} />
-                    <Text size={13} color={theme['c-font-label']} style={styles.emptyText}>{t('netease_my_playlists_empty')}</Text>
+                    <Text size={13} color={theme['c-font-label']} style={styles.emptyText}>
+                      {onlySubscribed ? t('netease_sub_playlists_empty') : t('netease_my_playlists_empty')}
+                    </Text>
                   </View>}
             />
       }

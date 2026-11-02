@@ -13,8 +13,17 @@ export {
 let cleared = false
 const picCachePath = temporaryDirectoryPath + '/local-media-metadata'
 
+interface FsEntry {
+  name?: string
+  path: string
+  mimeType?: string | null
+  isFile?: boolean
+  isDirectory?: boolean
+}
+
 export const scanAudioFiles = async(dirPath: string) => {
-  const files = await readDir(dirPath)
+  // react-native-file-system 没有类型声明，这里显式标注，避免隐式 any
+  const files = await readDir(dirPath) as FsEntry[]
   return files.filter(file => {
     if (file.mimeType?.startsWith('audio/')) return true
     if (extname(file?.name ?? '') === 'ogg') return true

@@ -18,6 +18,7 @@ import { parsePlaylistInput, SOURCE_LABELS } from '@/core/onlinePlaylist'
 import { HEADER_HEIGHT as _HEADER_HEIGHT, COMPONENT_IDS } from '@/config/constant'
 import { setComponentId } from '@/core/common'
 import { scaleSizeH } from '@/utils/pixelRatio'
+import { friendlyError } from '@/utils/errorMsg'
 
 const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
 const storageKey = '@__online_playlist_history__'
@@ -89,7 +90,7 @@ export default memo(({ componentId }: { componentId: string }) => {
       })
       setInput('')
     } catch (err: any) {
-      toast(t('online_failed', { msg: err?.message ?? 'unknown' }), 'long')
+      toast(t('online_failed', { msg: friendlyError(err) }), 'long')
     } finally {
       setLoading(false)
     }

@@ -428,10 +428,61 @@ public class LyricPlayer {
     return findCurLineNum(curTime, 0);
   }
 
+  @SuppressWarnings("unchecked")
   private void handleMaxLine() {
-    this.onPlay(this.curLineNum);
-    this.pause();
+    // 防御：歌曲被拖动进度或歌词行数极少时，curLineNum 可能越界，
+    // 越界会让 Lyric.handleGetCurrentLyric 拿到 null 而把歌词清空（末句消失）。
+    int lineNum = Math.max(0, Math.min(this.curLineNum, this.maxLine));
+    this.curLineNum = lineNum;
+    this.onPlay(lineNum);
+    // 末行后面没有「下一行的时间」可用，必须自己估算一个结束点。
+    startTimeout(() -> {
+      if (!isPlay) return;
+      isPlay = false;
+      stopTimeout();
+      onLyricFinish();
+    }, estimateLineDuration(lineNum));
   }
+
+  /**
+   * 估算末行的停留时长。
+   *
+   * 优先用逐字歌词最后一个字的结束时间（最准确）；没有逐字数据时按字数估算，
+   * 并限制不超过与上一行的间隔，避免把整段尾奏都算成「这一句」。
+   */
+  @SuppressWarnings("unchecked")
+  private int estimateLineDuration(int lineNum) {
+    if (lineNum < 0 || lineNum >= lines.size()) return 4000;
+    int lineTime;
+    try {
+      lineTime = (int) lines.get(lineNum).get("time");
+    } catch (Exception e) {
+      return 4000;
+    }
+    Object wordsObj = lines.get(lineNum).get("words");
+    if (wordsObj instanceof ArrayList) {
+      ArrayList<long[]> words = (ArrayList<long[]>) wordsObj;
+      if (!words.isEmpty()) {
+        long end = words.get(words.size() - 1)[3];
+        if (end > lineTime) return (int) Math.min(12000L, Math.max(1200L, end - lineTime + 800L));
+      }
+    }
+    Object text = lines.get(lineNum).get("text");
+    int len = text == null ? 0 : text.toString().trim().length();
+    int duration = Math.max(3000, Math.min(12000, len * 260));
+    if (lineNum > 0) {
+      try {
+        int prev = (int) lines.get(lineNum - 1).get("time");
+        int gap = lineTime - prev;
+        if (gap > 0) duration = Math.min(duration, Math.max(2000, gap));
+      } catch (Exception ignored) {
+      }
+    }
+    return duration;
+  }
+
+  /** 歌词播放到结尾（末行停留时间走完） */
+  public void onLyricFinish() {}
 
   private void refresh() {
     if (tempPaused) tempPaused = false;

@@ -137,6 +137,11 @@ export class StateEvent extends Event {
     this.emit('neteaseUpdated')
   }
 
+  /** QQ 音乐 / 酷狗账号信息变化 */
+  accountUpdated() {
+    this.emit('accountUpdated')
+  }
+
   listenTogetherRoomUpdated(room: ListenTogetherState['room'], selfId: ListenTogetherState['selfId'], isHost: ListenTogetherState['isHost']) {
     this.emit('listenTogetherRoomUpdated', room, selfId, isHost)
   }

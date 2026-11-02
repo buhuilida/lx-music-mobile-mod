@@ -17,6 +17,7 @@ import { setComponentId } from '@/core/common'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { ensureLocalList, getLocalMusics, LOCAL_LIST_ID, scanAndSyncLocalList } from '@/core/localMusic'
 import { usePlayMusicInfo } from '@/store/player/hook'
+import { friendlyError } from '@/utils/errorMsg'
 
 const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
 
@@ -70,13 +71,23 @@ export default memo(({ componentId }: { componentId: string }) => {
     void scanAndSyncLocalList(setProgress).then((count) => {
       toast(t('setting_local_music_done', { count }))
     }).catch((err: Error) => {
-      toast(t('setting_local_music_failed', { msg: err?.message ?? '' }), 'long')
+      toast(t('setting_local_music_failed', { msg: friendlyError(err) }), 'long')
     }).finally(() => {
       scanningRef.current = false
       setScanning(false)
       refresh()
     })
   }
+
+  // 从侧边栏首次进入且歌单为空时，自动走一次「申请权限 + 扫描」，
+  // 避免用户看到空列表却不知道要先授权（1.22.1）
+  const autoScanRef = useRef(false)
+  useEffect(() => {
+    if (!inited || list.length > 0 || autoScanRef.current) return
+    autoScanRef.current = true
+    handleScan()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inited, list.length])
 
   const handlePlayAll = () => {
     if (!list.length) {

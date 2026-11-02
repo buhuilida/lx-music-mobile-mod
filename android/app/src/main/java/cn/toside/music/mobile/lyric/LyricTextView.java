@@ -49,6 +49,8 @@ public class LyricTextView extends TextView {
   /** 逐字卡拉OK：words 每项 {charStart, charEnd, startMs, endMs} */
   private ArrayList<long[]> words = null;
   private KaraokeClock karaokeClock = null;
+  /** 该行已唱完（末行收尾）：停掉逐字高亮，整行按「未唱」色渲染，视觉上明确结束 */
+  private boolean finished = false;
 
   public interface KaraokeClock {
     int now();
@@ -75,6 +77,20 @@ public class LyricTextView extends TextView {
 
   public void setKaraokeWords(ArrayList<long[]> newWords) {
     this.words = (newWords == null || newWords.isEmpty()) ? null : newWords;
+    postInvalidate();
+  }
+
+  /**
+   * 标记当前行「已唱完」/「重新开始」。
+   *
+   * 注意：不能在这里清空 words。1.22.0 清空后末行会被按「未唱色」重绘，
+   * 表现为最后一句唱完突然变灰（与前面已唱的高亮色不一致）；
+   * 而且暂停后再播放该行时拿不到逐字数据，末行就再也没有逐字效果。
+   * 正确做法是保留 words，只是停止逐字动画、整行按已唱色静态渲染。
+   */
+  public void setLineFinished(boolean value) {
+    if (this.finished == value) return;
+    this.finished = value;
     postInvalidate();
   }
 
@@ -254,7 +270,7 @@ public class LyricTextView extends TextView {
       }
 
       float drawX = getLineX(mainLine, mPaint);
-      boolean karaoke = words != null && karaokeClock != null && mainLine.length() > 0;
+      boolean karaoke = !finished && words != null && karaokeClock != null && mainLine.length() > 0;
       if (karaoke) {
         // 逐字卡拉OK：先画未唱颜色，再裁剪叠加已唱颜色
         int now = karaokeClock.now();
@@ -268,7 +284,8 @@ public class LyricTextView extends TextView {
         }
         if (karaokeClock.playing()) postDelayed(karaokeInvalidateRunnable, karaokeInvalidateDelay);
       } else {
-        canvas.drawText(mainLine, drawX, startY, mPaint);
+        // 末行唱完：整行保持「已唱」色（不再回退成未唱色），且不再驱动逐字重绘
+        canvas.drawText(mainLine, drawX, startY, finished ? playedPaint : mPaint);
       }
 
       // 翻译 / 音译行：小字号、略淡，居中画在歌词下方

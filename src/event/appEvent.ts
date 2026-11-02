@@ -53,6 +53,17 @@ export class AppEvent extends Event {
   }
 
   /**
+   * 播放位置大幅回退（单曲循环重播 / 手动拖回开头）
+   *
+   * 原生歌词播放器是「按行排定时器」自己往前跑的，位置回绕时如果不重新对齐，
+   * 它会一直停在上一轮的当前行（末行就是「卡在最后一句」的另一种表现）。
+   * @param progress 当前位置（毫秒）
+   */
+  lyricSeek(progress: number) {
+    this.emit('lyricSeek', progress)
+  }
+
+  /**
    * 设置音量大小
    * @param volume 音量大小
    */

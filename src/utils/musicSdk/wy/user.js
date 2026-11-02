@@ -3,7 +3,7 @@ import { weapi } from './utils/crypto'
 import { getWyUidCache, saveWyUidCache } from '@/utils/data'
 import { toMD5 } from '@/utils/tools'
 import settingState from '@/store/setting/state'
-import { setWyProfile } from '@/store/netease/action'
+import neteaseActions from '@/store/netease/action'
 
 // https://github.com/Binaryify/NeteaseCloudMusicApi
 
@@ -47,6 +47,41 @@ const retry = async(fn, retryNum = 0) => {
   }
 }
 
+/**
+ * 把响应里的 Set-Cookie 拼成一条 cookie 字符串。
+ * RN 的 fetch 在 Android 上会把多条 Set-Cookie 放进 headers['set-cookie']（数组），
+ * iOS 可能是逗号拼接的单条字符串，这里两种都处理。
+ */
+const parseSetCookie = (headers) => {
+  const raw = headers?.['set-cookie'] ?? headers?.['Set-Cookie']
+  if (!raw) return ''
+  const list = Array.isArray(raw) ? raw : String(raw).split(/,(?=[^;,]+=)/)
+  return list
+    .map(item => String(item).split(';')[0].trim())
+    .filter(item => item.includes('='))
+    .join('; ')
+}
+
+/**
+ * 登录类请求：不要求已有 cookie（当前就是没有才要登录），
+ * 返回值里带上响应下发的 cookie。
+ */
+const postWeapi = async(url, data, cookie = '') => {
+  const requestObj = httpFetch(url, {
+    method: 'post',
+    headers: {
+      'User-Agent': UA,
+      origin: 'https://music.163.com',
+      Referer: 'https://music.163.com',
+      ...(cookie ? { cookie } : {}),
+    },
+    form: weapi({ ...data, csrf_token: getCsrf(cookie) }),
+  })
+  const { body, headers, statusCode } = await requestObj.promise
+  if (statusCode !== 200) throw new Error(`请求失败（${statusCode}）`)
+  return { body, cookie: parseSetCookie(headers) }
+}
+
 export default {
   /**
    * 用 Cookie 换账号 UID，同时缓存 VIP 状态
@@ -57,7 +92,7 @@ export default {
     if (!retryNum) {
       const cached = await getWyUidCache(hashedCookie)
       if (cached) {
-        setWyProfile({ uid: String(cached.uid), vipType: cached.vipType })
+        neteaseActions.setWyProfile({ uid: String(cached.uid), vipType: cached.vipType })
         return cached.uid
       }
     }
@@ -65,7 +100,7 @@ export default {
       const body = await post('https://music.163.com/weapi/w/nuser/account/get', {}, cookie)
       if (!body.account) throw new Error('登录已过期，请重新登录')
       const uid = body.account.id
-      setWyProfile({
+      neteaseActions.setWyProfile({
         uid: String(uid),
         vipType: body.account.vipType ?? 0,
         nickname: body.profile?.nickname,
@@ -83,7 +118,7 @@ export default {
   async getProfile(uid) {
     const body = await post(`https://music.163.com/weapi/v1/user/detail/${uid}`)
     const profile = body.profile ?? {}
-    setWyProfile({
+    neteaseActions.setWyProfile({
       uid: String(profile.userId ?? uid),
       nickname: profile.nickname,
       avatarUrl: profile.avatarUrl,
@@ -221,5 +256,47 @@ export default {
       return { code: 803, cookie: cookies }
     }
     return { code: body.code ?? 800, message: body.message }
+  },
+
+  /**
+   * 手机号登录（1.21.0）
+   *
+   * 两种方式都走 weapi：
+   * - 密码：password 传 md5，服务端校验
+   * - 验证码：captcha 传短信码（先用 sendPhoneCode 发）
+   * 成功后 weapi 会通过 Set-Cookie 下发 MUSIC_U / __csrf，拼起来就是可用的 Cookie。
+   */
+  async sendPhoneCode(phone, countrycode = '86') {
+    const { body } = await postWeapi('https://music.163.com/weapi/sms/captcha/sent', {
+      cellphone: String(phone),
+      ctcode: String(countrycode),
+    })
+    if (body.code !== 200) throw new Error(body.message || body.msg || '验证码发送失败')
+    return true
+  },
+
+  async loginWithPhone({ phone, countrycode = '86', password = '', captcha = '' }) {
+    const data = {
+      phone: String(phone),
+      countrycode: String(countrycode),
+      rememberLogin: 'true',
+    }
+    if (captcha) data.captcha = String(captcha)
+    else if (password) data.password = toMD5(String(password))
+    else throw new Error('请填写密码或验证码')
+
+    const { body, cookie } = await postWeapi('https://music.163.com/weapi/login/cellphone', data)
+    if (body.code !== 200) {
+      // 501/502 一般是账号或密码错误；503 是验证码错误
+      throw new Error(body.message || body.msg || '登录失败')
+    }
+    if (!/(^|;\s*)MUSIC_U=/.test(cookie)) throw new Error('登录成功但没拿到凭据，请改用扫码登录')
+    neteaseActions.setWyProfile({
+      uid: String(body.account?.id ?? body.profile?.userId ?? ''),
+      nickname: body.profile?.nickname,
+      avatarUrl: body.profile?.avatarUrl,
+      vipType: body.account?.vipType ?? 0,
+    })
+    return { cookie, profile: body.profile ?? {}, account: body.account ?? {} }
   },
 }

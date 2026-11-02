@@ -17,6 +17,7 @@ import { scaleSizeH } from '@/utils/pixelRatio'
 import WyLoginModal from '@/components/WyLoginModal'
 import { useNetease } from '@/store/netease/hook'
 import { initNetease } from '@/core/netease'
+import { friendlyError } from '@/utils/errorMsg'
 
 const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
 
@@ -78,7 +79,7 @@ export default memo(({ componentId }: { componentId: string }) => {
       void initNetease(true).then(() => {
         toast(t('wy_login_success'))
       }).catch((err: Error) => {
-        toast(err?.message ?? t('wy_login_failed'), 'long')
+        toast(friendlyError(err) || t('wy_login_failed'), 'long')
       })
     }
     setEditing(null)

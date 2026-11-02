@@ -146,6 +146,13 @@ public final class LyricSwitchView extends TextSwitcher {
     }
   }
 
+  /** 末行唱完 / 换行重新开始：同步到所有正在显示的歌词 View */
+  public void setLineFinished(boolean finished) {
+    for (TextView v : viewArray) {
+      if (v instanceof LyricTextView) ((LyricTextView) v).setLineFinished(finished);
+    }
+  }
+
   public void setKaraokeClock(LyricTextView.KaraokeClock clock) {
     for (TextView v : viewArray) {
       if (v instanceof LyricTextView) ((LyricTextView) v).setKaraokeClock(clock);

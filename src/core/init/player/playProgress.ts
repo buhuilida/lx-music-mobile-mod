@@ -25,6 +25,8 @@ export default () => {
   let updateTimeout: number | null = null
 
   let isScreenOn = true
+  /** 上一次读到的播放位置（秒），用于识别「回绕」 */
+  let lastPosition = -1
 
   const getCurrentTime = () => {
     let id = playerState.musicInfo.id
@@ -32,6 +34,14 @@ export default () => {
       if (!position || id != playerState.musicInfo.id) return
       setNowPlayTime(position)
       if (!playerState.isPlay) return
+
+      // 位置大幅回退说明这首歌从头重播了（单曲循环、点上一首、拖回开头）。
+      // 原生歌词播放器是按行排定时器自己往前跑的，不重新对齐就会一直停在
+      // 上一轮的当前行上，表现就是「歌词卡在最后一句，切歌才变」。
+      if (lastPosition >= 0 && position + 2 < lastPosition) {
+        global.app_event.lyricSeek(position * 1000)
+      }
+      lastPosition = position
 
       if (settingState.setting['player.isSavePlayTime'] && !playerState.playMusicInfo.isTempPlay && isScreenOn) {
         delaySavePlayInfo()
@@ -96,6 +106,7 @@ export default () => {
   }
 
   const handleStop = () => {
+    lastPosition = -1
     clearUpdateTimeout()
     setNowPlayTime(0)
     setMaxplayTime(0)
@@ -113,6 +124,7 @@ export default () => {
 
 
   const handleSetPlayInfo = () => {
+    lastPosition = -1
     // restorePlayTime = playProgress.nowPlayTime
     // void setCurrentTime(playerState.progress.nowPlayTime)
     // setMaxplayTime(playProgress.maxPlayTime)
