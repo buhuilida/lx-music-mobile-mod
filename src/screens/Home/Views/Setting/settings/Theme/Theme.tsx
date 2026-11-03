@@ -104,10 +104,16 @@ export default memo(() => {
         }
         {
           themeInfo.userThemes.map(({ id, name, config }) => {
+            // 自定义主题色块显示用户设置的背景图（竖屏优先），与内置带图主题一致
+            const image = config.extInfo['bg-image-portrait'] ?? config.extInfo['bg-image'] ?? config.extInfo['bg-image-landscape']
             return <ThemeItem
               key={id}
               color={config.themeColors['c-theme']}
-              // image={undefined}
+              image={image
+                ? (/^https?:\/\//i.test(image)
+                  ? { uri: image }
+                  : { uri: `file://${themeInfo.dataPath}/${image}` })
+                : undefined}
               showAll={showAll}
               id={id}
               name={name}

@@ -99,7 +99,10 @@ export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
   }
 
   const themeColors = { ...theme.config.themeColors }
-  if (bgImg) {
+  // 内置带图主题（如近墨者黑）的主背景是半透明的，图片才能透出来。
+  // 自定义主题背景色是不透明纯色，所以这里必须做同样的覆写——
+  // 注意竖屏 / 横屏单独设置的图片也要触发（它们不走 bgImg），否则图片会被纯色背景完全盖住
+  if (bgImg || bgImgPortrait || bgImgLandscape) {
     /**
      * 有背景图时必须让主背景透出图片。
      * 注意：c-main-background 定义在 extInfo 里（var() 解析后也是），而返回对象里
