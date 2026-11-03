@@ -1,8 +1,12 @@
 {
-  "version": "1.22.15",
-  "versionCode": 120,
-  "desc": "# 月下独酌版 v1.22.15\n\n## 音质体系完善\n\n- **优先播放的音质**改为固定 8 档并带中文名，与 lxx 对齐：\n  128K 标准 → 320K 高品质 → FLAC 无损 → 24bit 无损 → Hi-Res 无损 → 臻品全景声 Atmos → 臻品全景声 Atmos+ → 臻品母带 Master\n- **不再出现 192K**（该档仅个别平台提供，统一从播放/下载/音源测试的可选列表移除）\n- **下载音质（指定模式）与下载弹窗**同步使用中文全名，一眼看懂在下什么档\n- **全平台 master 透传已验证**：wy / tx / kg / kw / mg / bd 六个平台的取链接都会把你选的档位原样传给音源脚本——只要音源声明支持母带，设置选了就真实请求母带；音源没有的档位自动降到它声明的最高档\n\n## 验证方法\n\n1. 设置 → 优先播放的音质勾选「臻品母带 Master」→ 播放页顶部徽标应显示 Master\n2. 播放页下载弹窗应列出「臻品全景声 Atmos」「臻品母带 Master」等档位\n3. 设置 → 音源测试，实测各平台最高档\n\n**安装**：签名与之前版本一致，直接覆盖安装。",
+  "version": "1.22.16",
+  "versionCode": 121,
+  "desc": "v1.22.16\n- 播放音质修复：优先播放音质按设置真实请求各平台音源（Master/Atmos 不再被音源声明拦截降级为 24bit），请求失败自动按「声明档位→歌曲档位→128K」逐级回退，播放日志标记 [quality]\n- 下载修复：全局音质直接按设置档位下载，失败自动降级，文件按实际音质标注\n- 新增：设置 → 软件更新 → 「检查更新」按钮，一键检查并主动升级",
   "history": [
+    {
+      "version": "1.22.15",
+      "desc": "# 月下独酌版 v1.22.15\n\n## 音质体系完善\n\n- **优先播放的音质**改为固定 8 档并带中文名，与 lxx 对齐：\n  128K 标准 → 320K 高品质 → FLAC 无损 → 24bit 无损 → Hi-Res 无损 → 臻品全景声 Atmos → 臻品全景声 Atmos+ → 臻品母带 Master\n- **不再出现 192K**（该档仅个别平台提供，统一从播放/下载/音源测试的可选列表移除）\n- **下载音质（指定模式）与下载弹窗**同步使用中文全名，一眼看懂在下什么档\n- **全平台 master 透传已验证**：wy / tx / kg / kw / mg / bd 六个平台的取链接都会把你选的档位原样传给音源脚本——只要音源声明支持母带，设置选了就真实请求母带；音源没有的档位自动降到它声明的最高档\n\n## 验证方法\n\n1. 设置 → 优先播放的音质勾选「臻品母带 Master」→ 播放页顶部徽标应显示 Master\n2. 播放页下载弹窗应列出「臻品全景声 Atmos」「臻品母带 Master」等档位\n3. 设置 → 音源测试，实测各平台最高档\n\n**安装**：签名与之前版本一致，直接覆盖安装。"
+    },
     {
       "version": "1.22.14",
       "desc": "# 月下独酌版 v1.22.14\n\n## 音质修复（重点）\n\n- **修复：设置选了 Master（臻品母带）却一直播 FLAC 24bit**——之前播放档位选择会先被歌曲元数据里的旧档位（24bit）拦住，音源声明的母带/全景声永远轮不到；现在只要音源声明支持你设置的档位，就直接按它请求，失败才自动降级\n- **修复：下载弹窗「最高音质(自动)」取不到母带**——下载可选音质列表现在合并音源脚本声明的档位，列表里会出现 Hi-Res / Atmos / Atmos+ / Master，「最高音质(自动)」也会按母带下载\n- **设置 → 下载音质（指定模式）新增 Atmos / Atmos+ / Master 档位**，固定用母带下载也可以了\n\n## 登录文案修复\n\n- **修复：QQ 音乐 / 酷狗网页登录成功后提示「网易云登录成功」**——现在按实际平台显示「QQ 音乐登录成功」「酷狗音乐登录成功」\n\n## 其他\n\n- 播放/下载音质选择逻辑统一：歌曲元数据只作音源未初始化时的兜底，不再拦截音源已声明的高档位\n\n**安装**：与上一版签名一致，直接覆盖安装即可。验证方法：设置里选 Master 后播放，播放页顶部音质徽标应显示 Master；下载弹窗最高音质应显示 Master。"
@@ -78,20 +82,17 @@
     {
       "version": "1.19.0",
       "desc": "修复：ColorOS / OPlus 锁屏歌词不显示——按官方 lyricInfo 协议补齐 lyricType / noLyric / provider / trackKey，时间轴统一为绝对毫秒，逐字歌词写入 rawLyric（支持扫光），翻译写入 translationLyric；AndroidManifest 增加 OPLUS_MEDIA_HISTORY 声明（缺这条会被系统过滤）；封面加载、切歌不再丢歌词/串歌\n修复：播放中弹出「Critical Error Occurred」白屏——原生异常页中文化并可直接复制堆栈；修复打开悬浮窗权限未加 FLAG_ACTIVITY_NEW_TASK、分享时 Activity 为空 NPE；歌词 payload 限制 64KB 并给所有 setMetadata 加保护，避免 Binder 事务超限崩溃\n新增：下载设置支持「并发下载数量」1-5 与「下载目录」选择（内置目录浏览器，选择前做可写探测，可一键恢复默认）\n新增：侧边栏「在线歌单」——粘贴网易云 / QQ 音乐 / 酷狗歌单链接或 wy:ID / tx:ID / kg:ID 直接打开，播放全部、收藏、下载可用，并记录最近打开\n新增：侧边栏「平台设置」——保存网易云 / QQ / 酷狗 Cookie，网易云私密歌单自动带 MUSIC_U，仅存本机\n优化：移除每行歌词改写 artist 的兜底（污染通知栏且造成高频 metadata 重建）\n"
-    },
-    {
-      "version": "1.18.0",
-      "desc": "新增：完整音质体系，支持 128K / 192K / 320K / FLAC / FLAC 24bit / Hi-Res / Atmos / Atmos+ / Master，并新增对应彩色徽章\n新增：安卓原生锁屏显示——设置项「锁屏显示」，一键直达 MIUI/HyperOS 锁屏显示权限页，锁屏歌词/播放控制\n修复：桌面歌词多行模式不逐字、翻译不显示——原生自绘歌词行，歌词逐字染色 + 翻译小字同行显示\n新增：全平台逐字歌词兜底（无逐字歌词的音源按行时间自动生成），并统一歌词时间轴精度\n升级：音效系统新增人声增强 / 超重低音 / 3D 环绕 / 现场 / 电子 / 摇滚 / 民谣 / 古典 / 爵士 / 影院 / 音乐厅等 12 组预设，新增响度增强与可重置均衡器\n修复：设置 Master 却显示 FLAC 的徽标问题，回退档位时不再错误显示\n继承：一键下载歌单、本地音乐独立页面、WebDAV 修复、赞助码居中"
     }
   ],
   "download": {
-    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.15-arm64-v8a.apk?sharecode=MKPWEVLBUS",
-    "universal": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.15-universal.apk?sharecode=MKPWEVLBUS",
-    "backscreen": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.15-backscreen-arm64-v8a.apk?sharecode=MKPWEVLBUS"
+    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.16-arm64-v8a.apk?sharecode=MKPWEVLBUS",
+    "universal": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.16-universal.apk?sharecode=MKPWEVLBUS",
+    "backscreen": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.16-backscreen-arm64-v8a.apk?sharecode=MKPWEVLBUS"
   },
-  "source": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lx-music-mod-src-v1.22.15.zip?sharecode=MKPWEVLBUS",
+  "source": "lx-music-mod-src-v1.22.16.zip",
   "repos": {
     "app": "https://github.com/yzdz666/lx-music-mobile-mod",
     "server": "https://github.com/yzdz666/listen-together-server"
-  }
+  },
+  "date": "2026-11-03 13:56"
 }
