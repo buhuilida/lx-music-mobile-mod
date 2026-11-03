@@ -10,7 +10,7 @@ import downloadState from '@/store/download/state'
 import downloadActions from '@/store/download/action'
 import { getListMusics } from '@/utils/listManage'
 import settingState from '@/store/setting/state'
-import { QUALITY_ORDER, getQualityFileExt } from '@/config/quality'
+import { QUALITY_ORDER, SELECTABLE_QUALITYS, getQualityFileExt } from '@/config/quality'
 
 const storageKey = '@__download_list__'
 
@@ -29,10 +29,10 @@ export const buildItemId = (musicInfo: LX.Music.MusicInfoOnline, quality: LX.Qua
 }
 
 /**
- * 可选的下载音质：歌曲元信息与音源声明取并集。
- * 自定义音源的母带 / 全景声等高档位不在官方歌曲元数据里，只看元信息会漏掉（1.22.14 修复）。
+ * 歌曲「自身」可用的音质：元信息与音源声明的并集。
+ * 只用于计算「最高音质（自动）」与自动下载，不代表下载弹窗的可选范围。
  */
-export const getMusicQualities = (musicInfo: LX.Music.MusicInfoOnline): LX.Quality[] => {
+export const getAvailableQualities = (musicInfo: LX.Music.MusicInfoOnline): LX.Quality[] => {
   const metaQualitys = Object.keys(musicInfo.meta._qualitys ?? {}) as LX.Quality[]
   const sourceQualitys = global.lx.qualityList[musicInfo.source] ?? []
   const order = QUALITY_ORDER
@@ -42,6 +42,15 @@ export const getMusicQualities = (musicInfo: LX.Music.MusicInfoOnline): LX.Quali
   // 两者都为空时给出常见档位，实际下载时由音源自动降级
   return merged.length ? merged : ['128k', '320k', 'flac']
 }
+
+/**
+ * 下载弹窗的可选音质（1.22.17）
+ *
+ * 固定展示 8 档，不再受歌曲元信息 / 音源声明限制。
+ * 之前只看声明，自定义音源普遍没声明 master，导致「播放能出母带、下载弹窗没有母带」。
+ * 选到歌曲不支持的档位时，downloadMusic 会按回退链降级，并以实际音质写入下载列表。
+ */
+export const getMusicQualities = (_musicInfo: LX.Music.MusicInfoOnline): LX.Quality[] => SELECTABLE_QUALITYS
 
 const ensureDir = async(dir = privateDownloadDirectoryPath) => {
   const exists = await existsFile(dir)
@@ -356,7 +365,7 @@ export const downloadMusic = async(musicInfo: LX.Music.MusicInfoOnline, quality:
  * 取歌曲可用的最高音质（用于「一键下载全部」「最高音质下载」）
  */
 export const getBestQuality = (musicInfo: LX.Music.MusicInfoOnline): LX.Quality => {
-  const list = getMusicQualities(musicInfo)
+  const list = getAvailableQualities(musicInfo)
   return list[list.length - 1] ?? '320k'
 }
 

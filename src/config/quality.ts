@@ -21,19 +21,24 @@ export const QUALITY_ORDER: LX.Quality[] = [
   'wav',
 ]
 
-/** 播放页 / 下载页 / 音源测试统一使用的音质名称 */
+/**
+ * 播放页 / 下载页 / 音源测试统一使用的音质名称
+ *
+ * 1.22.17：全部改为与 lxx 一致的中文全名，播放页徽标、下载列表、
+ * 设置页共用这一份映射，避免出现「设置里叫臻品母带、徽标还写 Master」。
+ */
 export const QUALITY_LABELS: Record<string, string> = {
-  '128k': '128K',
+  '128k': '128K 标准',
   '192k': '192K',
-  '320k': '320K',
-  flac: 'FLAC',
-  flac24bit: 'FLAC 24bit',
-  hires: 'Hi-Res',
-  atmos: 'Atmos',
-  atmos_plus: 'Atmos+',
-  master: 'Master',
-  ape: 'APE',
-  wav: 'WAV',
+  '320k': '320K 高品质',
+  flac: 'FLAC 无损',
+  flac24bit: '24bit 无损',
+  hires: 'Hi-Res 无损',
+  atmos: '臻品全景声 Atmos',
+  atmos_plus: '臻品全景声 Atmos+',
+  master: '臻品母带Master',
+  ape: 'APE 无损',
+  wav: 'WAV 无损',
   local: '本地',
 }
 
@@ -60,18 +65,9 @@ export const getQualityLabel = (quality?: string | null) => {
 
 /**
  * 设置页 / 下载弹窗使用的中文全名（1.22.15）
- * 徽标等窄位继续用 QUALITY_LABELS 的短名，这里给完整中文释义。
+ * 现在与 QUALITY_LABELS 同源，保留导出仅为兼容旧引用。
  */
-export const QUALITY_FULL_LABELS: Record<string, string> = {
-  '128k': '128K 标准',
-  '320k': '320K 高品质',
-  flac: 'FLAC 无损',
-  flac24bit: '24bit 无损',
-  hires: 'Hi-Res 无损',
-  atmos: '臻品全景声 Atmos',
-  atmos_plus: '臻品全景声 Atmos+',
-  master: '臻品母带 Master',
-}
+export const QUALITY_FULL_LABELS: Record<string, string> = QUALITY_LABELS
 
 export const getQualityFullLabel = (quality?: string | null) => {
   if (!quality) return ''

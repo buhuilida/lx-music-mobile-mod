@@ -211,6 +211,8 @@ const viewMap = {
   nav_local: 1,
   // 我的音乐 / 平台设置都是独立 push 页面，仅用于类型完整
   nav_mine: 1,
+  // 云盘是独立 push 页面（1.22.11 侧边栏入口）
+  nav_cloud: 1,
   nav_platform: 5,
   nav_setting: 5,
 }

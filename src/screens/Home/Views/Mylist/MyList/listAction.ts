@@ -137,7 +137,7 @@ const createLocalMusicInfos = async(filePaths: string[], errorPath: string[]): P
       filePaths.shift(),
     ].filter(Boolean) as string[]
 
-    await Promise.all(tasks.map(async path => readMetadata(path).then(info => ([path, info] as const)))).then((res) => {
+    await Promise.all(tasks.map(async (path: string) => readMetadata(path).then(info => ([path, info] as const)))).then((res) => {
       for (const [path, info] of res) {
         if (!info) {
           errorPath.push(path)
@@ -198,7 +198,7 @@ export const handleImportMediaFile = async(listInfo: LX.List.MyListInfo, path: s
     }, async(listId, errorPath) => {
       return removeListMusics(listId, errorPath)
     }, listInfo.id)
-    await addListMusics(listInfo.id, files.map(buildLocalMusicInfoByFilePath), settingState.setting['list.addMusicLocationType'])
+    await addListMusics(listInfo.id, files.map(file => buildLocalMusicInfoByFilePath(file as unknown as FileType)), settingState.setting['list.addMusicLocationType'])
     toast(global.i18n.t('list_select_local_file_temp_add_tip', { total: files.length }), 'long')
     await handleUpdateMusics(files.map(f => f.path), throttleUpdateMusics)
   } else toast(global.i18n.t('list_select_local_file_empty_tip'), 'long')

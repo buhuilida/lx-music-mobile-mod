@@ -9,22 +9,15 @@ import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { createStyle } from '@/utils/tools'
 
+import { SELECTABLE_QUALITYS, getQualityFullLabel } from '@/config/quality'
+
 const MODES = [
   { id: 'auto', labelKey: 'setting_download_quality_mode_auto' },
   { id: 'global', labelKey: 'setting_download_quality_mode_global' },
 ] as const
 
-/** 全局音质档位：固定 8 档，与优先播放音质一致（1.22.15），中文全名 */
-const QUALITYS: Array<{ id: LX.Quality, label: string }> = [
-  { id: '128k', label: '128K 标准' },
-  { id: '320k', label: '320K 高品质' },
-  { id: 'flac', label: 'FLAC 无损' },
-  { id: 'flac24bit', label: '24bit 无损' },
-  { id: 'hires', label: 'Hi-Res 无损' },
-  { id: 'atmos', label: '臻品全景声 Atmos' },
-  { id: 'atmos_plus', label: '臻品全景声 Atmos+' },
-  { id: 'master', label: '臻品母带 Master' },
-]
+/** 全局音质档位：固定 8 档，与优先播放音质共用同一份列表（1.22.17） */
+const QUALITYS = SELECTABLE_QUALITYS
 
 /**
  * 下载音质（1.22.9）
@@ -61,15 +54,15 @@ export default memo(() => {
             <>
               <Text size={13} color={theme['c-600']} style={styles.subTitle}>{t('setting_download_quality_global')}</Text>
               <View style={styles.btns}>
-                {QUALITYS.map(item => {
-                  const active = quality == item.id
+                {QUALITYS.map(id => {
+                  const active = quality == id
                   return (
                     <CommonButton
-                      key={item.id}
-                      onPress={() => { updateSetting({ 'download.quality': item.id }) }}
+                      key={id}
+                      onPress={() => { updateSetting({ 'download.quality': id }) }}
                       style={[styles.btn, { backgroundColor: active ? theme['c-primary-background-active'] : theme['c-button-background'] }]}
                     >
-                      <Text size={12} color={active ? theme['c-primary-font'] : theme['c-button-font']}>{item.label}</Text>
+                      <Text size={12} color={active ? theme['c-primary-font'] : theme['c-button-font']}>{getQualityFullLabel(id)}</Text>
                     </CommonButton>
                   )
                 })}

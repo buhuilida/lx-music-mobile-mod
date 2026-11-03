@@ -36,12 +36,12 @@ for (const m of nav.matchAll(/pushFullScreen\([^,]+,\s*([A-Z0-9_]+_SCREEN)/g)) {
   pushed.add(m[1])
 }
 
-const pascal = (name) => name
-  .toLowerCase()
-  .split('_')
-  .filter(Boolean)
-  .map(s => s[0].toUpperCase() + s.slice(1))
-  .join('')
+const SPECIAL_DIRS = { webdav: 'WebDAV' }
+const pascal = (name) => {
+  const key = name.toLowerCase()
+  if (SPECIAL_DIRS[key]) return SPECIAL_DIRS[key]
+  return key.split('_').filter(Boolean).map(s => s[0].toUpperCase() + s.slice(1)).join('')
+}
 
 let failed = 0
 const rows = []

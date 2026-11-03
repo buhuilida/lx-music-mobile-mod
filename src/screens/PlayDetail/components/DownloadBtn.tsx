@@ -1,5 +1,5 @@
 import { memo, useMemo, useRef } from 'react'
-import { TouchableOpacity, View } from 'react-native'
+import { ScrollView, TouchableOpacity } from 'react-native'
 
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
@@ -59,7 +59,7 @@ export default memo(() => {
         <Icon name="download-2" size={18} color={isLocal ? theme['c-font-label'] : undefined} />
       </TouchableOpacity>
       <Popup ref={popupRef} title={t('download_select_quality')} position="bottom">
-        <View style={styles.qualityList}>
+        <ScrollView style={styles.qualityList} showsVerticalScrollIndicator={false}>
           {musicInfo
             ? <TouchableOpacity
                 style={styles.qualityItem}
@@ -81,7 +81,7 @@ export default memo(() => {
               <Text size={11} color={theme['c-font-label']}>{`${musicInfo?.name ?? ''}`}</Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
       </Popup>
     </>
   )

@@ -319,7 +319,7 @@ const ThemeEditor = ({ componentId, initial, onCancel, onSaved }: {
     }
     // 编辑已有主题时保留原 id 与原有扩展字段（如导入的网络背景图、徽章色），
     // c-app-background / c-main-background 由编辑器里的颜色重新生成，不继承
-    const preserved = { ...initial.config.extInfo }
+    const preserved: Record<string, string> = { ...initial.config.extInfo }
     delete preserved['c-app-background']
     delete preserved['c-main-background']
     const target = buildTheme({

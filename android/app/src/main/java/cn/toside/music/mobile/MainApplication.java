@@ -16,6 +16,7 @@ import cn.toside.music.mobile.lyric.LyricPackage;
 import cn.toside.music.mobile.userApi.UserApiPackage;
 import cn.toside.music.mobile.utils.UtilsPackage;
 import cn.toside.music.mobile.audioeffect.AudioEffectPackage;
+import cn.toside.music.mobile.mediastore.MediaStorePackage;
 
 public class MainApplication extends NavigationApplication {
 
@@ -39,6 +40,7 @@ public class MainApplication extends NavigationApplication {
           packages.add(new UserApiPackage());
           packages.add(new ExtPackage());
           packages.add(new AudioEffectPackage());
+          packages.add(new MediaStorePackage());
           return packages;
         }
 
