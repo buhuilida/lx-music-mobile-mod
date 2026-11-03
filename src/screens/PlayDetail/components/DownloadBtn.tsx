@@ -9,7 +9,7 @@ import { usePlayMusicInfo } from '@/store/player/hook'
 import { useDownloadList } from '@/store/download/hook'
 import { useI18n } from '@/lang'
 import { buildItemId, downloadMusic, getBestQuality, getMusicQualities } from '@/core/download'
-import { getQualityLabel } from '@/config/quality'
+import { getQualityFullLabel } from '@/config/quality'
 import { createStyle, toast } from '@/utils/tools'
 
 export default memo(() => {
@@ -67,7 +67,7 @@ export default memo(() => {
                 activeOpacity={0.6}
               >
                 <Text size={14} color={theme['c-primary-font']}>{t('download_best_quality')}</Text>
-                <Text size={11} color={theme['c-font-label']}>{getQualityLabel(getBestQuality(musicInfo))}</Text>
+                <Text size={11} color={theme['c-font-label']}>{getQualityFullLabel(getBestQuality(musicInfo))}</Text>
               </TouchableOpacity>
             : null}
           {qualities.map(quality => (
@@ -77,7 +77,7 @@ export default memo(() => {
               onPress={() => { startDownload(quality) }}
               activeOpacity={0.6}
             >
-              <Text size={14}>{getQualityLabel(quality)}</Text>
+              <Text size={14}>{getQualityFullLabel(quality)}</Text>
               <Text size={11} color={theme['c-font-label']}>{`${musicInfo?.name ?? ''}`}</Text>
             </TouchableOpacity>
           ))}

@@ -14,16 +14,16 @@ const MODES = [
   { id: 'global', labelKey: 'setting_download_quality_mode_global' },
 ] as const
 
-/** 全局音质档位：只列真正会下载的几档，冷门档位留给「自动」 */
+/** 全局音质档位：固定 8 档，与优先播放音质一致（1.22.15），中文全名 */
 const QUALITYS: Array<{ id: LX.Quality, label: string }> = [
-  { id: '128k', label: '128K' },
-  { id: '320k', label: '320K' },
-  { id: 'flac', label: '无损' },
-  { id: 'flac24bit', label: '24bit' },
-  { id: 'hires', label: 'Hi-Res' },
-  { id: 'atmos', label: 'Atmos' },
-  { id: 'atmos_plus', label: 'Atmos+' },
-  { id: 'master', label: 'Master' },
+  { id: '128k', label: '128K 标准' },
+  { id: '320k', label: '320K 高品质' },
+  { id: 'flac', label: 'FLAC 无损' },
+  { id: 'flac24bit', label: '24bit 无损' },
+  { id: 'hires', label: 'Hi-Res 无损' },
+  { id: 'atmos', label: '臻品全景声 Atmos' },
+  { id: 'atmos_plus', label: '臻品全景声 Atmos+' },
+  { id: 'master', label: '臻品母带 Master' },
 ]
 
 /**

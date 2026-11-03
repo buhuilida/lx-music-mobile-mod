@@ -1,8 +1,12 @@
 {
-  "version": "1.22.14",
-  "versionCode": 119,
-  "desc": "# 月下独酌版 v1.22.14\n\n## 音质修复（重点）\n\n- **修复：设置选了 Master（臻品母带）却一直播 FLAC 24bit**——之前播放档位选择会先被歌曲元数据里的旧档位（24bit）拦住，音源声明的母带/全景声永远轮不到；现在只要音源声明支持你设置的档位，就直接按它请求，失败才自动降级\n- **修复：下载弹窗「最高音质(自动)」取不到母带**——下载可选音质列表现在合并音源脚本声明的档位，列表里会出现 Hi-Res / Atmos / Atmos+ / Master，「最高音质(自动)」也会按母带下载\n- **设置 → 下载音质（指定模式）新增 Atmos / Atmos+ / Master 档位**，固定用母带下载也可以了\n\n## 登录文案修复\n\n- **修复：QQ 音乐 / 酷狗网页登录成功后提示「网易云登录成功」**——现在按实际平台显示「QQ 音乐登录成功」「酷狗音乐登录成功」\n\n## 其他\n\n- 播放/下载音质选择逻辑统一：歌曲元数据只作音源未初始化时的兜底，不再拦截音源已声明的高档位\n\n**安装**：与上一版签名一致，直接覆盖安装即可。验证方法：设置里选 Master 后播放，播放页顶部音质徽标应显示 Master；下载弹窗最高音质应显示 Master。",
+  "version": "1.22.15",
+  "versionCode": 120,
+  "desc": "# 月下独酌版 v1.22.15\n\n## 音质体系完善\n\n- **优先播放的音质**改为固定 8 档并带中文名，与 lxx 对齐：\n  128K 标准 → 320K 高品质 → FLAC 无损 → 24bit 无损 → Hi-Res 无损 → 臻品全景声 Atmos → 臻品全景声 Atmos+ → 臻品母带 Master\n- **不再出现 192K**（该档仅个别平台提供，统一从播放/下载/音源测试的可选列表移除）\n- **下载音质（指定模式）与下载弹窗**同步使用中文全名，一眼看懂在下什么档\n- **全平台 master 透传已验证**：wy / tx / kg / kw / mg / bd 六个平台的取链接都会把你选的档位原样传给音源脚本——只要音源声明支持母带，设置选了就真实请求母带；音源没有的档位自动降到它声明的最高档\n\n## 验证方法\n\n1. 设置 → 优先播放的音质勾选「臻品母带 Master」→ 播放页顶部徽标应显示 Master\n2. 播放页下载弹窗应列出「臻品全景声 Atmos」「臻品母带 Master」等档位\n3. 设置 → 音源测试，实测各平台最高档\n\n**安装**：签名与之前版本一致，直接覆盖安装。",
   "history": [
+    {
+      "version": "1.22.14",
+      "desc": "# 月下独酌版 v1.22.14\n\n## 音质修复（重点）\n\n- **修复：设置选了 Master（臻品母带）却一直播 FLAC 24bit**——之前播放档位选择会先被歌曲元数据里的旧档位（24bit）拦住，音源声明的母带/全景声永远轮不到；现在只要音源声明支持你设置的档位，就直接按它请求，失败才自动降级\n- **修复：下载弹窗「最高音质(自动)」取不到母带**——下载可选音质列表现在合并音源脚本声明的档位，列表里会出现 Hi-Res / Atmos / Atmos+ / Master，「最高音质(自动)」也会按母带下载\n- **设置 → 下载音质（指定模式）新增 Atmos / Atmos+ / Master 档位**，固定用母带下载也可以了\n\n## 登录文案修复\n\n- **修复：QQ 音乐 / 酷狗网页登录成功后提示「网易云登录成功」**——现在按实际平台显示「QQ 音乐登录成功」「酷狗音乐登录成功」\n\n## 其他\n\n- 播放/下载音质选择逻辑统一：歌曲元数据只作音源未初始化时的兜底，不再拦截音源已声明的高档位\n\n**安装**：与上一版签名一致，直接覆盖安装即可。验证方法：设置里选 Master 后播放，播放页顶部音质徽标应显示 Master；下载弹窗最高音质应显示 Master。"
+    },
     {
       "version": "1.22.13",
       "desc": "# 月下独酌版 1.22.13\n\n本轮为全量代码审查修复版：排查了全部新增功能代码与导航、设置键、i18n、图标的一致性，修复以下问题。\n\n## 修复（高优先级）\n- **云盘递归扫描失败会清空曲库**：扫描过程中网络断开 / 服务器超时，之前会用空结果覆盖已扫描好的曲库并提示「扫描完成，共 0 首」；现在顶层目录请求失败直接报错并保留旧曲库，子目录失败只跳过该目录\n\n## 修复（中优先级）\n- **同一首歌并发下载产生重复记录**：歌单里同一首歌出现两次时，两个下载任务同时启动、进度互相覆盖、文件带时间戳后缀重复落盘；现在批量下载按歌曲 id 去重，且 waiting 状态的任务不再被重复领取\n- **退出登录按钮图标空白**：「我的音乐」账号未登录头像时退出按钮用的 logout 图标在内置字体里不存在，一直显示空白；已换为 exit2\n- **编辑主题丢失原有扩展字段**：编辑导入的主题时，原主题的网络背景图、徽章色等会被静默重置为默认值；现在编辑时完整保留原主题扩展字段，只有颜色和竖屏/横屏图、字体按编辑器的内容更新\n\n## 修复（低优先级）\n- QQ 音乐 / 酷狗退出登录提示语误写为「已退出网易云账号」，现按平台显示\n- 删除自定义主题时不再残留背景图文件；更换背景图时自动删除旧图，「清除」按钮也会删除文件，主题图片目录不再无限膨胀\n- 自定义暗色主题带背景图时，「隐藏黑色主题背景」开关之前不生效，现已一致\n- 云盘点歌播放失败时静默无提示，现在给出明确错误\n- 主题导入后清理缓存目录里的临时副本\n\n## 审查结论（不修改的部分）\n- TODO 标记 9 处均为上游（官方）遗留注释，无功能影响\n- 340 处 console.log 为上游调试输出，发布版不显示\n- 若干上游文件的 TypeScript 类型告警（common.ts / Main.tsx 等）为官方代码历史遗留，运行时无影响\n- 设置键 common.themeId、player.isPlayHighQuality 为上游迁移/遗留代码，不影响功能\n\n## 配置\n版本 1.22.13 / versionCode 118，签名与之前版本一致，可直接覆盖安装。\n\n## 自测\n- 主题全量测试 23/23（新增 removeTheme 清理图片、网络图不误删用例）\n- 主题回归 33/33、WebDAV 22/22、下载附加项 22/22\n- 全量 tsc：mod 新增链路 0 错误"
@@ -78,18 +82,14 @@
     {
       "version": "1.18.0",
       "desc": "新增：完整音质体系，支持 128K / 192K / 320K / FLAC / FLAC 24bit / Hi-Res / Atmos / Atmos+ / Master，并新增对应彩色徽章\n新增：安卓原生锁屏显示——设置项「锁屏显示」，一键直达 MIUI/HyperOS 锁屏显示权限页，锁屏歌词/播放控制\n修复：桌面歌词多行模式不逐字、翻译不显示——原生自绘歌词行，歌词逐字染色 + 翻译小字同行显示\n新增：全平台逐字歌词兜底（无逐字歌词的音源按行时间自动生成），并统一歌词时间轴精度\n升级：音效系统新增人声增强 / 超重低音 / 3D 环绕 / 现场 / 电子 / 摇滚 / 民谣 / 古典 / 爵士 / 影院 / 音乐厅等 12 组预设，新增响度增强与可重置均衡器\n修复：设置 Master 却显示 FLAC 的徽标问题，回退档位时不再错误显示\n继承：一键下载歌单、本地音乐独立页面、WebDAV 修复、赞助码居中"
-    },
-    {
-      "version": "1.17.0",
-      "desc": "新增：侧边栏「本地音乐」入口，一键打开本地音乐歌单\n新增：音质可选 Master（母带级），播放优先尝试 Master → Hi-Res → FLAC → 320K\n新增：桌面歌词逐字卡拉OK动画（洛雪逐字/A2 逐字格式，已唱高亮、未唱暗色）\n修复：App 歌词页显示 <0,200> 之类原始逐字标签的问题\n增强：锁屏歌词兜底——当前歌词行写入媒体卡片，锁屏可见\n修复：WebDAV 兼容 Cloudreve（pan.cdn.ad 实测通过，测试连接/备份/恢复正常）\n修复：赞助码弹窗显示不完整的问题\n音源测试新增 Master 档位实测"
     }
   ],
   "download": {
-    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.14-arm64-v8a.apk?sharecode=MKPWEVLBUS",
-    "universal": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.14-universal.apk?sharecode=MKPWEVLBUS",
-    "backscreen": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.14-backscreen-arm64-v8a.apk?sharecode=MKPWEVLBUS"
+    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.15-arm64-v8a.apk?sharecode=MKPWEVLBUS",
+    "universal": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.15-universal.apk?sharecode=MKPWEVLBUS",
+    "backscreen": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/LXMusic-Mod-v1.22.15-backscreen-arm64-v8a.apk?sharecode=MKPWEVLBUS"
   },
-  "source": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lx-music-mod-src-v1.22.14.zip?sharecode=MKPWEVLBUS",
+  "source": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lx-music-mod-src-v1.22.15.zip?sharecode=MKPWEVLBUS",
   "repos": {
     "app": "https://github.com/yzdz666/lx-music-mobile-mod",
     "server": "https://github.com/yzdz666/listen-together-server"

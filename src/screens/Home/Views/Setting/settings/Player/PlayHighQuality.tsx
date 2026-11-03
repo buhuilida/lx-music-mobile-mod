@@ -7,7 +7,7 @@ import CheckBox from '@/components/common/CheckBox'
 import { useSettingValue } from '@/store/setting/hook'
 import { updateSetting } from '@/core/common'
 import { useI18n } from '@/lang'
-import { QUALITY_LABELS, QUALITY_ORDER } from '@/config/quality'
+import { SELECTABLE_QUALITYS, getQualityFullLabel } from '@/config/quality'
 
 const useActive = (id: LX.Quality) => {
   const q = useSettingValue('player.playQuality')
@@ -27,15 +27,15 @@ const Item = ({ id, name }: {
 export default memo(() => {
   const t = useI18n()
   const playQualityList = useMemo(() => {
-    // 由高到低展示：Master / Atmos+ / Atmos / Hi-Res / FLAC 24bit / FLAC / 320K / 192K / 128K
-    return QUALITY_ORDER.filter(q => q != 'ape' && q != 'wav').reverse()
+    // 固定列表：128k → master 升序，不含 192k（1.22.15，与 lxx 对齐）
+    return SELECTABLE_QUALITYS
   }, [])
 
   return (
     <SubTitle title={t('setting_play_play_quality')}>
       <View style={styles.list}>
         {
-          playQualityList.map((q) => <Item name={QUALITY_LABELS[q] ?? q} id={q} key={q} />)
+          playQualityList.map((q) => <Item name={getQualityFullLabel(q)} id={q} key={q} />)
         }
       </View>
     </SubTitle>

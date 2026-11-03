@@ -58,6 +58,41 @@ export const getQualityLabel = (quality?: string | null) => {
   return QUALITY_LABELS[quality] ?? quality.toUpperCase()
 }
 
+/**
+ * 设置页 / 下载弹窗使用的中文全名（1.22.15）
+ * 徽标等窄位继续用 QUALITY_LABELS 的短名，这里给完整中文释义。
+ */
+export const QUALITY_FULL_LABELS: Record<string, string> = {
+  '128k': '128K 标准',
+  '320k': '320K 高品质',
+  flac: 'FLAC 无损',
+  flac24bit: '24bit 无损',
+  hires: 'Hi-Res 无损',
+  atmos: '臻品全景声 Atmos',
+  atmos_plus: '臻品全景声 Atmos+',
+  master: '臻品母带 Master',
+}
+
+export const getQualityFullLabel = (quality?: string | null) => {
+  if (!quality) return ''
+  return QUALITY_FULL_LABELS[quality] ?? QUALITY_LABELS[quality] ?? quality.toUpperCase()
+}
+
+/**
+ * 播放 / 下载音质设置的固定可选列表（1.22.15）
+ * 与 lxx 对齐：128k → master 升序，不含 192k（该档仅个别平台有，统一不提供）
+ */
+export const SELECTABLE_QUALITYS: LX.Quality[] = [
+  '128k',
+  '320k',
+  'flac',
+  'flac24bit',
+  'hires',
+  'atmos',
+  'atmos_plus',
+  'master',
+]
+
 export const getQualityColor = (quality?: string | null) => {
   if (!quality) return QUALITY_COLORS['128k']
   return QUALITY_COLORS[quality] ?? '#8A94A6'
