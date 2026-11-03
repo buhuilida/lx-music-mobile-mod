@@ -1,6 +1,7 @@
 import RNFS from 'react-native-fs'
 import { getData, saveData } from '@/plugins/storage'
 import { getMusicUrl, getLyricInfo, getPicPath } from '@/core/music'
+import { getQualityFallbacks } from '@/core/music/utils'
 import { existsFile, mkdir, privateStorageDirectoryPath, stat, unlink } from '@/utils/fs'
 import { checkStoragePermissions, requestStoragePermission, toast } from '@/utils/tools'
 import { writeMetadata, writePic, writeLyric } from '@/utils/localMediaMetadata'
@@ -262,12 +263,28 @@ export const downloadMusic = async(musicInfo: LX.Music.MusicInfoOnline, quality:
     speed: 0,
   })
 
-  let url: string
+  let url = ''
+  // 实际生效的音质：音源对高档位请求失败时会按回退链降级，文件要以实际档位标注（1.22.16）
+  let actualQuality: LX.Quality = quality
   try {
-    url = await getMusicUrl({ musicInfo, quality, isRefresh: true })
+    url = await getMusicUrl({ musicInfo, quality, isRefresh: true, onQuality: q => { actualQuality = q } })
   } catch (err: any) {
-    updateTask(id, { status: 'error', message: err?.message ?? 'get url failed' })
-    return false
+    // getMusicUrl 内部已带升级场景的回退链，这里兜住其余失败场景再降一级尝试
+    let lastErr: unknown = err
+    let resolved = false
+    for (const fallbackQuality of getQualityFallbacks(quality, musicInfo)) {
+      try {
+        url = await getMusicUrl({ musicInfo, quality: fallbackQuality, isRefresh: true, onQuality: q => { actualQuality = q } })
+        resolved = true
+        break
+      } catch (chainErr) {
+        lastErr = chainErr
+      }
+    }
+    if (!resolved) {
+      updateTask(id, { status: 'error', message: (lastErr as Error)?.message ?? 'get url failed' })
+      return false
+    }
   }
 
   let targetDir = await resolveDownloadDirectory()
@@ -278,7 +295,7 @@ export const downloadMusic = async(musicInfo: LX.Music.MusicInfoOnline, quality:
     targetDir = privateDownloadDirectoryPath
     await ensureDir(targetDir)
   }
-  const ext = fileExt(quality)
+  const ext = fileExt(actualQuality)
   const style = settingState.setting['download.fileNameStyle'] ?? 'name-singer'
   const baseName = style == 'singer-name'
     ? `${safeName(musicInfo.singer)} - ${safeName(musicInfo.name)}`
@@ -314,7 +331,7 @@ export const downloadMusic = async(musicInfo: LX.Music.MusicInfoOnline, quality:
     const item: LX.Download.ExtItem = {
       id,
       musicInfo,
-      quality,
+      quality: actualQuality,
       filePath,
       fileName,
       ext,
@@ -348,15 +365,14 @@ export const getBestQuality = (musicInfo: LX.Music.MusicInfoOnline): LX.Quality 
  *
  * 设置里可选两种模式：
  * - 自动（默认）：逐首取这首歌可用的最高音质，与旧行为一致；
- * - 指定：统一使用「全局音质」，但这首歌没有该档位时自动降级到最高可用，
- *   否则整批下载会因为个别歌曲缺档位而全部失败。
+ * - 指定：统一使用「全局音质」。1.22.16 起不再用可用档位拦截——
+ *   自定义音源声明普遍落后于实际能力（kw 未声明 master 但服务端能返回），
+ *   直接按设置档位请求，失败时 downloadMusic 内部按回退链降级并以实际档位入列表。
  */
 export const getDownloadQuality = (musicInfo: LX.Music.MusicInfoOnline): LX.Quality => {
   const mode = settingState.setting['download.qualityMode']
   if (mode != 'global') return getBestQuality(musicInfo)
-  const prefer = settingState.setting['download.quality'] as LX.Quality
-  const available = getMusicQualities(musicInfo)
-  return available.includes(prefer) ? prefer : getBestQuality(musicInfo)
+  return settingState.setting['download.quality'] as LX.Quality
 }
 
 /**

@@ -996,6 +996,8 @@
   "version_tip_min": "已切換到後台下載，你可以去「設定 → 軟體更新」重新開啟本視窗哦",
   "version_tip_unknown": "獲取最新版本資訊失敗，建議手動去項目位址檢查是否有新版本",
   "version_title_checking": "⏳ 檢查更新中 ⏳",
+  "version_check_update": "檢查更新",
+  "version_check_latest": "當前已是最新版本",
   "version_title_failed": "❌ 下載失敗 ❌",
   "version_title_latest": "🎉 目前版本已是最新 🎊",
   "version_title_new": "🌟 發現新版本 🌟",

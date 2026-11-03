@@ -26,12 +26,14 @@ export const getMusicUrl = async({
   isRefresh = false,
   onToggleSource,
   allowToggleSource,
+  onQuality,
 }: {
   musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
   isRefresh?: boolean
   quality?: LX.Quality
   onToggleSource?: (musicInfo?: LX.Music.MusicInfoOnline) => void
   allowToggleSource?: boolean
+  onQuality?: (quality: LX.Quality) => void
 }): Promise<string> => {
   // 一起听：成员端优先用房间播放源解析好的直链，本地没有该音源也能播
   if (!('progress' in musicInfo) && musicInfo.source != 'local') {
@@ -44,7 +46,7 @@ export const getMusicUrl = async({
   } else if (musicInfo.source == 'local') {
     return getLocalMusicUrl({ musicInfo, isRefresh, onToggleSource, allowToggleSource })
   } else {
-    return getOnlineMusicUrl({ musicInfo, isRefresh, quality, onToggleSource, allowToggleSource })
+    return getOnlineMusicUrl({ musicInfo, isRefresh, quality, onToggleSource, allowToggleSource, onQuality })
   }
 }
 

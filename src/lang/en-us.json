@@ -996,6 +996,8 @@
   "version_tip_min": "The download has been switched to background. You can navigate to \"Settings → Update\" to re-open this pop-up window.",
   "version_tip_unknown": "Failed to get the latest version information. Recommended to manually go to the project address to check for a new version.",
   "version_title_checking": "⏳ Checking for updates ⏳",
+  "version_check_update": "Check Update",
+  "version_check_latest": "You are on the latest version",
   "version_title_failed": "❌ Failed to download ❌",
   "version_title_latest": "🎉 The current version is already the latest 🎊",
   "version_title_new": "🌟 New version found 🌟",

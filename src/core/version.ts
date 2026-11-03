@@ -19,7 +19,7 @@ export const hideModal = (componentId: string) => {
   void Navigation.dismissOverlay(componentId)
 }
 
-export const checkUpdate = async() => {
+export const checkUpdate = async(): Promise<{ isLatest: boolean, isUnknown: boolean }> => {
   versionActions.setVersionInfo({ status: 'checking' })
   let versionInfo: InitState['versionInfo'] = { ...versionState.versionInfo }
   try {
@@ -57,15 +57,15 @@ export const checkUpdate = async() => {
   if (!versionInfo.isLatest) {
     if (versionInfo.isUnknown) {
       const time = await getIgnoreVersionFailTipTime()
-      if (Date.now() - time < 7 * 86400000) return
+      if (Date.now() - time < 7 * 86400000) return { isLatest: false, isUnknown: true }
       saveIgnoreVersionFailTipTime(Date.now())
       toast(global.i18n.t('version_tip_unknown'))
     } else if (versionInfo.newVersion.version != await getIgnoreVersion()) {
       showModal()
     }
   }
-  // console.log(compareVer(process.versions.app, versionInfo.version))
-  // console.log(process.versions.app, versionInfo.version)
+  // 设置页「检查更新」按钮需要知道检查结果（1.22.16）
+  return { isLatest: versionInfo.isLatest ?? false, isUnknown: versionInfo.isUnknown ?? false }
 }
 
 export const downloadUpdate = () => {

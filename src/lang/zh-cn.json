@@ -996,6 +996,8 @@
   "version_tip_min": "已切换到后台下载，你可以去「设置 → 软件更新」重新打开本弹窗哦",
   "version_tip_unknown": "获取最新版本信息失败，建议手动去项目地址检查是否有新版本",
   "version_title_checking": "⏳ 检查更新中 ⏳",
+  "version_check_update": "检查更新",
+  "version_check_latest": "当前已是最新版本",
   "version_title_failed": "❌ 下载失败 ❌",
   "version_title_latest": "🎉 当前版本已是最新 🎊",
   "version_title_new": "🌟 发现新版本 🌟",

@@ -230,24 +230,45 @@ export const getSongQuality = (musicInfo: LX.Music.MusicInfoOnline): LX.Quality 
 }
 
 export const getPlayQuality = (highQuality: LX.Quality, musicInfo: LX.Music.MusicInfoOnline): LX.Quality => {
+  // 旧版本存过 192k，该档已从设置里移除，就近映射到 320k（1.22.16）
+  if (highQuality == '192k') highQuality = '320k'
   if (!TRY_QUALITYS_LIST.includes(highQuality as TryQualityType)) return '128k'
-  const startIndex = TRY_QUALITYS_LIST.indexOf(highQuality as TryQualityType)
-  const candidates = TRY_QUALITYS_LIST.slice(startIndex)
   const list = global.lx.qualityList[musicInfo.source]
-  const qualitys = musicInfo.meta?._qualitys ?? {}
 
-  // 1. 用户指定且音源声明支持该档位 → 直接按它请求。
-  //    不能用歌曲元信息拦：自定义音源的母带 / 全景声不在官方元数据里，
-  //    之前「元信息 ∩ 音源」先命中 flac24bit，导致设置选了母带却一直播 24bit（1.22.14 修复）。
+  // 1. 音源声明支持用户档位 → 直接按它请求。
   if (list?.includes(highQuality)) return highQuality
 
-  // 2. 音源没声明用户档位：按音源声明里 ≤ 用户档位的最高一档请求，
-  //    实际音质以音源返回为准（失败由上层按歌曲自身档位回退）
-  const supported = candidates.find(q => list?.includes(q))
-  if (supported) return supported
+  // 2. 声明里没有用户档位：照样按用户档位请求（1.22.16）。
+  //    自定义音源的声明普遍落后于实际能力——kw 未声明 master，
+  //    但音源测试页实测 [OK] Master、服务端也能真实返回母带。
+  //    之前在这里按声明降级（master→hires/flac24bit），导致「设置选了母带却播 24bit」。
+  //    请求失败由上层回退链兜底（见 getQualityFallbacks），不会卡播放。
+  if (list) return highQuality
 
   // 3. 音源信息还没初始化时，退回歌曲自身支持的档位
-  return candidates.find(q => qualitys[q]) ?? '128k'
+  const qualitys = musicInfo.meta?._qualitys ?? {}
+  const startIndex = TRY_QUALITYS_LIST.indexOf(highQuality as TryQualityType)
+  return TRY_QUALITYS_LIST.slice(startIndex).find(q => qualitys[q]) ?? '128k'
+}
+
+/**
+ * 高档位请求失败后的回退链（1.22.16）。
+ * 顺序：音源声明里低于请求档位的最高一档 → 歌曲自身元信息的最高档 → 128k 保底。
+ * 最多 3 次请求，失败都是快速报错，不会长时间卡播放。
+ */
+export const getQualityFallbacks = (targetQuality: LX.Quality, musicInfo: LX.Music.MusicInfoOnline): LX.Quality[] => {
+  const startIndex = TRY_QUALITYS_LIST.indexOf(targetQuality as TryQualityType)
+  if (startIndex < 0) return ['128k']
+  const lower = TRY_QUALITYS_LIST.slice(startIndex + 1)
+  const list = global.lx.qualityList[musicInfo.source]
+  const qualitys = musicInfo.meta?._qualitys ?? {}
+  const chain: LX.Quality[] = []
+  const declared = lower.find(q => list?.includes(q))
+  if (declared) chain.push(declared)
+  const songBest = lower.find(q => qualitys[q])
+  if (songBest && !chain.includes(songBest)) chain.push(songBest)
+  if (!chain.includes('128k')) chain.push('128k')
+  return chain
 }
 
 export const getOnlineOtherSourceMusicUrl = async({ musicInfos, quality, onToggleSource, isRefresh, retryedSource = [] }: {
