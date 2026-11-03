@@ -32,6 +32,9 @@ export interface TextProps extends _TextProps {
 export default memo(({ style, size = 15, color, children, ...props }: TextProps) => {
   const theme = useTheme()
   const textShadow = useTextShadow()
+  // 主题字体（1.22.11）：主题可指定 Android 系统字体别名，style 里显式给了 fontFamily 时不覆盖
+  const styleObj = (style && !Array.isArray(style) && typeof style != 'number') ? style as TextStyle : undefined
+  const fontFamily = styleObj?.fontFamily ?? theme['c-font-family']
   style = StyleSheet.compose(textShadow ? {
     // fontFamily: 'System',
     textShadowColor: theme['c-primary-dark-300-alpha-800'],
@@ -39,10 +42,12 @@ export default memo(({ style, size = 15, color, children, ...props }: TextProps)
     textShadowRadius: 2,
     fontSize: setSpText(size),
     color: color ?? theme['c-font'],
+    fontFamily,
   } : {
     // fontFamily: 'System',
     fontSize: setSpText(size),
     color: color ?? theme['c-font'],
+    fontFamily,
   }, style)
 
   return (

@@ -46,11 +46,17 @@ export default ({ children }: Props) => {
   // }
   // console.log('render page content')
 
+  // 主题竖屏 / 横屏背景图（1.22.11）：按当前方向取对应图，未单独设置时回退通用背景图
+  const isLandscape = windowSize.width > windowSize.height
+  const themeBgImage = (isLandscape
+    ? (theme['bg-image-landscape'] ?? theme['bg-image'])
+    : (theme['bg-image-portrait'] ?? theme['bg-image']))
+
   const themeComponent = useMemo(() => (
     <View style={{ flex: 1, overflow: 'hidden' }}>
       <ImageBackground
         style={{ position: 'absolute', left: 0, top: 0, height: windowSize.height, width: windowSize.width, backgroundColor: theme['c-content-background'] }}
-        source={theme['bg-image']}
+        source={themeBgImage}
         resizeMode="cover"
         blurRadius={customBgBlur || 0}
       >
@@ -59,7 +65,7 @@ export default ({ children }: Props) => {
         {children}
       </View>
     </View>
-  ), [children, theme, windowSize.height, windowSize.width, customBgBlur])
+  ), [children, theme, themeBgImage, windowSize.height, windowSize.width, customBgBlur])
   const picComponent = useMemo(() => {
     return (
       <View style={{ flex: 1, overflow: 'hidden' }}>

@@ -132,6 +132,11 @@ export default memo(() => {
         global.app_event.changeMenuVisible(false)
         if (commonState.componentIds.home) navigations.pushNeteaseMineScreen(commonState.componentIds.home)
         return
+      case 'nav_cloud':
+        // 云盘：WebDAV 目录浏览与播放（1.22.11 移入侧边栏）
+        global.app_event.changeMenuVisible(false)
+        if (commonState.componentIds.home) navigations.pushWebDAVScreen(commonState.componentIds.home)
+        return
       case 'nav_platform':
         // 平台设置：各平台 Cookie
         global.app_event.changeMenuVisible(false)

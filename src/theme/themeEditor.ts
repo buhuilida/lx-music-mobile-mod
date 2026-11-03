@@ -23,10 +23,23 @@ const DEFAULT_EXT_INFO: LX.Theme['config']['extInfo'] = {
   'bg-image': '',
   'bg-image-position': 'center',
   'bg-image-size': 'cover',
+  'bg-image-portrait': '',
+  'bg-image-landscape': '',
+  'font-family': '',
   'c-badge-primary': 'var(c-primary)',
   'c-badge-secondary': '#4baed5',
   'c-badge-tertiary': '#e7aa36',
 }
+
+/** 主题可选字体（Android 系统字体别名） */
+export const THEME_FONTS: Array<{ value: string, label: string, fontFamily?: string }> = [
+  { value: '', label: '默认' },
+  { value: 'serif', label: '衬线', fontFamily: 'serif' },
+  { value: 'monospace', label: '等宽', fontFamily: 'monospace' },
+  { value: 'sans-serif-light', label: '细体', fontFamily: 'sans-serif-light' },
+  { value: 'sans-serif-medium', label: '中黑', fontFamily: 'sans-serif-medium' },
+  { value: 'sans-serif-condensed', label: '窄体', fontFamily: 'sans-serif-condensed' },
+]
 
 /**
  * 把 #rgb / #rrggbb / rgb() / rgba() 统一成 rgb(r, g, b)
@@ -60,6 +73,8 @@ export interface ThemeDraft {
   primary: string
   background: string
   isDark: boolean
+  /** 保留已有主题的背景图 / 字体等扩展字段（编辑时不丢） */
+  extInfo?: Partial<Pick<LX.Theme['config']['extInfo'], 'bg-image' | 'bg-image-portrait' | 'bg-image-landscape' | 'font-family'>>
 }
 
 /** 用主色 + 背景色 + 明暗生成一份完整主题 */
@@ -80,9 +95,13 @@ export const buildTheme = (draft: ThemeDraft, id?: string): LX.Theme => ({
       'bg-image': '',
       'bg-image-position': 'center',
       'bg-image-size': 'cover',
+      'bg-image-portrait': '',
+      'bg-image-landscape': '',
+      'font-family': '',
       'c-badge-primary': 'var(c-primary)',
       'c-badge-secondary': '#4baed5',
       'c-badge-tertiary': '#e7aa36',
+      ...draft.extInfo,
     },
   },
 })

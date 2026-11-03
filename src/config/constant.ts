@@ -130,6 +130,7 @@ export const NAV_MENUS = [
   { id: 'nav_listen', icon: 'share' },
   { id: 'nav_local', icon: 'sd-card' },
   { id: 'nav_mine', icon: 'music_time' },
+  { id: 'nav_cloud', icon: 'add-music' },
   { id: 'nav_platform', icon: 'dots-vertical' },
   { id: 'nav_setting', icon: 'setting' },
 ] as const

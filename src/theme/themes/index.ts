@@ -66,27 +66,35 @@ const withAlpha = (color: string, alpha: number) => {
 
 export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
   let bgImg: ImageSourcePropType | undefined
+  let bgImgPortrait: ImageSourcePropType | undefined
+  let bgImgLandscape: ImageSourcePropType | undefined
+  // 自定义主题里的图片可能是网络地址，也可能是 theme_images 目录下的文件名
+  const resolveThemeImage = (image: string | undefined): ImageSourcePropType | undefined => {
+    if (!image) return undefined
+    return isUrl(image) ? { uri: image } : { uri: `file://${privateStorageDirectoryPath}/theme_images/${image}` }
+  }
   // 用户自定义的背景图片优先级最高
   const customBgImage = settingState.setting['theme.customBgImage']
   if (customBgImage) {
     bgImg = { uri: customBgImage.startsWith('file://') ? customBgImage : `file://${customBgImage}` }
   } else if (theme.isCustom) {
-    const image = theme.config.extInfo['bg-image']
-    if (image) {
-      // 自定义主题里的图片可能是网络地址，也可能是 theme_images 目录下的文件名
-      bgImg = { uri: isUrl(image) ? image : `file://${privateStorageDirectoryPath}/theme_images/${image}` }
-    }
+    bgImg = resolveThemeImage(theme.config.extInfo['bg-image'])
+    // 竖屏 / 横屏背景图（1.22.11），未单独设置时回退到通用背景图
+    bgImgPortrait = resolveThemeImage(theme.config.extInfo['bg-image-portrait']) ?? bgImg
+    bgImgLandscape = resolveThemeImage(theme.config.extInfo['bg-image-landscape']) ?? bgImg
   } else {
     const extInfo = (theme as LocalTheme).config.extInfo
     if (extInfo['bg-image']) {
       if (!theme.isDark || !settingState.setting['theme.hideBgDark']) bgImg = BG_IMAGES[extInfo['bg-image']]
     }
+    bgImgPortrait = bgImg
+    bgImgLandscape = bgImg
   }
 
   theme.config.extInfo = { ...theme.config.extInfo }
 
   for (const [k, v] of Object.entries(theme.config.extInfo) as Array<[ExtInfoKey, LX.Theme['config']['extInfo'][ExtInfoKey]]>) {
-    if (!v.startsWith('var(')) continue
+    if (!v || !v.startsWith('var(')) continue
     theme.config.extInfo[k] = theme.config.themeColors[v.replace(varColorRxp, '$1') as ColorsKey]
   }
 
@@ -133,6 +141,10 @@ export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
     'c-content-background': theme.config.themeColors['c-primary-light-1000'],
     'c-border-background': theme.config.themeColors['c-primary-light-100-alpha-700'],
     'bg-image': bgImg,
+    'bg-image-portrait': bgImgPortrait,
+    'bg-image-landscape': bgImgLandscape,
+    // 主题字体（Android 系统字体别名，空串表示默认字体）
+    'c-font-family': theme.config.extInfo['font-family'] || undefined,
   } as const
 }
 

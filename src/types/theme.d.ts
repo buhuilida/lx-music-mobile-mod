@@ -260,7 +260,7 @@ declare global {
       'c-primary-light-1000-alpha-900': string
     }
 
-    type ActiveTheme = ThemeColors & Omit<Theme['config']['extInfo'], 'bg-image'> & Pick<Theme, 'id' | 'name' | 'isDark'> & {
+    type ActiveTheme = ThemeColors & Omit<Theme['config']['extInfo'], 'bg-image' | 'bg-image-portrait' | 'bg-image-landscape'> & Pick<Theme, 'id' | 'name' | 'isDark'> & {
       'c-font': string
       'c-font-label': string
       'c-primary-font': string
@@ -279,7 +279,10 @@ declare global {
       'c-list-header-border-bottom': string
       'c-content-background': string
       'c-border-background': string
+      'c-font-family'?: string
       'bg-image'?: ImageSourcePropType
+      'bg-image-portrait'?: ImageSourcePropType
+      'bg-image-landscape'?: ImageSourcePropType
     }
 
     interface Theme {
@@ -295,6 +298,13 @@ declare global {
           'bg-image': string
           'bg-image-position': string
           'bg-image-size': string
+
+          // 主题竖屏 / 横屏背景图（theme_images 目录下的文件名或网络地址，1.22.11）
+          'bg-image-portrait'?: string
+          'bg-image-landscape'?: string
+
+          // 主题字体（Android 系统字体别名，空串为默认，1.22.11）
+          'font-family'?: string
 
           // 徽章颜色
           'c-badge-primary': string

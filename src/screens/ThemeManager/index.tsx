@@ -1,11 +1,13 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, TextInput, TouchableOpacity, View } from 'react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
+import RNFS from 'react-native-fs'
 
 import PageContent from '@/components/PageContent'
 import FullScreenHeader from '@/components/FullScreenHeader'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
+import FileSelect, { type FileSelectType } from '@/components/common/FileSelect'
 import Section from '@/screens/Home/Views/Setting/components/Section'
 import { setComponentId } from '@/core/common'
 import { setTheme } from '@/core/theme'
@@ -14,8 +16,8 @@ import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { createStyle, toast, confirmDialog } from '@/utils/tools'
 import { getAllThemes, saveTheme, removeTheme, buildActiveThemeColors } from '@/theme/themes'
-import { PRESET_COLORS, PRESET_BG_LIGHT, PRESET_BG_DARK, normalizeColor, toSolidRgba, buildTheme, parseTheme } from '@/theme/themeEditor'
-import { readFile, selectFile, writeFile, temporaryDirectoryPath } from '@/utils/fs'
+import { PRESET_COLORS, PRESET_BG_LIGHT, PRESET_BG_DARK, normalizeColor, toSolidRgba, buildTheme, parseTheme, THEME_FONTS } from '@/theme/themeEditor'
+import { readFile, selectFile, writeFile, temporaryDirectoryPath, mkdir, extname } from '@/utils/fs'
 import { resolveDownloadDirectory } from '@/core/download'
 import { COMPONENT_IDS } from '@/config/constant'
 
@@ -262,14 +264,31 @@ const ThemeEditor = ({ componentId, initial, onCancel, onSaved }: {
   )
   const [primaryInput, setPrimaryInput] = useState('')
   const [bgInput, setBgInput] = useState('')
+  // 竖屏 / 横屏背景图与主题字体（1.22.11）
+  const [portraitBg, setPortraitBg] = useState(initial.config.extInfo['bg-image-portrait'] ?? '')
+  const [landscapeBg, setLandscapeBg] = useState(initial.config.extInfo['bg-image-landscape'] ?? '')
+  const [fontFamily, setFontFamily] = useState(initial.config.extInfo['font-family'] ?? '')
+  const [imagesDir, setImagesDir] = useState('')
+  const fileSelectRef = useRef<FileSelectType>(null)
+  const pickingTargetRef = useRef<'portrait' | 'landscape'>('portrait')
+
+  useEffect(() => {
+    void getAllThemes().then((info) => {
+      setImagesDir(info.dataPath)
+      void mkdir(info.dataPath).catch(() => {})
+    })
+  }, [])
 
   const preview = useMemo(() => {
     try {
-      return buildActiveThemeColors(buildTheme({ name, primary, background, isDark }))
+      return buildActiveThemeColors(buildTheme({
+        name, primary, background, isDark,
+        extInfo: { 'bg-image-portrait': portraitBg, 'bg-image-landscape': landscapeBg, 'font-family': fontFamily },
+      }))
     } catch {
       return theme
     }
-  }, [name, primary, background, isDark, theme])
+  }, [name, primary, background, isDark, portraitBg, landscapeBg, fontFamily, theme])
 
   const applyPrimary = (value: string) => {
     const color = normalizeColor(value)
@@ -296,14 +315,45 @@ const ThemeEditor = ({ componentId, initial, onCancel, onSaved }: {
       toast(t('theme_name_required'), 'long')
       return
     }
-    // 编辑已有主题时保留原 id，避免产生重复项
-    const target = buildTheme({ name: name.trim(), primary, background, isDark }, initial.id)
+    // 编辑已有主题时保留原 id，避免产生重复项；背景图与字体随 extInfo 一起保存
+    const target = buildTheme({
+      name: name.trim(),
+      primary,
+      background,
+      isDark,
+      extInfo: {
+        'bg-image-portrait': portraitBg,
+        'bg-image-landscape': landscapeBg,
+        'font-family': fontFamily,
+      },
+    }, initial.id)
     void saveTheme(target).then(() => {
       toast(t('theme_save_success'))
       onSaved(target)
     }).catch(() => {
       toast(t('theme_save_failed'), 'long')
     })
+  }
+
+  // 选择竖屏 / 横屏背景图：复制到 theme_images 目录，extInfo 里只存文件名
+  const pickBgImage = (target: 'portrait' | 'landscape') => {
+    pickingTargetRef.current = target
+    fileSelectRef.current?.show(
+      { title: t('theme_editor_select_image'), filter: ['jpg', 'jpeg', 'png', 'webp'] },
+      async(path) => {
+        if (!path || !imagesDir) return
+        try {
+          const ext = extname(path) || 'jpg'
+          const fileName = `bg_${target}_${Date.now()}.${ext}`
+          await RNFS.copyFile(path, `${imagesDir}/${fileName}`)
+          if (target == 'portrait') setPortraitBg(fileName)
+          else setLandscapeBg(fileName)
+          toast(t('theme_bg_set_success'))
+        } catch (error) {
+          toast(`${t('theme_bg_set_failed')}: ${(error as Error).message}`, 'long')
+        }
+      },
+    )
   }
 
   return (
@@ -406,10 +456,68 @@ const ThemeEditor = ({ componentId, initial, onCancel, onSaved }: {
           </View>
         </Section>
 
+        <Section title={t('theme_editor_bg_image')}>
+          <View style={styles.bgRow}>
+            <Text size={12} color={theme['c-600']} style={styles.bgLabel}>{t('theme_editor_bg_portrait')}</Text>
+            <Text size={11} color={theme['c-font-label']} numberOfLines={1} style={styles.bgName}>
+              {portraitBg || '-'}
+            </Text>
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: theme['c-button-background'] }]}
+              onPress={() => { pickBgImage('portrait') }}
+              activeOpacity={0.7}
+            >
+              <Text size={12} color={theme['c-button-font']}>{t('theme_editor_select_image')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.bgClearBtn, { backgroundColor: theme['c-button-background'] }]}
+              onPress={() => { setPortraitBg('') }}
+              activeOpacity={0.7}
+            >
+              <Text size={12} color={theme['c-button-font']}>{t('theme_editor_clear_image')}</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.bgRow}>
+            <Text size={12} color={theme['c-600']} style={styles.bgLabel}>{t('theme_editor_bg_landscape')}</Text>
+            <Text size={11} color={theme['c-font-label']} numberOfLines={1} style={styles.bgName}>
+              {landscapeBg || '-'}
+            </Text>
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: theme['c-button-background'] }]}
+              onPress={() => { pickBgImage('landscape') }}
+              activeOpacity={0.7}
+            >
+              <Text size={12} color={theme['c-button-font']}>{t('theme_editor_select_image')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.bgClearBtn, { backgroundColor: theme['c-button-background'] }]}
+              onPress={() => { setLandscapeBg('') }}
+              activeOpacity={0.7}
+            >
+              <Text size={12} color={theme['c-button-font']}>{t('theme_editor_clear_image')}</Text>
+            </TouchableOpacity>
+          </View>
+        </Section>
+
+        <Section title={t('theme_editor_font')}>
+          <View style={styles.swatches}>
+            {THEME_FONTS.map(font => (
+              <TouchableOpacity
+                key={font.value || 'default'}
+                style={[styles.fontBtn, { borderColor: fontFamily == font.value ? theme['c-font'] : theme['c-400'] }]}
+                onPress={() => { setFontFamily(font.value) }}
+                activeOpacity={0.7}
+              >
+                <Text size={12} style={{ fontFamily: font.fontFamily }} color={theme['c-font']}>{font.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Section>
+
         <Section title={t('theme_editor_preview')}>
           <View style={[styles.preview, { backgroundColor: preview['c-main-background'] }]}>
-            <Text size={14} color={preview['c-font']}>{name || t('theme_editor_name')}</Text>
-            <Text size={11} color={preview['c-font-label']} style={styles.previewSub}>{t('theme_editor_preview_sub')}</Text>
+            <Text size={14} color={preview['c-font']} style={{ fontFamily: preview['c-font-family'] }}>{name || t('theme_editor_name')}</Text>
+            <Text size={11} color={preview['c-font-label']} style={[styles.previewSub, { fontFamily: preview['c-font-family'] }]}>{t('theme_editor_preview_sub')}</Text>
             <View style={styles.previewRow}>
               <View style={[styles.previewBtn, { backgroundColor: preview['c-primary-background'] }]}>
                 <Text size={11} color={preview['c-primary-font']}>{t('theme_editor_preview_btn')}</Text>
@@ -429,6 +537,7 @@ const ThemeEditor = ({ componentId, initial, onCancel, onSaved }: {
           <Text size={12} color={theme['c-button-font']}>{t('theme_editor_cancel')}</Text>
         </TouchableOpacity>
       </ScrollView>
+      <FileSelect ref={fileSelectRef} />
     </PageContent>
   )
 }
@@ -621,5 +730,32 @@ const styles = createStyle({
     paddingTop: 5,
     paddingBottom: 5,
     borderRadius: 4,
+  },
+  bgRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 6,
+    paddingBottom: 6,
+  },
+  bgLabel: {
+    minWidth: 58,
+  },
+  bgName: {
+    flexGrow: 1,
+    flexShrink: 1,
+  },
+  bgClearBtn: {
+    marginLeft: 0,
+  },
+  fontBtn: {
+    borderWidth: 2,
+    borderRadius: 6,
+    paddingLeft: 10,
+    paddingRight: 10,
+    paddingTop: 6,
+    paddingBottom: 6,
   },
 })
