@@ -245,7 +245,8 @@ export default memo(({ visible, platform, onClose, onSuccess }: Props) => {
       doneRef.current = true
       setSavingError('')
       if (!aliveRef.current) return true
-      toast(t('wy_login_success'))
+      // 按实际平台提示，之前写死「网易云登录成功」，QQ/酷狗登录也弹网易云（1.22.14 修复）
+      toast(t('web_login_success', { name: cfg.name }))
       onSuccess?.()
       onClose()
       return true

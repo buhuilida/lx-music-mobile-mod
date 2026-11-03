@@ -1008,6 +1008,7 @@
   "web_login_no_cookie": "No sign-in info found yet. Sign in on the page above, then tap \"I've signed in\"",
   "web_login_no_ticket": "Cookies found but the login ticket is missing. Please sign in again on the page",
   "web_login_reload": "Reload",
+  "web_login_success": "Signed in to {name}",
   "web_login_tip": "Sign in on the official page below. Once detected, the cookie is stored locally and never uploaded.",
   "webdav_auth_failed": "Wrong username or password, please check your WebDAV settings",
   "webdav_clear": "Clear",

@@ -236,13 +236,13 @@ export const getPlayQuality = (highQuality: LX.Quality, musicInfo: LX.Music.Musi
   const list = global.lx.qualityList[musicInfo.source]
   const qualitys = musicInfo.meta?._qualitys ?? {}
 
-  // 1. 歌曲元信息与音源都支持该档位，直接使用
-  const both = candidates.find(q => qualitys[q] && list?.includes(q))
-  if (both) return both
+  // 1. 用户指定且音源声明支持该档位 → 直接按它请求。
+  //    不能用歌曲元信息拦：自定义音源的母带 / 全景声不在官方元数据里，
+  //    之前「元信息 ∩ 音源」先命中 flac24bit，导致设置选了母带却一直播 24bit（1.22.14 修复）。
+  if (list?.includes(highQuality)) return highQuality
 
-  // 2. 歌曲元信息可能是加入歌单时缓存的旧数据（那时音源还没开放母带等高档位），
-  //    只要音源声明支持，就按用户设置的档位请求，实际音质由音源返回
-  //    （1.17.1 修复：设置母带却一直播 FLAC）
+  // 2. 音源没声明用户档位：按音源声明里 ≤ 用户档位的最高一档请求，
+  //    实际音质以音源返回为准（失败由上层按歌曲自身档位回退）
   const supported = candidates.find(q => list?.includes(q))
   if (supported) return supported
 

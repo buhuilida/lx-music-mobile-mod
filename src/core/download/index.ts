@@ -28,15 +28,18 @@ export const buildItemId = (musicInfo: LX.Music.MusicInfoOnline, quality: LX.Qua
 }
 
 /**
- * 可选的下载音质，优先取歌曲本身提供的音质列表
+ * 可选的下载音质：歌曲元信息与音源声明取并集。
+ * 自定义音源的母带 / 全景声等高档位不在官方歌曲元数据里，只看元信息会漏掉（1.22.14 修复）。
  */
 export const getMusicQualities = (musicInfo: LX.Music.MusicInfoOnline): LX.Quality[] => {
-  const qualitys = Object.keys(musicInfo.meta._qualitys ?? {}) as LX.Quality[]
+  const metaQualitys = Object.keys(musicInfo.meta._qualitys ?? {}) as LX.Quality[]
+  const sourceQualitys = global.lx.qualityList[musicInfo.source] ?? []
   const order = QUALITY_ORDER
-  const list = qualitys.filter(q => order.includes(q)).sort((a, b) => order.indexOf(a) - order.indexOf(b))
-  if (list.length) return list
-  // 没有音质信息时给出常见档位，实际下载时由音源自动降级
-  return ['128k', '320k', 'flac']
+  const merged = [...new Set([...metaQualitys, ...sourceQualitys])]
+    .filter(q => order.includes(q))
+    .sort((a, b) => order.indexOf(a) - order.indexOf(b))
+  // 两者都为空时给出常见档位，实际下载时由音源自动降级
+  return merged.length ? merged : ['128k', '320k', 'flac']
 }
 
 const ensureDir = async(dir = privateDownloadDirectoryPath) => {
@@ -336,8 +339,6 @@ export const downloadMusic = async(musicInfo: LX.Music.MusicInfoOnline, quality:
  * 取歌曲可用的最高音质（用于「一键下载全部」「最高音质下载」）
  */
 export const getBestQuality = (musicInfo: LX.Music.MusicInfoOnline): LX.Quality => {
-  const qualitys = Object.keys(musicInfo.meta?._qualitys ?? {}) as LX.Quality[]
-  if (!qualitys.length) return '320k'
   const list = getMusicQualities(musicInfo)
   return list[list.length - 1] ?? '320k'
 }

@@ -1008,6 +1008,7 @@
   "web_login_no_cookie": "還沒讀到登入資訊，請在上方頁面登入成功後，再點「我已登入，立即檢測」",
   "web_login_no_ticket": "讀到了 Cookie 但缺少登入憑證，請在頁面裡重新登入一次",
   "web_login_reload": "重新整理",
+  "web_login_success": "{name}登入成功",
   "web_login_tip": "在下方官方頁面完成登入即可，偵測到登入狀態會自動存到本機，不會上傳。",
   "webdav_auth_failed": "帳號或密碼不對，請檢查 WebDAV 設定",
   "webdav_clear": "清空",

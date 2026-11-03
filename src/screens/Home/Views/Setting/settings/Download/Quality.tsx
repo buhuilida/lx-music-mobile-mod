@@ -21,6 +21,9 @@ const QUALITYS: Array<{ id: LX.Quality, label: string }> = [
   { id: 'flac', label: '无损' },
   { id: 'flac24bit', label: '24bit' },
   { id: 'hires', label: 'Hi-Res' },
+  { id: 'atmos', label: 'Atmos' },
+  { id: 'atmos_plus', label: 'Atmos+' },
+  { id: 'master', label: 'Master' },
 ]
 
 /**
