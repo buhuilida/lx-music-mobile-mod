@@ -17,7 +17,7 @@ import { useSettingValue } from '@/store/setting/hook'
 import { createStyle, toast, confirmDialog } from '@/utils/tools'
 import { getAllThemes, saveTheme, removeTheme, buildActiveThemeColors } from '@/theme/themes'
 import { PRESET_COLORS, PRESET_BG_LIGHT, PRESET_BG_DARK, normalizeColor, toSolidRgba, buildTheme, parseTheme, THEME_FONTS } from '@/theme/themeEditor'
-import { readFile, selectFile, writeFile, temporaryDirectoryPath, mkdir, extname } from '@/utils/fs'
+import { readFile, selectFile, writeFile, temporaryDirectoryPath, mkdir, extname, unlink } from '@/utils/fs'
 import { resolveDownloadDirectory } from '@/core/download'
 import { COMPONENT_IDS } from '@/config/constant'
 
@@ -58,6 +58,8 @@ export default memo(({ componentId }: { componentId: string }) => {
         const raw = await readFile(filePath, 'utf8') as string
         const imported = parseTheme(raw)
         await saveTheme(imported)
+        // openDocument 会把文件复制到缓存目录，导入完成即清理，避免累积
+        void unlink(filePath).catch(() => {})
         reload()
         toast(t('theme_import_success', { name: imported.name }))
       } catch {
@@ -315,13 +317,18 @@ const ThemeEditor = ({ componentId, initial, onCancel, onSaved }: {
       toast(t('theme_name_required'), 'long')
       return
     }
-    // 编辑已有主题时保留原 id，避免产生重复项；背景图与字体随 extInfo 一起保存
+    // 编辑已有主题时保留原 id 与原有扩展字段（如导入的网络背景图、徽章色），
+    // c-app-background / c-main-background 由编辑器里的颜色重新生成，不继承
+    const preserved = { ...initial.config.extInfo }
+    delete preserved['c-app-background']
+    delete preserved['c-main-background']
     const target = buildTheme({
       name: name.trim(),
       primary,
       background,
       isDark,
       extInfo: {
+        ...preserved,
         'bg-image-portrait': portraitBg,
         'bg-image-landscape': landscapeBg,
         'font-family': fontFamily,
@@ -335,17 +342,26 @@ const ThemeEditor = ({ componentId, initial, onCancel, onSaved }: {
     })
   }
 
-  // 选择竖屏 / 横屏背景图：复制到 theme_images 目录，extInfo 里只存文件名
+  // 选择竖屏 / 横屏背景图：复制到 theme_images 目录，extInfo 里只存文件名；
+  // 换图时顺手删掉旧图，避免 theme_images 目录无限膨胀
   const pickBgImage = (target: 'portrait' | 'landscape') => {
+    if (!imagesDir) {
+      toast(t('theme_bg_set_failed'), 'long')
+      return
+    }
     pickingTargetRef.current = target
     fileSelectRef.current?.show(
       { title: t('theme_editor_select_image'), filter: ['jpg', 'jpeg', 'png', 'webp'] },
       async(path) => {
         if (!path || !imagesDir) return
         try {
+          const oldName = target == 'portrait' ? portraitBg : landscapeBg
           const ext = extname(path) || 'jpg'
           const fileName = `bg_${target}_${Date.now()}.${ext}`
           await RNFS.copyFile(path, `${imagesDir}/${fileName}`)
+          if (oldName && oldName != fileName) {
+            void RNFS.unlink(`${imagesDir}/${oldName}`).catch(() => {})
+          }
           if (target == 'portrait') setPortraitBg(fileName)
           else setLandscapeBg(fileName)
           toast(t('theme_bg_set_success'))
@@ -354,6 +370,14 @@ const ThemeEditor = ({ componentId, initial, onCancel, onSaved }: {
         }
       },
     )
+  }
+
+  // 清除背景图：置空状态并删除已保存的图片文件
+  const clearBgImage = (target: 'portrait' | 'landscape') => {
+    const name = target == 'portrait' ? portraitBg : landscapeBg
+    if (name && imagesDir) void RNFS.unlink(`${imagesDir}/${name}`).catch(() => {})
+    if (target == 'portrait') setPortraitBg('')
+    else setLandscapeBg('')
   }
 
   return (
@@ -471,7 +495,7 @@ const ThemeEditor = ({ componentId, initial, onCancel, onSaved }: {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionBtn, styles.bgClearBtn, { backgroundColor: theme['c-button-background'] }]}
-              onPress={() => { setPortraitBg('') }}
+              onPress={() => { clearBgImage('portrait') }}
               activeOpacity={0.7}
             >
               <Text size={12} color={theme['c-button-font']}>{t('theme_editor_clear_image')}</Text>
@@ -491,7 +515,7 @@ const ThemeEditor = ({ componentId, initial, onCancel, onSaved }: {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionBtn, styles.bgClearBtn, { backgroundColor: theme['c-button-background'] }]}
-              onPress={() => { setLandscapeBg('') }}
+              onPress={() => { clearBgImage('landscape') }}
               activeOpacity={0.7}
             >
               <Text size={12} color={theme['c-button-font']}>{t('theme_editor_clear_image')}</Text>

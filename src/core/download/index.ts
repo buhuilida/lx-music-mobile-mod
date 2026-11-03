@@ -246,7 +246,9 @@ export const applyDownloadMetadata = async(options: {
 export const downloadMusic = async(musicInfo: LX.Music.MusicInfoOnline, quality: LX.Quality): Promise<boolean> => {
   const id = buildItemId(musicInfo, quality)
   if (downloadState.list.some(item => item.id == id)) return true
-  if (downloadState.tasks[id]?.status == 'downloading') return true
+  // waiting 也算进行中：worker 取到任务先置 waiting 再取链接，
+  // 只挡 downloading 会让同一首歌在并发时被下载两次
+  if (['waiting', 'downloading'].includes(downloadState.tasks[id]?.status)) return true
 
   updateTask(id, {
     id,
@@ -376,9 +378,13 @@ export const downloadMusics = async(musics: LX.Music.MusicInfo[], options: {
   onProgress?: (done: number, total: number) => void
 } = {}): Promise<{ total: number, success: number, failed: number }> => {
   const downloadedIds = new Set(downloadState.list.map(item => item.musicInfo.id))
+  // 同一首歌在歌单里可能出现多次，按 id 去重，避免并发重复下载
+  const seenIds = new Set<string>()
   const targets = musics.filter((musicInfo) => {
     if (musicInfo.source == 'local') return false
     if (downloadedIds.has(musicInfo.id)) return false
+    if (seenIds.has(musicInfo.id)) return false
+    seenIds.add(musicInfo.id)
     return true
   }) as LX.Music.MusicInfoOnline[]
 

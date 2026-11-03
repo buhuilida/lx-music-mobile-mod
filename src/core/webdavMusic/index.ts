@@ -229,12 +229,17 @@ export const scanWebDAVSongs = async(
   onProgress?: (count: number, path: string) => void,
 ): Promise<WebDAVStore> => {
   const songs: WebDAVSong[] = []
-  const walk = async(current: string, depth: number) => {
+  let failedDirs = 0
+  const walk = async(current: string, depth: number): Promise<void> => {
     if (depth > MAX_DEPTH || songs.length >= MAX_FILES) return
     let entries: PropfindEntry[]
     try {
       entries = await propfind(current)
     } catch {
+      failedDirs++
+      // 单个子目录失败只跳过该目录；顶层失败直接抛错，避免网络断开时
+      // 用空结果覆盖掉之前扫描好的曲库
+      if (depth == 0) throw new Error('WEBDAV_SCAN_FAILED')
       return
     }
     for (const entry of entries) {
@@ -253,6 +258,7 @@ export const scanWebDAVSongs = async(
   songs.sort((a, b) => a.remotePath.localeCompare(b.remotePath, 'zh-Hans-CN'))
   const store: WebDAVStore = { songs, scannedAt: Date.now(), rootPath: path }
   await saveStore(store)
+  if (failedDirs > 0 && songs.length == 0) throw new Error('WEBDAV_SCAN_FAILED')
   return store
 }
 

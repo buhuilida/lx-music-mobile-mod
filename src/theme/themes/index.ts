@@ -4,7 +4,7 @@ import themes from '@/theme/themes/themes'
 import settingState from '@/store/setting/state'
 import themeState from '@/store/theme/state'
 import { isUrl } from '@/utils'
-import { privateStorageDirectoryPath } from '@/utils/fs'
+import { privateStorageDirectoryPath, unlink } from '@/utils/fs'
 import { type ImageSourcePropType } from 'react-native'
 
 export const BG_IMAGES = {
@@ -42,8 +42,15 @@ export const removeTheme = async(id: string) => {
   userThemes ??= await getUserTheme()
   const index = userThemes.findIndex(t => t.id === id)
   if (index < 0) return
-  userThemes.splice(index, 1)
+  const [removed] = userThemes.splice(index, 1)
   await saveUserTheme(userThemes)
+  // 顺手清理主题引用的本地背景图文件（网络图与内置图不动）
+  const imagesDir = `${privateStorageDirectoryPath}/theme_images`
+  for (const key of ['bg-image', 'bg-image-portrait', 'bg-image-landscape'] as const) {
+    const image = removed?.config.extInfo[key]
+    if (!image || isUrl(image)) continue
+    void unlink(`${imagesDir}/${image}`).catch(() => {})
+  }
 }
 
 export type LocalTheme = typeof themes[number]
@@ -78,10 +85,12 @@ export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
   if (customBgImage) {
     bgImg = { uri: customBgImage.startsWith('file://') ? customBgImage : `file://${customBgImage}` }
   } else if (theme.isCustom) {
-    bgImg = resolveThemeImage(theme.config.extInfo['bg-image'])
+    // 与内置带图主题行为一致：暗色主题下开启了「隐藏黑色主题背景」时不显示背景图
+    const hideBgDark = theme.isDark && settingState.setting['theme.hideBgDark']
+    bgImg = hideBgDark ? undefined : resolveThemeImage(theme.config.extInfo['bg-image'])
     // 竖屏 / 横屏背景图（1.22.11），未单独设置时回退到通用背景图
-    bgImgPortrait = resolveThemeImage(theme.config.extInfo['bg-image-portrait']) ?? bgImg
-    bgImgLandscape = resolveThemeImage(theme.config.extInfo['bg-image-landscape']) ?? bgImg
+    bgImgPortrait = hideBgDark ? undefined : resolveThemeImage(theme.config.extInfo['bg-image-portrait']) ?? bgImg
+    bgImgLandscape = hideBgDark ? undefined : resolveThemeImage(theme.config.extInfo['bg-image-landscape']) ?? bgImg
   } else {
     const extInfo = (theme as LocalTheme).config.extInfo
     if (extInfo['bg-image']) {

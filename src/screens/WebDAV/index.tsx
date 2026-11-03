@@ -93,7 +93,9 @@ export default memo(({ componentId }: { componentId: string }) => {
     void (async() => {
       await setTempList(LIST_IDS.TEMP, list.map(toLocalMusicInfo))
       await playList(LIST_IDS.TEMP, index)
-    })()
+    })().catch((err) => {
+      toast(`${t('webdav_play_failed')}: ${(err as Error).message}`, 'long')
+    })
   }, [])
 
   const handleScan = useCallback(() => {

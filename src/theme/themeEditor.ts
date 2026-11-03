@@ -73,8 +73,8 @@ export interface ThemeDraft {
   primary: string
   background: string
   isDark: boolean
-  /** 保留已有主题的背景图 / 字体等扩展字段（编辑时不丢） */
-  extInfo?: Partial<Pick<LX.Theme['config']['extInfo'], 'bg-image' | 'bg-image-portrait' | 'bg-image-landscape' | 'font-family'>>
+  /** 保留已有主题的扩展字段（编辑时不丢）；c-app-background / c-main-background 之外的字段都会被继承 */
+  extInfo?: Partial<Omit<LX.Theme['config']['extInfo'], 'c-app-background' | 'c-main-background'>>
 }
 
 /** 用主色 + 背景色 + 明暗生成一份完整主题 */

@@ -120,16 +120,17 @@ export default memo(({ componentId }: { componentId: string }) => {
   }, [txLoggedIn])
 
   const handleLogout = useCallback(() => {
+    const platformName = platform == 'tx' ? t('platform_name_tx') : platform == 'kg' ? t('platform_name_kg') : t('platform_name_wy')
     if (platform == 'tx') {
-      void logoutQQ().then(() => { toast(t('wy_logout_done')) })
+      void logoutQQ().then(() => { toast(t('platform_logout_done', { platform: platformName })) })
       return
     }
     if (platform == 'kg') {
-      void logoutKg().then(() => { toast(t('wy_logout_done')) })
+      void logoutKg().then(() => { toast(t('platform_logout_done', { platform: platformName })) })
       return
     }
     void logoutNetease().then(() => {
-      toast(t('wy_logout_done'))
+      toast(t('platform_logout_done', { platform: platformName }))
     })
   }, [platform, t])
 
@@ -276,7 +277,7 @@ export default memo(({ componentId }: { componentId: string }) => {
                         <Image url={avatar} style={styles.avatar} />
                       </TouchableOpacity>
                     : <TouchableOpacity onPress={handleLogout} activeOpacity={0.8} style={styles.iconBtn}>
-                        <Icon name="logout" size={16} color={theme['c-font-label']} />
+                        <Icon name="exit2" size={16} color={theme['c-font-label']} />
                       </TouchableOpacity>}
                 </View>
               : <TouchableOpacity
