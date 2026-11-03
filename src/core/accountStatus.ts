@@ -1,16 +1,19 @@
 import settingState from '@/store/setting/state'
 import neteaseState from '@/store/netease/state'
-import txUser, { getUinFromCookie, hasTxSession } from '@/utils/musicSdk/tx/user'
+import { getLoginUserInfo, getUinFromCookie, hasTxSession } from '@/utils/musicSdk/tx/user'
 import kgUser, { hasKgSession } from '@/utils/musicSdk/kg/user'
 import wyUser from '@/utils/musicSdk/wy/user'
 
 /**
- * 三平台账号状态
+ * 四平台账号状态
  *
- * 之前「我的音乐」和「平台设置」各自用 `cookie.length > 0` 判断登录态：
- * Cookie 过期了仍显示已登录，反过来说「已保存 Cookie」又写成「已登录」，两边对不上。
- * 这里统一成一次真实校验：拿账号信息成功才算 ok，明确区分
+ * 统一成一次真实校验：拿账号信息成功才算 ok，明确区分
  * 未登录 / 校验中 / 已登录 / 已失效。
+ *
+ * 1.22.5 修正：
+ * - QQ 之前用「我创建的歌单」当校验，但该接口传假 uin 也返回 code 0 + 空数组，
+ *   等于永远校验通过；改成 GetLoginUserInfo，未登录直接返回 1000。
+ * - 昵称兜底不再写死「网易云用户」，按平台给。
  */
 
 export type PlatformKey = 'wy' | 'tx' | 'kg'
@@ -29,15 +32,23 @@ export interface AccountSnapshot {
   vipType?: number
 }
 
+/** 平台名，用于文案兜底 */
+export const PLATFORM_NAME: Record<PlatformKey, string> = {
+  wy: '网易云音乐',
+  tx: 'QQ 音乐',
+  kg: '酷狗音乐',
+}
+
 const getCookie = (platform: PlatformKey): string => {
   if (platform == 'wy') return settingState.setting['platform.wyCookie'] ?? ''
   if (platform == 'tx') return settingState.setting['platform.txCookie'] ?? ''
-  return settingState.setting['platform.kgCookie'] ?? ''
+  if (platform == 'kg') return settingState.setting['platform.kgCookie'] ?? ''
+  return ''
 }
 
 /**
- * QQ 网页登录拿不到昵称（官方头部接口要 sig，未做）。
- * 与 Walnut 一致：昵称用「QQ音乐用户 <uin>」，头像用 QQ 头像接口兜底。
+ * QQ 网页登录拿不到昵称时的兜底。
+ * 优先用 GetLoginUserInfo 拉真实资料，失败才用 uin 拼。
  */
 export const getQQDisplayFromCookie = (cookie: string) => {
   const uin = getUinFromCookie(cookie)
@@ -68,6 +79,9 @@ export const getCachedAccount = (platform: PlatformKey): AccountSnapshot => {
   return { status: isSaved(platform) ? 'ok' : 'off', name: '', avatar: '' }
 }
 
+/** 把接口报错归类成「失效」还是「网络错误」 */
+const isAuthError = (msg: string) => /1000|80000|80030|80050|104403|登录已失效|未登录|请先登录|login|Cookie|userid|token/i.test(msg)
+
 /**
  * 真实校验一次 Cookie 是否还有效
  * @param platform 平台
@@ -88,10 +102,17 @@ export const verifyAccount = async(platform: PlatformKey, cookie = getCookie(pla
       }
     }
     if (platform == 'tx') {
-      // 拉一次「我创建的歌单」：能返回就说明 uin + musickey 仍然有效
-      const list = await txUser.getCreatedPlaylists(undefined, cookie) as unknown[]
-      if (!Array.isArray(list)) return { status: 'expired', name: '', avatar: '' }
-      return { status: 'ok', ...getQQDisplayFromCookie(cookie) }
+      // GetLoginUserInfo 是唯一能确认「authst 真的有效」的接口：
+      // 未登录固定返回 1000，不会像歌单接口那样假 uin 也回 code 0。
+      const info = await getLoginUserInfo(cookie)
+      if (!info) return { status: 'expired', name: '', avatar: '' }
+      const uin = info.uin || getUinFromCookie(cookie)
+      return {
+        status: 'ok',
+        name: info.nickname || (uin ? `QQ音乐用户 ${uin}` : 'QQ音乐用户'),
+        avatar: info.avatar || (uin ? `https://q1.qlogo.cn/g?b=qq&nk=${uin}&s=640` : ''),
+        vipType: info.vipType,
+      }
     }
     // 酷狗没登录时 getDeviceInfo 也能拿到设备号，这里先卡一道 Cookie 校验
     if (!hasKgSession(cookie)) return { status: 'expired', name: '', avatar: '' }
@@ -101,9 +122,7 @@ export const verifyAccount = async(platform: PlatformKey, cookie = getCookie(pla
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err ?? '')
     // 只有明确的「没登录 / 凭证无效」才算失效，网络错误不能误判
-    if (/80030|登录|login|未设置|Cookie|userid|token/i.test(msg)) {
-      return { status: 'expired', name: '', avatar: '' }
-    }
+    if (isAuthError(msg)) return { status: 'expired', name: '', avatar: '' }
     return { status: 'error', name: '', avatar: '' }
   }
 }

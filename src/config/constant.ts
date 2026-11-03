@@ -38,9 +38,12 @@ export enum COMPONENT_IDS {
   neteaseArtist = 'neteaseArtist',
   neteaseAlbums = 'neteaseAlbums',
   platformList = 'platformList',
+  platformSongs = 'platformSongs',
   neteaseAlbumSongs = 'neteaseAlbumSongs',
   platformSetting = 'platformSetting',
   directoryPicker = 'directoryPicker',
+  themeManager = 'themeManager',
+  webdav = 'webdav',
 }
 
 export enum NAV_SHEAR_NATIVE_IDS {

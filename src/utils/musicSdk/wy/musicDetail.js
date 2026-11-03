@@ -1,6 +1,7 @@
 import { httpFetch } from '../../request'
 import { weapi } from './utils/crypto'
 import { formatPlayTime, sizeFormate } from '../../index'
+import settingState from '@/store/setting/state'
 // https://github.com/Binaryify/NeteaseCloudMusicApi/blob/master/module/song_detail.js
 
 export default {
@@ -103,11 +104,16 @@ export default {
   async getList(ids = [], retryNum = 0) {
     if (retryNum > 2) return Promise.reject(new Error('try max num'))
 
+    // 这个接口要带 Cookie：不带时「我喜欢」这种登录态数据会返回空 songs，
+    // 页面就表现为「明明登录了却是空的」。
+    const cookie = settingState.setting['platform.wyCookie'] ?? ''
     const requestObj = httpFetch('https://music.163.com/weapi/v3/song/detail', {
       method: 'post',
       headers: {
         'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36',
         origin: 'https://music.163.com',
+        Referer: 'https://music.163.com/',
+        ...(cookie ? { cookie } : {}),
       },
       form: weapi({
         c: '[' + ids.map(id => ('{"id":' + id + '}')).join(',') + ']',

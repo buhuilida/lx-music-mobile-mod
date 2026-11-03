@@ -20,7 +20,8 @@ export default memo(({ componentId }: { componentId: string }) => {
       title={t('netease_cloud')}
       listKey="netease_cloud"
       loader={getCloudSongs}
-      requireLogin={!isNeteaseLoggedIn()}
+      requireLogin
+      loggedIn={isNeteaseLoggedIn()}
       emptyTip={t('netease_cloud_empty')}
     />
   )

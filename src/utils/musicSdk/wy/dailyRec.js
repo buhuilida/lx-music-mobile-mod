@@ -179,10 +179,22 @@ export default {
     }
   },
 
+  /**
+   * 心动模式
+   *
+   * 两个必须成立的条件，缺一个服务端都会拒绝：
+   * 1. playlistId 不能是 0，它表示「在哪个歌单的范围内做相似漫游」，
+   *    必须是真实歌单 id（默认用「我喜欢的音乐」）；
+   * 2. songId 必须是一首真实存在的歌，作为种子。
+   *
+   * 之前入口处两样都可能传 0，结果就是恒定一句「获取心动模式列表失败」。
+   * 这里同时改走明文 `/api/` 接口：与私人FM 一致，免掉 weapi 加密与 csrf，
+   * 出错时把服务端真实 code 带出来，能分清是「没登录」还是「参数被拒」。
+   */
   async getHeartbeatModeList(cookie, playlistId, songId, retryNum = 0) {
     try {
       const csrfToken = (cookie.match(/_csrf=([^(;|$)]+)/) || [])[1]
-      const requestObj = httpFetch(`https://music.163.com/weapi/playmode/intelligence/list?csrf_token=${csrfToken || ''}`, {
+      const requestObj = httpFetch(`https://music.163.com/api/playmode/intelligence/list?csrf_token=${csrfToken || ''}`, {
         method: 'post',
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36 Edg/108.0.1462.54',
@@ -190,29 +202,69 @@ export default {
           Referer: 'https://music.163.com',
           cookie,
         },
-        form: weapi({
-          playlistId,
-          songId,
-          type: 'fromPlayOne',
-          startMusicId: songId,
-          count: '150',
-          csrf_token: csrfToken || '',
-        }),
+        form: `playlistId=${encodeURIComponent(playlistId ?? 0)}` +
+          `&songId=${encodeURIComponent(songId ?? 0)}` +
+          '&type=fromPlayOne' +
+          `&startMusicId=${encodeURIComponent(songId ?? 0)}` +
+          '&count=150' +
+          `&csrf_token=${csrfToken || ''}`,
       })
 
       const { body, statusCode } = await requestObj.promise
 
       if (statusCode !== 200 || body.code !== 200) {
-        throw new Error('获取心动模式列表失败')
+        if (body && (body.code === 301 || body.code === -462)) {
+          throw new Error('网易云登录状态已失效，请重新登录')
+        }
+        throw new Error(`获取心动模式列表失败（HTTP ${statusCode} / code ${body && body.code}）`)
       }
 
       const ids = (body.data || []).map(item => item.id || item.songInfo?.id).filter(id => id)
       if (!ids.length) return { list: [], source: 'wy' }
       return await musicDetailApi.getList(ids)
     } catch (error) {
-      if (retryNum >= 2) throw error
+      // 登录态问题重试无意义，直接抛给页面
+      if (/登录|失效|301|-462/.test(error.message) || retryNum >= 2) throw error
       console.log(`获取心动模式列表失败，正在进行第 ${retryNum + 1} 次重试...`, error.message)
       return this.getHeartbeatModeList(cookie, playlistId, songId, retryNum + 1)
+    }
+  },
+
+  /**
+   * 私人FM
+   *
+   * `/weapi/v1/radio/get` 是加密接口，未登录时返回空 body（不是 JSON），
+   * `/api/v1/radio/get` 是同一功能的明文接口，实测直接返回 code 200 + 歌曲数组，
+   * 带 Cookie 时就是账号的个性化队列。
+   *
+   * 返回体只有基础字段，音质 / 封面要靠 musicDetail 补全，
+   * 与心动模式的做法保持一致。
+   */
+  async getPersonalFm(cookie, limit = 30, retryNum = 0) {
+    try {
+      const csrfToken = (cookie.match(/_csrf=([^(;|$)]+)/) || [])[1]
+      const requestObj = httpFetch('https://music.163.com/api/v1/radio/get', {
+        method: 'post',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36 Edg/108.0.1462.54',
+          origin: 'https://music.163.com',
+          Referer: 'https://music.163.com',
+          cookie,
+        },
+        form: `limit=${limit}&csrf_token=${csrfToken || ''}`,
+      })
+      const { body, statusCode } = await requestObj.promise
+      if (statusCode !== 200 || body.code !== 200) {
+        if (body.code === 301 || body.code === -462) throw new Error('网易云登录状态已失效，请重新登录')
+        throw new Error(`获取私人FM失败（HTTP ${statusCode} / code ${body.code}）`)
+      }
+      const ids = (body.data || []).map(item => item.id).filter(Boolean)
+      if (!ids.length) return { list: [], source: 'wy' }
+      return await musicDetailApi.getList(ids)
+    } catch (error) {
+      if (/登录|失效|301|-462/.test(error.message) || retryNum >= 2) throw error
+      console.log(`获取私人FM失败，正在进行第 ${retryNum + 1} 次重试...`, error.message)
+      return this.getPersonalFm(cookie, limit, retryNum + 1)
     }
   },
 }

@@ -2,9 +2,10 @@ import { memo } from 'react'
 
 import Section from '../../components/Section'
 import FileNameStyle from './FileNameStyle'
-import SaveLrcFile from './SaveLrcFile'
+import MetadataOptions from './MetadataOptions'
 import DownloadPath from './DownloadPath'
 import Concurrency from './Concurrency'
+import Quality from './Quality'
 import { useI18n } from '@/lang'
 
 export default memo(() => {
@@ -14,8 +15,9 @@ export default memo(() => {
     <Section title={t('setting_download')}>
       <Concurrency />
       <DownloadPath />
+      <Quality />
       <FileNameStyle />
-      <SaveLrcFile />
+      <MetadataOptions />
     </Section>
   )
 })

@@ -94,13 +94,23 @@ export default memo(({ componentId, mode = 'sub' }: Props) => {
           ? <View style={styles.center}>
               <Icon name="album" size={42} color={theme['c-350']} />
               <Text size={13} color={theme['c-font-label']} style={styles.emptyText}>{error}</Text>
-              <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: theme['c-primary-background'] }]}
-                onPress={() => { pushPlatformSettingScreen(componentId) }}
-                activeOpacity={0.7}
-              >
-                <Text size={13} color={theme['c-primary-font']}>{t('online_go_login')}</Text>
-              </TouchableOpacity>
+              {/* 已登录时接口报错也会走到这里，主操作必须是「重试」 */}
+              <View style={styles.errorActions}>
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: theme['c-primary-background'] }]}
+                  onPress={() => { void refresh() }}
+                  activeOpacity={0.7}
+                >
+                  <Text size={13} color={theme['c-primary-font']}>{t('online_retry')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.reloginBtn, { borderColor: theme['c-border-background'] }]}
+                  onPress={() => { pushPlatformSettingScreen(componentId) }}
+                  activeOpacity={0.7}
+                >
+                  <Text size={13} color={theme['c-font-label']}>{t('online_relogin')}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           : <FlatList
               data={list}
@@ -171,5 +181,14 @@ const styles = createStyle({
     paddingTop: 10,
     paddingBottom: 10,
     borderRadius: 20,
+  },
+  errorActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  reloginBtn: {
+    borderWidth: 1,
+    backgroundColor: 'transparent',
   },
 })

@@ -85,6 +85,7 @@ const defaultSetting: LX.AppSetting = {
   'listenTogether.nickname': '',
 
   'download.quality': '320k',
+  'download.qualityMode': 'auto',
 
   'theme.customBgImage': '',
   'theme.customBgOpacity': 0.75,
@@ -100,6 +101,12 @@ const defaultSetting: LX.AppSetting = {
   'player.audioEffectLoudness': 0,
   'download.fileNameStyle': 'name-singer',
   'download.saveLrcFile': false,
+  'download.writeMetadata': false,
+  'download.writeAlias': false,
+  'download.writePicture': false,
+  'download.writeLyric': false,
+  'download.writeEmbedLyric': false,
+  'download.writeRomaLyric': false,
   'download.savePath': '',
   'download.concurrency': 3,
   'platform.wyCookie': '',

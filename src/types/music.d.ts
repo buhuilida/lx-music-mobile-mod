@@ -34,6 +34,10 @@ declare namespace LX {
     interface MusicInfoMeta_local extends MusicInfoMetaBase {
       filePath: string
       ext: string
+      /** 是否来自 WebDAV 云盘（1.23.0），为 true 时 filePath 存的是网盘相对路径 */
+      webdav?: boolean
+      /** 云盘上的相对路径，播放时由 getWebDAVStreamUrl 拼成完整地址 */
+      remotePath?: string
     }
 
 

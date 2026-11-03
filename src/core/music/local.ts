@@ -16,6 +16,7 @@ import {
 import { getLocalFilePath } from '@/utils/music'
 import { readLyric, readPic } from '@/utils/localMediaMetadata'
 import { stat } from '@/utils/fs'
+import { getWebDAVStreamUrl } from '@/core/webdavMusic'
 
 const getOtherSourceByLocal = async<T>(musicInfo: LX.Music.MusicInfoLocal, handler: (infos: LX.Music.MusicInfoOnline[]) => Promise<T>) => {
   let result: LX.Music.MusicInfoOnline[] = []
@@ -73,6 +74,15 @@ export const getMusicUrl = async({ musicInfo, isRefresh, allowToggleSource = tru
   onToggleSource?: (musicInfo?: LX.Music.MusicInfoOnline) => void
   allowToggleSource?: boolean
 }): Promise<string> => {
+  // WebDAV 云盘歌曲（1.23.0）：直接返回网盘直链，不走本地文件与换源逻辑
+  if (musicInfo.meta?.webdav) {
+    const remotePath = musicInfo.meta.remotePath ?? musicInfo.meta.filePath
+    const url = getWebDAVStreamUrl({ remotePath })
+    if (!url) throw new Error('WEBDAV_NOT_CONFIGURED')
+    playingInfoActions.setPlayingInfo('local', musicInfo.source)
+    return url
+  }
+
   if (!isRefresh) {
     const path = await getLocalFilePath(musicInfo)
     // console.log(path)
@@ -112,7 +122,10 @@ export const getPicUrl = async({ musicInfo, listId, isRefresh, skipFilePic, onTo
   onToggleSource?: (musicInfo?: LX.Music.MusicInfoOnline) => void
 }): Promise<string> => {
   if (!isRefresh && !skipFilePic) {
-    let pic = await readPic(musicInfo.meta.filePath).catch(() => null)
+    // 云盘歌曲没有本地文件，跳过读内嵌封面，直接用已有链接或走换源（1.23.0）
+    let pic = musicInfo.meta.webdav
+      ? (musicInfo.meta.picUrl ?? null)
+      : await readPic(musicInfo.meta.filePath).catch(() => null)
     if (pic) {
       if (pic.startsWith('/')) pic = `file://${pic}`
       return pic

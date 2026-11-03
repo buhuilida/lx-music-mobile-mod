@@ -178,8 +178,14 @@ export const getLikedSongs = async(): Promise<LX.Music.MusicInfoOnline[]> => {
     ? neteaseState.likedIds
     : ((await wyUser.getLikedSongList(neteaseState.profile.uid || await wyUser.getUid(cookie), cookie)) as unknown as string[])
   if (!ids.length) return []
-  const result = await wyMusicDetail.getList(ids.map(id => Number(id))) as { list?: unknown }
-  return toOnlineList(asRawList(result.list))
+  // 一次请求塞几千个 id 会被服务端截断（返回空 songs），必须分批取
+  const list: WyRaw[] = []
+  for (let i = 0; i < ids.length; i += 500) {
+    const part = ids.slice(i, i + 500).map(id => Number(id))
+    const result = await wyMusicDetail.getList(part) as { list?: unknown }
+    list.push(...asRawList(result.list))
+  }
+  return toOnlineList(list)
 }
 
 export const isLikedSong = (songId: string) => {
@@ -224,12 +230,82 @@ export const getAlbumSongs = async(albumId: string | number) => {
 }
 
 /**
- * 心动模式（1.21.0）：基于当前歌曲生成一串相似推荐
- * Walnut 分支里就是这个接口，playlistId 传 0 也能出结果
+ * 心动模式
+ *
+ * 服务端要求两个参数同时成立，缺一个就返回非 200（页面只看到「获取心动模式列表失败」）：
+ * - `playlistId`：在哪个歌单范围内做相似漫游，不能是 0；
+ * - `songId`：种子歌曲，必须真实存在。
+ *
+ * 之前入口处两样都可能传 0，所以恒失败。这里主动补齐，做法对齐 lxx：
+ * - playlistId 缺省 → 「我喜欢的音乐」歌单 id
+ * - songId 缺省 → 从「我喜欢的音乐」里随机取一首
+ * 返回列表把种子歌放第一位，播放队列从用户熟悉的那首开始。
  */
-export const getHeartbeatSongs = async(songId: string | number, playlistId: string | number = 0) => {
+export const getHeartbeatSongs = async(songId?: string | number, playlistId?: string | number) => {
   const cookie = getCookie()
   if (!cookie) return Promise.reject(new Error('请先登录网易云账号'))
-  const result = await wyDailyRec.getHeartbeatModeList(cookie, playlistId, songId) as { list?: unknown }
-  return toOnlineList(asRawList(result.list))
+  const uid = await wyUser.getUid(cookie)
+  if (!uid) return Promise.reject(new Error('网易云登录状态已失效，请重新登录'))
+
+  let pid = playlistId
+  if (!pid) {
+    const lists = asRawList(await wyUser.getUserPlaylists(uid, cookie))
+    const liked = lists.find(item => Number(item.specialType ?? item.special_type) === 5)
+    // 「我喜欢的音乐」的 id 一般就等于 uid，接口没给时用它兜底
+    pid = liked?.id ?? uid
+  }
+
+  let sid = songId
+  if (!sid) {
+    let ids = (neteaseState.likedIds ?? []).map(String)
+    if (!ids.length) ids = ((await wyUser.getLikedSongList(uid, cookie)) as unknown[]).map(String)
+    if (!ids.length) throw new Error('需要先在网易云收藏几首歌，心动模式才有种子')
+    sid = ids[Math.floor(Math.random() * ids.length)]
+  }
+
+  let result: { list?: unknown }
+  try {
+    result = await wyDailyRec.getHeartbeatModeList(cookie, pid, sid) as { list?: unknown }
+  } catch (err) {
+    // 歌单 id 可能因账号类型不同对不上，退回「我喜欢的音乐」（id 恒等于 uid）再试一次
+    if (String(pid) === String(uid)) throw err
+    result = await wyDailyRec.getHeartbeatModeList(cookie, uid, sid) as { list?: unknown }
+  }
+  const list = toOnlineList(asRawList(result.list))
+
+  const seedId = String(sid)
+  const hasSeed = list.some(item => String(item.meta?.songId ?? item.id).replace(/^wy_/, '') === seedId)
+  if (!hasSeed) {
+    // 种子歌详情拿不到不影响主流程，静默跳过
+    try {
+      const seed = await wyMusicDetail.getList([seedId]) as { list?: unknown }
+      const seedList = toOnlineList(asRawList(seed.list))
+      if (seedList.length) list.unshift(seedList[0])
+    } catch {}
+  }
+  return list
+}
+
+/**
+ * 私人FM
+ *
+ * 未登录时服务端只给 1 条通用推荐，登录后才是完整队列；
+ * 所以这里累积请求几轮去重，避免未登录用户体验成「只有一首歌」。
+ */
+export const getPersonalFmSongs = async(limit = 30): Promise<LX.Music.MusicInfoOnline[]> => {
+  const cookie = getCookie()
+  const result: LX.Music.MusicInfoOnline[] = []
+  const seen = new Set<string>()
+  for (let round = 0; round < 6; round++) {
+    const res = await wyDailyRec.getPersonalFm(cookie, limit) as { list?: unknown }
+    const list = toOnlineList(asRawList(res.list))
+    for (const item of list) {
+      const id = String(item.meta?.songId ?? item.id)
+      if (seen.has(id)) continue
+      seen.add(id)
+      result.push(item)
+    }
+    if (result.length >= 10) break
+  }
+  return result
 }

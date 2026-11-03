@@ -53,6 +53,21 @@ export const getKgMyPlaylists = async() => {
   return kgUser.getMyPlaylists()
 }
 
+export const getKgFavPlaylists = async() => {
+  if (!isKgLoggedIn()) return Promise.reject(new Error('请先登录酷狗音乐'))
+  return kgUser.getFavPlaylists()
+}
+
+/** 新歌速递（每日更新，公开接口） */
+export const getKgNewSongs = async() => {
+  return toOnlineList(await kgUser.getNewSongs())
+}
+
+/** 歌曲推荐（精选 / 怀旧 / 热门 歌单广场，公开接口） */
+export const getKgRecommendPlaylists = async() => {
+  return kgUser.getRecommendPlaylists()
+}
+
 export const getKgLikedSongs = async() => {
   if (!isKgLoggedIn()) return Promise.reject(new Error('请先登录酷狗音乐'))
   return toOnlineList(await kgUser.getLikedSongs())

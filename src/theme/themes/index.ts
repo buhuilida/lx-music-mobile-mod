@@ -28,6 +28,9 @@ export const getAllThemes = async() => {
 }
 
 export const saveTheme = async(theme: LX.Theme) => {
+  // 直接进编辑页保存时，getAllThemes 可能还没被调用过，这里兜底初始化
+  // eslint-disable-next-line require-atomic-updates
+  userThemes ??= await getUserTheme()
   const targetTheme = userThemes.find(t => t.id === theme.id)
   if (targetTheme) Object.assign(targetTheme, theme)
   else userThemes.push(theme)
@@ -35,6 +38,8 @@ export const saveTheme = async(theme: LX.Theme) => {
 }
 
 export const removeTheme = async(id: string) => {
+  // eslint-disable-next-line require-atomic-updates
+  userThemes ??= await getUserTheme()
   const index = userThemes.findIndex(t => t.id === id)
   if (index < 0) return
   userThemes.splice(index, 1)

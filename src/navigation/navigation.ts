@@ -11,6 +11,8 @@ import {
   LOCAL_MUSIC_SCREEN,
   PLATFORM_SETTING_SCREEN,
   DIRECTORY_PICKER_SCREEN,
+  THEME_MANAGER_SCREEN,
+  WEBDAV_SCREEN,
   NETEASE_MINE_SCREEN,
   NETEASE_DAILY_SCREEN,
   NETEASE_FOLLOWED_SCREEN,
@@ -803,6 +805,14 @@ export function pushDirectoryPickerScreen(componentId: string, initialPath?: str
   pushFullScreen(componentId, DIRECTORY_PICKER_SCREEN, { initialPath })
 }
 
+export function pushThemeManagerScreen(componentId: string) {
+  pushFullScreen(componentId, THEME_MANAGER_SCREEN)
+}
+
+export function pushWebDAVScreen(componentId: string) {
+  pushFullScreen(componentId, WEBDAV_SCREEN)
+}
+
 
 export function pushNeteaseMineScreen(componentId: string) {
   pushFullScreen(componentId, NETEASE_MINE_SCREEN)
@@ -840,10 +850,10 @@ export function pushAlbumSongsScreen(componentId: string, albumId: string | numb
   pushFullScreen(componentId, NETEASE_ALBUM_SONGS_SCREEN, { albumId, albumName })
 }
 
-export function pushPlatformListScreen(componentId: string, mode: 'tx-mine' | 'tx-fav' | 'tx-album' | 'kg-mine') {
+export function pushPlatformListScreen(componentId: string, mode: 'tx-mine' | 'tx-fav' | 'tx-album' | 'tx-recommend' | 'kg-mine' | 'kg-fav' | 'kg-recommend') {
   pushFullScreen(componentId, PLATFORM_LIST_SCREEN, { mode })
 }
 
-export function pushPlatformSongsScreen(componentId: string, kind: 'tx-daily' | 'tx-liked' | 'tx-home' | 'tx-radar' | 'tx-new' | 'tx-guess' | 'kg-daily' | 'kg-liked') {
+export function pushPlatformSongsScreen(componentId: string, kind: 'tx-daily' | 'tx-liked' | 'tx-home' | 'tx-radar' | 'tx-new' | 'tx-guess' | 'kg-daily' | 'kg-liked' | 'kg-new' | 'wy-fm') {
   pushFullScreen(componentId, PLATFORM_SONGS_SCREEN, { kind })
 }

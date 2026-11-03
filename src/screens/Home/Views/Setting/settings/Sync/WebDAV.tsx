@@ -12,6 +12,8 @@ import { useTheme } from '@/store/theme/hook'
 import { updateSetting } from '@/core/common'
 import { confirmDialog, createStyle, toast } from '@/utils/tools'
 import { testConnection, WebDAVError, normalizeWebdavUrl } from '@/core/sync/webdav'
+import { pushWebDAVScreen } from '@/navigation'
+import commonState from '@/store/common/state'
 import { backupToWebdav, readWebdavMeta, restoreFromWebdav, type WebdavMeta } from '@/core/sync/webdavBackup'
 
 const formatTime = (at: number) => {
@@ -59,6 +61,12 @@ export default memo(() => {
     } finally {
       setBusy('')
     }
+  }
+
+  const handleOpenCloud = () => {
+    const homeId = commonState.componentIds.home
+    if (!homeId) return
+    pushWebDAVScreen(homeId)
   }
 
   const handleTest = async() => {
@@ -162,6 +170,7 @@ export default memo(() => {
         <Button onPress={handleBackup} disabled={!!busy}>{busy == 'backup' ? t('setting_webdav_busy') : t('setting_webdav_backup')}</Button>
         <Button onPress={handleCheckMeta} disabled={!!busy}>{t('setting_webdav_check')}</Button>
         <Button onPress={handleRestore} disabled={!!busy}>{busy == 'restore' ? t('setting_webdav_busy') : t('setting_webdav_restore')}</Button>
+        <Button onPress={handleOpenCloud}>{t('setting_webdav_open_cloud')}</Button>
       </View>
       {
         metaText != null && <Text size={11} color={theme['c-font-label']} style={styles.meta}>{metaText}</Text>

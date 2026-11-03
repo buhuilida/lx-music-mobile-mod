@@ -4,6 +4,7 @@ import { defaultUrl } from '@/config'
 // import { action as playerAction } from '@/store/modules/player'
 import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
+import { getWebDAVAuthHeader } from '@/core/webdavMusic'
 
 
 const list: LX.Player.Track[] = []
@@ -46,10 +47,17 @@ const buildTracks = (musicInfo: LX.Player.PlayMusic, url?: LX.Player.Track['url'
   const album = mInfo.album || undefined
   const artwork = isShowNotificationImage && mInfo.pic && httpRxp.test(mInfo.pic) ? mInfo.pic : undefined
   const lyric = getCurrentFullLyric(mInfo.id)
+  // WebDAV 云盘歌曲需要带 Basic Auth，播放器 Track 支持 headers（1.23.0）
+  const isWebdav = 'progress' in musicInfo
+    ? !!(musicInfo.metadata.musicInfo as unknown as LX.Music.MusicInfoLocal).meta?.webdav
+    : !!(musicInfo as LX.Music.MusicInfoLocal).meta?.webdav
+  const authHeader = isWebdav ? getWebDAVAuthHeader() : null
+  const headers = authHeader ? { Authorization: authHeader } : undefined
   if (url) {
     track.push({
       id: `${mInfo.id}__//${Math.random()}__//${url}`,
       url,
+      headers,
       title: mInfo.name || 'Unknow',
       artist: mInfo.singer || 'Unknow',
       album,

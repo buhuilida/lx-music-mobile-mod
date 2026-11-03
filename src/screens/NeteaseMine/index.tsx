@@ -11,6 +11,8 @@ import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { useNetease } from '@/store/netease/hook'
 import { useKgAccount, useTxAccount } from '@/store/account/hook'
+import { useSettingValue } from '@/store/setting/hook'
+import { verifyAccount, type AccountStatus } from '@/core/accountStatus'
 import { createStyle, toast } from '@/utils/tools'
 import { friendlyError } from '@/utils/errorMsg'
 import playerState from '@/store/player/state'
@@ -31,6 +33,7 @@ import {
   pushPlatformListScreen,
   pushPlatformSettingScreen,
   pushPlatformSongsScreen,
+  pushWebDAVScreen,
 } from '@/navigation'
 
 const VIP_LABEL: Record<number, string> = {
@@ -52,6 +55,8 @@ interface EntryItem {
   icon: string
   title: string
   desc: string
+  /** 该入口是否必须登录；不填表示公开内容，未登录也能看 */
+  needLogin?: boolean
   onPress: () => void
 }
 
@@ -75,6 +80,32 @@ export default memo(({ componentId }: { componentId: string }) => {
   const wyLoggedIn = isNeteaseLoggedIn()
   const txLoggedIn = isQQLoggedIn()
   const kgLoggedIn = isKgLoggedIn()
+
+  /**
+   * QQ 的本地判定只能说明「Cookie 里有凭证」，凭证可能已经失效
+   * （网页登录更容易出现只写了 p_skey 的情况）。
+   * 这里补一次真实校验，让「已失效」能明确显示出来，而不是点进去一片报错。
+   */
+  const txCookie = useSettingValue('platform.txCookie')
+  const [txVerify, setTxVerify] = useState<AccountStatus | ''>('')
+
+  useEffect(() => {
+    if (!txLoggedIn) {
+      setTxVerify('')
+      return
+    }
+    let alive = true
+    setTxVerify('checking')
+    void verifyAccount('tx').then((snap) => {
+      if (alive) setTxVerify(snap.status)
+    }).catch(() => {
+      if (alive) setTxVerify('error')
+    })
+    return () => { alive = false }
+  }, [txLoggedIn, txCookie])
+
+  /** 明确失效才算没登录；网络原因校验失败不要误判成未登录 */
+  const txUsable = txLoggedIn && txVerify != 'expired'
 
   useEffect(() => {
     setComponentId(COMPONENT_IDS.neteaseMine, componentId)
@@ -102,21 +133,22 @@ export default memo(({ componentId }: { componentId: string }) => {
     })
   }, [platform, t])
 
-  /** 心动模式：拿当前播放的网易云歌曲，生成一串相似推荐直接播 */
+  /**
+   * 心动模式：生成一串相似推荐直接播
+   *
+   * 正在放网易云的歌就用它当种子；否则交给 core 从「我喜欢的音乐」里随机挑一首。
+   * 之前这里强制要求「当前播放必须是网易云歌曲」，从「我的音乐」入口点进来时
+   * 十有八九不满足，于是要么弹「先播放一首网易云的歌」，要么带着空种子去请求
+   * 再失败。lxx 的心动模式入口也是从「我喜欢的音乐」随机取种子，这里对齐。
+   */
   const handleHeartbeat = useCallback(() => {
     const info = playerState.playMusicInfo.musicInfo
     const online = info && 'source' in info ? info : null
-    if (!online || online.source != 'wy') {
-      toast(t('netease_heartbeat_need_wy'))
-      return
-    }
-    const rawId = String(online.meta?.songId ?? online.id).replace(/^wy_/, '')
-    if (!rawId) {
-      toast(t('netease_heartbeat_need_wy'))
-      return
-    }
+    const rawId = online && online.source == 'wy'
+      ? String(online.meta?.songId ?? online.id).replace(/^wy_/, '')
+      : ''
     toast(t('netease_heartbeat_loading'), 'short')
-    void getHeartbeatSongs(rawId)
+    void getHeartbeatSongs(rawId || undefined)
       .then(async(list) => {
         if (!list.length) {
           toast(t('netease_heartbeat_empty'))
@@ -129,43 +161,50 @@ export default memo(({ componentId }: { componentId: string }) => {
   }, [t])
 
   const wyEntries: EntryItem[] = [
-    { key: 'daily', icon: 'music_time', title: t('netease_daily'), desc: t('netease_daily_desc'), onPress: () => { pushDailyRecScreen(componentId) } },
-    { key: 'liked', icon: 'love', title: t('netease_liked'), desc: t('netease_liked_desc'), onPress: () => { pushLikedSongsScreen(componentId) } },
-    { key: 'playlists', icon: 'list-order', title: t('netease_my_playlists'), desc: t('netease_my_playlists_desc'), onPress: () => { pushMyPlaylistsScreen(componentId) } },
-    { key: 'subPlaylists', icon: 'album', title: t('netease_sub_playlists'), desc: t('netease_sub_playlists_desc'), onPress: () => { pushMyPlaylistsScreen(componentId, { onlySubscribed: true }) } },
-    { key: 'heartbeat', icon: 'play-outline', title: t('netease_heartbeat'), desc: t('netease_heartbeat_desc'), onPress: handleHeartbeat },
-    { key: 'subAlbums', icon: 'album', title: t('netease_sub_albums'), desc: t('netease_sub_albums_desc'), onPress: () => { pushNeteaseAlbumsScreen(componentId, 'sub') } },
-    { key: 'followed', icon: 'music_time', title: t('netease_followed'), desc: t('netease_followed_desc', { count: followedArtists.length }), onPress: () => { pushFollowedArtistsScreen(componentId) } },
-    { key: 'newAlbums', icon: 'available_updates', title: t('netease_new_albums'), desc: t('netease_new_albums_desc'), onPress: () => { pushNeteaseAlbumsScreen(componentId, 'new') } },
-    { key: 'cloud', icon: 'add-music', title: t('netease_cloud'), desc: t('netease_cloud_desc', { count: cloudCount }), onPress: () => { pushCloudDiskScreen(componentId) } },
+    { key: 'daily', icon: 'music_time', title: t('netease_daily'), desc: t('netease_daily_desc'), needLogin: true, onPress: () => { pushDailyRecScreen(componentId) } },
+    { key: 'liked', icon: 'love', title: t('netease_liked'), desc: t('netease_liked_desc'), needLogin: true, onPress: () => { pushLikedSongsScreen(componentId) } },
+    { key: 'playlists', icon: 'list-order', title: t('netease_my_playlists'), desc: t('netease_my_playlists_desc'), needLogin: true, onPress: () => { pushMyPlaylistsScreen(componentId) } },
+    { key: 'subPlaylists', icon: 'album', title: t('netease_sub_playlists'), desc: t('netease_sub_playlists_desc'), needLogin: true, onPress: () => { pushMyPlaylistsScreen(componentId, { onlySubscribed: true }) } },
+    { key: 'heartbeat', icon: 'play-outline', title: t('netease_heartbeat'), desc: t('netease_heartbeat_desc'), needLogin: true, onPress: handleHeartbeat },
+    { key: 'subAlbums', icon: 'album', title: t('netease_sub_albums'), desc: t('netease_sub_albums_desc'), needLogin: true, onPress: () => { pushNeteaseAlbumsScreen(componentId, 'sub') } },
+    { key: 'followed', icon: 'music_time', title: t('netease_followed'), desc: t('netease_followed_desc', { count: followedArtists.length }), needLogin: true, onPress: () => { pushFollowedArtistsScreen(componentId) } },
+    { key: 'personalFm', icon: 'play', title: t('netease_personal_fm'), desc: t('netease_personal_fm_desc'), onPress: () => { pushPlatformSongsScreen(componentId, 'wy-fm') } },
+    { key: 'newAlbums', icon: 'available_updates', title: t('netease_new_albums'), desc: t('netease_new_albums_desc'), needLogin: true, onPress: () => { pushNeteaseAlbumsScreen(componentId, 'new') } },
+    { key: 'cloud', icon: 'add-music', title: t('netease_cloud'), desc: t('netease_cloud_desc', { count: cloudCount }), needLogin: true, onPress: () => { pushCloudDiskScreen(componentId) } },
   ]
 
   const txEntries: EntryItem[] = [
     { key: 'daily', icon: 'music_time', title: t('qq_daily'), desc: t('qq_daily_desc'), onPress: () => { pushPlatformSongsScreen(componentId, 'tx-daily') } },
-    { key: 'liked', icon: 'love', title: t('qq_liked'), desc: t('qq_liked_desc'), onPress: () => { pushPlatformSongsScreen(componentId, 'tx-liked') } },
-    { key: 'playlists', icon: 'list-order', title: t('qq_my_playlists'), desc: t('qq_my_playlists_desc'), onPress: () => { pushPlatformListScreen(componentId, 'tx-mine') } },
-    { key: 'favPlaylists', icon: 'album', title: t('qq_fav_playlists'), desc: t('qq_fav_playlists_desc'), onPress: () => { pushPlatformListScreen(componentId, 'tx-fav') } },
-    { key: 'favAlbums', icon: 'album', title: t('qq_fav_albums'), desc: t('qq_fav_albums_desc'), onPress: () => { pushPlatformListScreen(componentId, 'tx-album') } },
+    { key: 'liked', icon: 'love', title: t('qq_liked'), desc: t('qq_liked_desc'), needLogin: true, onPress: () => { pushPlatformSongsScreen(componentId, 'tx-liked') } },
+    { key: 'playlists', icon: 'list-order', title: t('qq_my_playlists'), desc: t('qq_my_playlists_desc'), needLogin: true, onPress: () => { pushPlatformListScreen(componentId, 'tx-mine') } },
+    { key: 'favPlaylists', icon: 'album', title: t('qq_fav_playlists'), desc: t('qq_fav_playlists_desc'), needLogin: true, onPress: () => { pushPlatformListScreen(componentId, 'tx-fav') } },
+    { key: 'favAlbums', icon: 'album', title: t('qq_fav_albums'), desc: t('qq_fav_albums_desc'), needLogin: true, onPress: () => { pushPlatformListScreen(componentId, 'tx-album') } },
     { key: 'home', icon: 'album', title: t('qq_home_recommend'), desc: t('qq_home_recommend_desc'), onPress: () => { pushPlatformSongsScreen(componentId, 'tx-home') } },
     { key: 'radar', icon: 'leaderboard', title: t('qq_radar'), desc: t('qq_radar_desc'), onPress: () => { pushPlatformSongsScreen(componentId, 'tx-radar') } },
+    { key: 'recommendPlaylists', icon: 'album', title: t('qq_songlist_recommend'), desc: t('qq_songlist_recommend_desc'), onPress: () => { pushPlatformListScreen(componentId, 'tx-recommend') } },
     { key: 'newSongs', icon: 'available_updates', title: t('qq_new_songs'), desc: t('qq_new_songs_desc'), onPress: () => { pushPlatformSongsScreen(componentId, 'tx-new') } },
     { key: 'guess', icon: 'love', title: t('qq_guess'), desc: t('qq_guess_desc'), onPress: () => { pushPlatformSongsScreen(componentId, 'tx-guess') } },
   ]
 
   const kgEntries: EntryItem[] = [
     { key: 'daily', icon: 'music_time', title: t('kg_daily'), desc: t('kg_daily_desc'), onPress: () => { pushPlatformSongsScreen(componentId, 'kg-daily') } },
-    { key: 'liked', icon: 'love', title: t('kg_liked'), desc: t('kg_liked_desc'), onPress: () => { pushPlatformSongsScreen(componentId, 'kg-liked') } },
-    { key: 'playlists', icon: 'list-order', title: t('kg_my_playlists'), desc: t('kg_my_playlists_desc'), onPress: () => { pushPlatformListScreen(componentId, 'kg-mine') } },
+    { key: 'liked', icon: 'love', title: t('kg_liked'), desc: t('kg_liked_desc'), needLogin: true, onPress: () => { pushPlatformSongsScreen(componentId, 'kg-liked') } },
+    { key: 'playlists', icon: 'list-order', title: t('kg_my_playlists'), desc: t('kg_my_playlists_desc'), needLogin: true, onPress: () => { pushPlatformListScreen(componentId, 'kg-mine') } },
+    { key: 'favPlaylists', icon: 'album', title: t('kg_fav_playlists'), desc: t('kg_fav_playlists_desc'), needLogin: true, onPress: () => { pushPlatformListScreen(componentId, 'kg-fav') } },
+    { key: 'newSongs', icon: 'available_updates', title: t('kg_new_songs'), desc: t('kg_new_songs_desc'), onPress: () => { pushPlatformSongsScreen(componentId, 'kg-new') } },
+    { key: 'songRecommend', icon: 'album', title: t('kg_song_recommend'), desc: t('kg_song_recommend_desc'), onPress: () => { pushPlatformListScreen(componentId, 'kg-recommend') } },
   ]
 
   const current = PLATFORMS.find(item => item.key == platform)!
-  const loggedIn = platform == 'wy' ? wyLoggedIn : platform == 'tx' ? txLoggedIn : kgLoggedIn
+  const loggedIn = platform == 'wy' ? wyLoggedIn : platform == 'tx' ? txUsable : kgLoggedIn
   const entries = platform == 'wy' ? wyEntries : platform == 'tx' ? txEntries : kgEntries
   const nickname = platform == 'wy'
     ? profile.nickname
     : platform == 'tx' ? txAccount.nickname : kgAccount.nickname
   const avatar = platform == 'wy' ? profile.avatarUrl : platform == 'tx' ? txAccount.avatar : kgAccount.avatar
   const loadingNow = platform == 'wy' ? loading : platform == 'tx' ? txAccount.loading : kgAccount.loading
+  /** QQ 已保存 Cookie 但服务端不认：显示「已失效」而不是「未登录」 */
+  const expired = platform == 'tx' && txLoggedIn && txVerify == 'expired'
 
   return (
     <PageContent>
@@ -212,9 +251,11 @@ export default memo(({ componentId }: { componentId: string }) => {
                 : null}
             </View>
             <Text size={11} color={theme['c-font-label']} style={styles.accountSub} numberOfLines={1}>
-              {loggedIn
-                ? (nickname || t('netease_unknown_user'))
-                : (platform == 'wy' ? t('netease_not_login') : t('platform_not_login', { name: current.name }))}
+              {expired
+                ? t('platform_account_expired', { name: current.name })
+                : loggedIn
+                  ? (nickname || t('netease_unknown_user'))
+                  : (platform == 'wy' ? t('netease_not_login') : t('platform_not_login', { name: current.name }))}
             </Text>
           </View>
 
@@ -257,8 +298,8 @@ export default memo(({ componentId }: { componentId: string }) => {
                 activeOpacity={0.7}
                 style={[styles.entry, { backgroundColor: theme['c-content-background'] }]}
                 onPress={() => {
-                  // 每日推荐（酷狗）免登录，其它需要登录
-                  if (!loggedIn && !(platform == 'kg' && item.key == 'daily')) {
+                  // 只有真正依赖账号的入口才拦登录；推荐类内容官方本就公开
+                  if (item.needLogin && !loggedIn) {
                     setWebLogin(platform)
                     return
                   }
@@ -277,6 +318,22 @@ export default memo(({ componentId }: { componentId: string }) => {
             ))
           }
         </View>
+
+        {/* WebDAV 云盘（1.23.0）：把网盘当音乐库，与平台账号无关 */}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          style={[styles.cloudEntry, { backgroundColor: theme['c-content-background'] }]}
+          onPress={() => { pushWebDAVScreen(componentId) }}
+        >
+          <View style={[styles.entryIcon, { backgroundColor: theme['c-primary-light-900-alpha-200'] }]}>
+            <Icon name="sd-card" size={16} color={theme['c-primary-font']} />
+          </View>
+          <View style={styles.cloudText}>
+            <Text size={14}>{t('webdav_title')}</Text>
+            <Text size={10} color={theme['c-font-label']} numberOfLines={1}>{t('webdav_entry_desc')}</Text>
+          </View>
+          <Icon name="chevron-right" size={15} color={theme['c-350']} />
+        </TouchableOpacity>
 
         <TouchableOpacity onPress={() => { pushPlatformSettingScreen(componentId) }} activeOpacity={0.7}>
           <Text size={11} color={theme['c-350']} style={styles.footTip}>{t('netease_foot_tip')}</Text>
@@ -297,6 +354,24 @@ export default memo(({ componentId }: { componentId: string }) => {
 })
 
 const styles = createStyle({
+  cloudEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginLeft: 16,
+    marginRight: 16,
+    marginTop: 10,
+    paddingLeft: 12,
+    paddingRight: 12,
+    paddingTop: 10,
+    paddingBottom: 10,
+    borderRadius: 8,
+  },
+  cloudText: {
+    flexGrow: 1,
+    flexShrink: 1,
+    gap: 2,
+  },
   body: {
     flex: 1,
   },

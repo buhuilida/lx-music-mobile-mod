@@ -398,6 +398,13 @@ declare global {
       'download.quality': LX.Quality
 
       /**
+       * 下载音质模式
+       * - auto：逐首取该歌曲可用的最高音质（默认，与旧行为一致）
+       * - global：统一使用 `download.quality` 指定的音质，歌曲没有该档位时自动降级
+       */
+      'download.qualityMode': 'auto' | 'global'
+
+      /**
        * 自定义主题背景图片（App 私有目录下的绝对路径，空字符串表示未设置）
        */
       'theme.customBgImage': string
@@ -457,6 +464,18 @@ declare global {
        * 下载完成后同时保存同名 .lrc 歌词文件
        */
       'download.saveLrcFile': boolean
+      /** 写入歌曲标签（标题 / 歌手 / 专辑） */
+      'download.writeMetadata': boolean
+      /** 标题附带歌曲别名，需先开启写入标签 */
+      'download.writeAlias': boolean
+      /** 写入封面 */
+      'download.writePicture': boolean
+      /** 保存同名 .lrc 歌词文件（附加项） */
+      'download.writeLyric': boolean
+      /** 把歌词内嵌进音频文件 */
+      'download.writeEmbedLyric': boolean
+      /** 歌词里附加罗马音 */
+      'download.writeRomaLyric': boolean
       /** 自定义下载目录，空字符串表示自动（系统 Download 目录，无权限时用私有目录） */
       'download.savePath': string
       /** 同时下载的任务数 1-5 */

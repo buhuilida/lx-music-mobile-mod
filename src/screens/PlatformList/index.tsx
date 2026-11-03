@@ -14,18 +14,20 @@ import { setComponentId } from '@/core/common'
 import { pushPlatformSettingScreen, pushSonglistDetailScreen } from '@/navigation'
 import { setTempList } from '@/core/list'
 import { playList } from '@/core/player/player'
-import { getQQAlbumSongs, getQQFavAlbums, getQQFavPlaylists, getQQMyPlaylists, getQQPlaylistSongs } from '@/core/qq'
-import { getKgMyPlaylists, getKgPlaylistSongs } from '@/core/kugou'
+import { getQQAlbumSongs, getQQFavAlbums, getQQFavPlaylists, getQQMyPlaylists, getQQPlaylistSongs, getQQRecommendPlaylists } from '@/core/qq'
+import { getKgFavPlaylists, getKgMyPlaylists, getKgPlaylistSongs, getKgRecommendPlaylists } from '@/core/kugou'
 import { friendlyError } from '@/utils/errorMsg'
 
 /**
  * 平台歌单 / 专辑列表（1.22.0）
  *
- * QQ 音乐、酷狗的「我的歌单 / 收藏歌单 / 收藏专辑」都进这个页面，
+ * QQ 音乐、酷狗的「我的歌单 / 收藏歌单 / 收藏专辑 / 推荐歌单」都进这个页面，
  * 点一行就把该歌单的歌曲塞进临时列表播放。
  */
 
-export type PlatformListMode = 'tx-mine' | 'tx-fav' | 'tx-album' | 'kg-mine'
+export type PlatformListMode =
+  | 'tx-mine' | 'tx-fav' | 'tx-album' | 'tx-recommend'
+  | 'kg-mine' | 'kg-fav' | 'kg-recommend'
 
 interface Item {
   id: string
@@ -55,18 +57,53 @@ export default memo(({ componentId, mode }: { componentId: string, mode: Platfor
     setLoading(true)
     setError('')
     try {
-      if (mode == 'tx-mine') {
-        const data = await getQQMyPlaylists()
-        setList((data as any[]).map((item: any) => ({ id: String(item.tid), name: item.name, cover: item.cover, desc: item.desc, count: item.songCount, author: item.creator ?? '', kind: 'playlist' })))
-      } else if (mode == 'tx-fav') {
-        const data = await getQQFavPlaylists()
-        setList((data as any[]).map((item: any) => ({ id: String(item.tid), name: item.name, cover: item.cover, desc: item.creator, count: item.songCount, kind: 'playlist' })))
-      } else if (mode == 'tx-album') {
-        const data = await getQQFavAlbums()
-        setList((data as any[]).map((item: any) => ({ id: String(item.mid), name: item.name, cover: item.cover, desc: item.singer, count: item.songCount, kind: 'album' })))
-      } else {
-        const data = await getKgMyPlaylists()
-        setList((data as any[]).map((item: any) => ({ id: String(item.id), name: item.name, cover: item.cover, desc: item.desc, count: item.songCount, author: item.creator ?? '', kind: 'playlist' })))
+      const mapQQ = (item: any, descKey = 'desc') => ({
+        id: String(item.tid ?? item.id),
+        name: item.name,
+        cover: item.cover,
+        desc: item[descKey] ?? item.creator ?? '',
+        count: item.songCount,
+        author: item.creator ?? '',
+        kind: 'playlist' as const,
+      })
+      const mapKg = (item: any) => ({
+        id: String(item.id),
+        name: item.name,
+        cover: item.cover,
+        desc: item.desc || item.creator,
+        count: item.songCount,
+        author: item.creator ?? '',
+        kind: 'playlist' as const,
+      })
+
+      switch (mode) {
+        case 'tx-mine':
+          setList((await getQQMyPlaylists() as any[]).map((item: any) => mapQQ(item)))
+          break
+        case 'tx-fav':
+          setList((await getQQFavPlaylists() as any[]).map((item: any) => mapQQ(item, 'creator')))
+          break
+        case 'tx-recommend':
+          setList((await getQQRecommendPlaylists() as any[]).map((item: any) => mapQQ(item, 'creator')))
+          break
+        case 'tx-album':
+          setList((await getQQFavAlbums() as any[]).map((item: any) => ({
+            id: String(item.mid),
+            name: item.name,
+            cover: item.cover,
+            desc: item.singer,
+            count: item.songCount,
+            kind: 'album' as const,
+          })))
+          break
+        case 'kg-fav':
+          setList((await getKgFavPlaylists() as any[]).map(mapKg))
+          break
+        case 'kg-recommend':
+          setList((await getKgRecommendPlaylists() as any[]).map(mapKg))
+          break
+        default:
+          setList((await getKgMyPlaylists() as any[]).map(mapKg))
       }
     } catch (err) {
       // 不再只弹一个 toast：错误留在页面上，用户知道是没登录 / 接口失败
@@ -83,7 +120,7 @@ export default memo(({ componentId, mode }: { componentId: string, mode: Platfor
     try {
       const songs = item.kind == 'album'
         ? await getQQAlbumSongs(item.id)
-        : mode == 'kg-mine'
+        : mode.startsWith('kg-')
           ? await getKgPlaylistSongs(item.id)
           : await getQQPlaylistSongs(item.id)
       if (!songs.length) {
@@ -104,7 +141,7 @@ export default memo(({ componentId, mode }: { componentId: string, mode: Platfor
     if (item.kind == 'playlist') {
       pushSonglistDetailScreen(componentId, {
         id: item.id,
-        source: mode == 'kg-mine' ? 'kg' : 'tx',
+        source: mode.startsWith('kg-') ? 'kg' : 'tx',
         name: item.name,
         author: item.author ?? '',
         img: item.cover,
@@ -123,11 +160,18 @@ export default memo(({ componentId, mode }: { componentId: string, mode: Platfor
       ? t('qq_fav_playlists')
       : mode == 'tx-album'
         ? t('qq_fav_albums')
-        : t('kg_my_playlists')
+        : mode == 'tx-recommend'
+          ? t('qq_songlist_recommend')
+          : mode == 'kg-fav'
+            ? t('kg_fav_playlists')
+            : mode == 'kg-recommend'
+              ? t('kg_song_recommend')
+              : t('kg_my_playlists')
 
   return (
     <PageContent>
-      <FullScreenHeader componentId={componentId} title={`${title}${list.length ? ` (${list.length})` : ''}`} />
+      {/* 加载失败时不要显示 (0)，否则会被当成「真的一个都没有」 */}
+      <FullScreenHeader componentId={componentId} title={loading || error ? title : `${title} (${list.length})`} />
       {
         loading
           ? <View style={styles.center}><ActivityIndicator color={theme['c-primary-font']} /></View>

@@ -23,8 +23,16 @@ interface Props {
   loader: () => Promise<LX.Music.MusicInfoOnline[]>
   subtitle?: string
   emptyTip?: string
-  /** 未登录时的提示（传了就显示去登录按钮） */
+  /** 该页面需要登录才能用 */
   requireLogin?: boolean
+  /**
+   * 当前是否真的已登录。
+   *
+   * 之前只有 requireLogin 一个开关，导致「已登录但列表为空 / 接口报错」时
+   * 也显示「需要先登录」+「去登录」，用户会以为自己没登录。
+   * 现在只有 requireLogin && !loggedIn 才是未登录态。
+   */
+  loggedIn?: boolean
   /** 列表上方额外内容 */
   header?: ReactNode
 }
@@ -32,7 +40,7 @@ interface Props {
 /**
  * 通用在线歌曲列表（每日推荐 / 云盘 / 喜欢的音乐 / 歌手歌曲共用）
  */
-export default memo(({ componentId, title, listKey, loader, subtitle, emptyTip, requireLogin, header }: Props) => {
+export default memo(({ componentId, title, listKey, loader, subtitle, emptyTip, requireLogin, loggedIn = true, header }: Props) => {
   const t = useI18n()
   const theme = useTheme()
   const playMusicInfo = usePlayMusicInfo()
@@ -41,19 +49,28 @@ export default memo(({ componentId, title, listKey, loader, subtitle, emptyTip, 
   const [inited, setInited] = useState(false)
   const [error, setError] = useState('')
 
+  const needLogin = Boolean(requireLogin) && !loggedIn
+
   const refresh = useCallback(async(showLoading = true) => {
+    if (needLogin) {
+      setList([])
+      setError('')
+      setInited(true)
+      return
+    }
     if (showLoading) setLoading(true)
     setError('')
     try {
       const next = await loader()
-      setList(next)
+      setList(Array.isArray(next) ? next : [])
     } catch (err) {
+      setList([])
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
       setInited(true)
     }
-  }, [loader])
+  }, [loader, needLogin])
 
   useEffect(() => {
     void refresh()
@@ -103,11 +120,14 @@ export default memo(({ componentId, title, listKey, loader, subtitle, emptyTip, 
     )
   }
 
+  // 标题里带数量（含 0），但请求失败时不带 —— 否则「加载失败」会被看成「真的一首都没有」
+  const titleText = inited && !needLogin && !loading && !error ? `${title} (${list.length})` : title
+
   return (
     <PageContent>
       <FullScreenHeader
         componentId={componentId}
-        title={`${title}${list.length ? ` (${list.length})` : ''}`}
+        title={titleText}
         subtitle={subtitle}
         right={
           <TouchableOpacity onPress={handlePlayAll} style={styles.headerBtn} disabled={!list.length}>
@@ -118,56 +138,59 @@ export default memo(({ componentId, title, listKey, loader, subtitle, emptyTip, 
       {
         loading && !inited
           ? <View style={styles.center}><ActivityIndicator color={theme['c-primary-font']} /></View>
-          : error
-            ? <ScrollView
-                contentContainerStyle={styles.center}
-                refreshControl={<RefreshControl refreshing={loading} onRefresh={() => { void refresh() }} />}
-              >
+          : needLogin
+            ? <ScrollView contentContainerStyle={styles.center}>
                 <Icon name="music_time" size={42} color={theme['c-350']} />
-                <Text size={13} color={theme['c-font-label']} style={styles.emptyText}>{error}</Text>
-                {requireLogin
-                  ? <TouchableOpacity
-                      style={[styles.actionBtn, { backgroundColor: theme['c-primary-background'] }]}
-                      onPress={() => { pushPlatformSettingScreen(componentId) }}
-                      activeOpacity={0.7}
-                    >
-                      <Text size={13} color={theme['c-primary-font']}>{t('online_go_login')}</Text>
-                    </TouchableOpacity>
-                  : <TouchableOpacity
+                <Text size={13} color={theme['c-font-label']} style={styles.emptyText}>{t('online_login_required')}</Text>
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: theme['c-primary-background'] }]}
+                  onPress={() => { pushPlatformSettingScreen(componentId) }}
+                  activeOpacity={0.7}
+                >
+                  <Text size={13} color={theme['c-primary-font']}>{t('online_go_login')}</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            : error
+              ? <ScrollView
+                  contentContainerStyle={styles.center}
+                  refreshControl={<RefreshControl refreshing={loading} onRefresh={() => { void refresh() }} />}
+                >
+                  <Icon name="music_time" size={42} color={theme['c-350']} />
+                  <Text size={13} color={theme['c-font-label']} style={styles.emptyText}>{error}</Text>
+                  <View style={styles.errorActions}>
+                    <TouchableOpacity
                       style={[styles.actionBtn, { backgroundColor: theme['c-primary-background'] }]}
                       onPress={() => { void refresh() }}
                       activeOpacity={0.7}
                     >
                       <Text size={13} color={theme['c-primary-font']}>{t('online_retry')}</Text>
                     </TouchableOpacity>
-                }
-              </ScrollView>
-            : <FlatList
-                style={styles.list}
-                data={list}
-                keyExtractor={item => item.id}
-                renderItem={renderItem}
-                ListHeaderComponent={<>{header}</>}
-                refreshControl={<RefreshControl refreshing={loading} onRefresh={() => { void refresh() }} />}
-                contentContainerStyle={list.length ? styles.listContent : styles.listContentEmpty}
-                ListEmptyComponent={inited
-                  ? <View style={styles.center}>
-                      <Icon name="music_time" size={42} color={theme['c-350']} />
-                      <Text size={13} color={theme['c-font-label']} style={styles.emptyText}>
-                        {requireLogin ? t('online_login_required') : (emptyTip ?? t('online_empty'))}
-                      </Text>
-                      {requireLogin
-                        ? <TouchableOpacity
-                            style={[styles.actionBtn, { backgroundColor: theme['c-primary-background'] }]}
-                            onPress={() => { pushPlatformSettingScreen(componentId) }}
-                            activeOpacity={0.7}
-                          >
-                            <Text size={13} color={theme['c-primary-font']}>{t('online_go_login')}</Text>
-                          </TouchableOpacity>
-                        : null}
-                    </View>
-                  : null}
-              />
+                    <TouchableOpacity
+                      style={[styles.actionBtn, styles.reloginBtn, { borderColor: theme['c-border-background'] }]}
+                      onPress={() => { pushPlatformSettingScreen(componentId) }}
+                      activeOpacity={0.7}
+                    >
+                      <Text size={13} color={theme['c-font-label']}>{t('online_relogin')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
+              : <FlatList
+                  style={styles.list}
+                  data={list}
+                  keyExtractor={item => item.id}
+                  renderItem={renderItem}
+                  ListHeaderComponent={<>{header}</>}
+                  refreshControl={<RefreshControl refreshing={loading} onRefresh={() => { void refresh() }} />}
+                  contentContainerStyle={list.length ? styles.listContent : styles.listContentEmpty}
+                  ListEmptyComponent={inited
+                    ? <View style={styles.center}>
+                        <Icon name="music_time" size={42} color={theme['c-350']} />
+                        <Text size={13} color={theme['c-font-label']} style={styles.emptyText}>
+                          {emptyTip ?? t('online_empty')}
+                        </Text>
+                      </View>
+                    : null}
+                />
       }
     </PageContent>
   )
@@ -230,11 +253,20 @@ const styles = createStyle({
     lineHeight: 18,
     textAlign: 'center',
   },
+  errorActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   actionBtn: {
     paddingLeft: 22,
     paddingRight: 22,
     paddingTop: 10,
     paddingBottom: 10,
     borderRadius: 20,
+  },
+  reloginBtn: {
+    borderWidth: 1,
+    backgroundColor: 'transparent',
   },
 })

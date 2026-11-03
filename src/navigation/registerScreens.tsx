@@ -12,6 +12,8 @@ import {
   LocalMusic,
   PlatformSetting,
   DirectoryPicker,
+  ThemeManager,
+  WebDAV,
   NeteaseMine,
   NeteaseDaily,
   NeteaseFollowed,
@@ -37,6 +39,8 @@ import {
   LOCAL_MUSIC_SCREEN,
   PLATFORM_SETTING_SCREEN,
   DIRECTORY_PICKER_SCREEN,
+  THEME_MANAGER_SCREEN,
+  WEBDAV_SCREEN,
   NETEASE_MINE_SCREEN,
   NETEASE_DAILY_SCREEN,
   NETEASE_FOLLOWED_SCREEN,
@@ -81,6 +85,8 @@ export default () => {
   Navigation.registerComponent(LOCAL_MUSIC_SCREEN, () => WrappedComponent(LocalMusic))
   Navigation.registerComponent(PLATFORM_SETTING_SCREEN, () => WrappedComponent(PlatformSetting))
   Navigation.registerComponent(DIRECTORY_PICKER_SCREEN, () => WrappedComponent(DirectoryPicker))
+  Navigation.registerComponent(THEME_MANAGER_SCREEN, () => WrappedComponent(ThemeManager))
+  Navigation.registerComponent(WEBDAV_SCREEN, () => WrappedComponent(WebDAV))
   Navigation.registerComponent(NETEASE_MINE_SCREEN, () => WrappedComponent(NeteaseMine))
   Navigation.registerComponent(NETEASE_DAILY_SCREEN, () => WrappedComponent(NeteaseDaily))
   Navigation.registerComponent(NETEASE_FOLLOWED_SCREEN, () => WrappedComponent(NeteaseFollowed))

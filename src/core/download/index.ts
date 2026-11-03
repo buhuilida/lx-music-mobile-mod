@@ -1,8 +1,10 @@
 import RNFS from 'react-native-fs'
 import { getData, saveData } from '@/plugins/storage'
-import { getMusicUrl, getLyricInfo } from '@/core/music'
+import { getMusicUrl, getLyricInfo, getPicPath } from '@/core/music'
 import { existsFile, mkdir, privateStorageDirectoryPath, stat, unlink } from '@/utils/fs'
 import { checkStoragePermissions, requestStoragePermission, toast } from '@/utils/tools'
+import { writeMetadata, writePic, writeLyric } from '@/utils/localMediaMetadata'
+import { buildLyrics } from '@/utils/lrcTools'
 import downloadState from '@/store/download/state'
 import downloadActions from '@/store/download/action'
 import { getListMusics } from '@/utils/listManage'
@@ -163,6 +165,81 @@ export const clearTask = (id: string) => {
 }
 
 /**
+ * 下载完成后写入附加信息（1.23.0）
+ *
+ * - 标签 / 封面 / 内嵌歌词走 react-native-local-media-metadata 原生模块；
+ * - 任一项失败只提示，不影响已下载的音频文件；
+ * - 封面先下到临时文件，写完立刻删除，不在用户目录留垃圾。
+ */
+export const applyDownloadMetadata = async(options: {
+  filePath: string
+  baseName: string
+  dir: string
+  musicInfo: LX.Music.MusicInfoOnline
+}) => {
+  const { filePath, baseName, dir, musicInfo } = options
+  const setting = settingState.setting
+  const writeLrcFile = setting['download.writeLyric'] || setting['download.saveLrcFile']
+  const needLyric = writeLrcFile || setting['download.writeEmbedLyric']
+  if (!setting['download.writeMetadata'] && !setting['download.writePicture'] && !needLyric) return
+
+  const failed: string[] = []
+  const dirPath = dir.endsWith('/') ? dir : `${dir}/`
+
+  if (setting['download.writeMetadata']) {
+    try {
+      // 部分音源会在音乐信息上带 alias（别名），类型里没有声明，这里按可选字段处理
+      const alias = (musicInfo as unknown as { alias?: string | string[] }).alias
+      const aliasText = Array.isArray(alias) ? alias.join(' / ') : alias
+      const title = setting['download.writeAlias'] && aliasText
+        ? `${musicInfo.name} (${aliasText})`
+        : musicInfo.name
+      await writeMetadata(filePath, {
+        name: title,
+        singer: musicInfo.singer ?? '',
+        albumName: musicInfo.meta?.albumName ?? '',
+      }, true)
+    } catch {
+      failed.push('标签')
+    }
+  }
+
+  if (setting['download.writePicture']) {
+    const picPath = `${privateStorageDirectoryPath}/temp_cover_${Date.now()}.jpg`
+    try {
+      const url = await getPicPath({ musicInfo })
+      if (!url) throw new Error('no pic')
+      const res = await RNFS.downloadFile({ fromUrl: url, toFile: picPath }).promise
+      if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) throw new Error(`HTTP ${res.statusCode}`)
+      await writePic(filePath, picPath)
+    } catch {
+      failed.push('封面')
+    } finally {
+      await RNFS.unlink(picPath).catch(() => {})
+    }
+  }
+
+  if (needLyric) {
+    try {
+      const lyricInfo = await getLyricInfo({ musicInfo })
+      const content = buildLyrics(
+        lyricInfo as unknown as LX.Music.LyricInfo,
+        false,
+        !!lyricInfo.tlyric,
+        !!setting['download.writeRomaLyric'],
+      )
+      if (!content) throw new Error('no lyric')
+      if (setting['download.writeEmbedLyric']) await writeLyric(filePath, content)
+      if (writeLrcFile) await RNFS.writeFile(`${dirPath}${baseName}.lrc`, content, 'utf8')
+    } catch {
+      failed.push('歌词')
+    }
+  }
+
+  if (failed.length) toast(`附加信息写入失败：${failed.join('、')}`, 'long')
+}
+
+/**
  * 下载歌曲到 App 私有目录
  * @param quality 指定音质，不传则使用设置里的默认下载音质
  */
@@ -188,12 +265,13 @@ export const downloadMusic = async(musicInfo: LX.Music.MusicInfoOnline, quality:
     return false
   }
 
-  const targetDir = await resolveDownloadDirectory()
+  let targetDir = await resolveDownloadDirectory()
   try {
     await ensureDir(targetDir)
   } catch {
     // 目录不可写（例如权限被系统回收）时回退到私有目录
-    await ensureDir(privateDownloadDirectoryPath)
+    targetDir = privateDownloadDirectoryPath
+    await ensureDir(targetDir)
   }
   const ext = fileExt(quality)
   const style = settingState.setting['download.fileNameStyle'] ?? 'name-singer'
@@ -225,14 +303,8 @@ export const downloadMusic = async(musicInfo: LX.Music.MusicInfoOnline, quality:
   try {
     const result = await ret.promise
     if (result.statusCode && (result.statusCode < 200 || result.statusCode >= 300)) throw new Error(`HTTP ${result.statusCode}`)
-    // 下载完成后按需保存同名 .lrc 歌词文件（1.16.0）
-    if (settingState.setting['download.saveLrcFile']) {
-      void getLyricInfo({ musicInfo }).then(async(lyricInfo) => {
-        if (!lyricInfo?.lyric) return
-        const lrcPath = `${targetDir}/${baseName}.lrc`
-        return RNFS.writeFile(lrcPath, lyricInfo.lyric, 'utf8').catch(() => {})
-      }).catch(() => {})
-    }
+    // 下载完成后按设置写入标签 / 封面 / 歌词（1.23.0）
+    await applyDownloadMetadata({ filePath, baseName, dir: targetDir, musicInfo }).catch(() => {})
     const info = await stat(filePath).catch(() => null)
     const item: LX.Download.ExtItem = {
       id,
@@ -269,6 +341,22 @@ export const getBestQuality = (musicInfo: LX.Music.MusicInfoOnline): LX.Quality 
 }
 
 /**
+ * 本次下载要用的音质
+ *
+ * 设置里可选两种模式：
+ * - 自动（默认）：逐首取这首歌可用的最高音质，与旧行为一致；
+ * - 指定：统一使用「全局音质」，但这首歌没有该档位时自动降级到最高可用，
+ *   否则整批下载会因为个别歌曲缺档位而全部失败。
+ */
+export const getDownloadQuality = (musicInfo: LX.Music.MusicInfoOnline): LX.Quality => {
+  const mode = settingState.setting['download.qualityMode']
+  if (mode != 'global') return getBestQuality(musicInfo)
+  const prefer = settingState.setting['download.quality'] as LX.Quality
+  const available = getMusicQualities(musicInfo)
+  return available.includes(prefer) ? prefer : getBestQuality(musicInfo)
+}
+
+/**
  * 并发下载数量（1-5）
  */
 export const getDownloadConcurrency = () => {
@@ -302,7 +390,7 @@ export const downloadMusics = async(musics: LX.Music.MusicInfo[], options: {
   const worker = async() => {
     while (cursor < targets.length) {
       const musicInfo = targets[cursor++]
-      const quality = options.quality ?? getBestQuality(musicInfo)
+      const quality = options.quality ?? getDownloadQuality(musicInfo)
       const ok = await downloadMusic(musicInfo, quality).catch(() => false)
       if (ok) result.success++
       else result.failed++
