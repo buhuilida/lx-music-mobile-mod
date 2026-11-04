@@ -14,7 +14,6 @@ import { saveData } from '@/plugins/storage'
 import { throttle } from '@/utils/common'
 import { getSelectedManagedFolder, saveFontSize, saveViewPrevState, setSelectedManagedFolder } from '@/utils/data'
 import { showPactModal as handleShowPactModal } from '@/navigation'
-import { hideDesktopLyricView } from '@/utils/nativeModules/lyricDesktop'
 import { getPersistedUriList, selectManagedFolder } from '@/utils/fs'
 
 
@@ -54,11 +53,15 @@ export const exitApp = (reason: string) => {
   console.log('Handle Exit App, Reason: ' + reason)
   if (isDestroying) return
   isDestroying = true
+  // hideDesktopLyric() 内部已经调了 hideDesktopLyricView()，这里不能再调一次：
+  // 两个 removeView 并发，一个成功一个抛「View not attached to window manager」，
+  // 是「退出应用时闪退」最常见的触发点。
   void Promise.all([
     hideDesktopLyric(),
     destroyPlayer(),
-    hideDesktopLyricView(),
-  ]).finally(() => {
+  ]).catch(err => {
+    console.log('exit cleanup failed', err)
+  }).finally(() => {
     isDestroying = false
     utilExitApp()
   })

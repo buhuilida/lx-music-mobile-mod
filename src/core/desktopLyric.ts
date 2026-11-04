@@ -33,6 +33,8 @@ export {
 
 export const showDesktopLyric = async() => {
   const setting = settingState.setting
+  // 原生侧保证：无论窗口是新建还是已存在，这次调用都会 resolve（失败则 reject），
+  // 因此这里可以放心 await，不需要额外加超时兜底。
   await showDesktopLyricView({
     isShowToggleAnima: setting['desktopLyric.showToggleAnima'],
     isSingleLine: setting['desktopLyric.isSingleLine'],
@@ -48,7 +50,7 @@ export const showDesktopLyric = async() => {
     positionY: setting['desktopLyric.position.y'],
     textPositionX: setting['desktopLyric.textPosition.x'],
     textPositionY: setting['desktopLyric.textPosition.y'],
-  })
+  }).catch(err => { console.log('show desktop lyric failed', err) })
   let lrc = playerState.musicInfo.lrc ?? ''
   let tlrc = playerState.musicInfo.tlrc ?? ''
   let rlrc = playerState.musicInfo.rlrc ?? ''
@@ -61,8 +63,11 @@ export const showDesktopLyric = async() => {
   if (!wordLyric && hasWordTags(lrc)) wordLyric = lrc
   if (hasWordTags(lrc)) lrc = stripWordTags(lrc)
   await setLyric(lrc, tlrc, rlrc, wordLyric)
-  // 桌面歌词独立控制翻译显示：只要歌曲有翻译就默认展示（1.18.0）
-  await toggleTranslation(setting['desktopLyric.showTranslation'] && !!tlrc)
+  // 桌面歌词独立控制翻译显示（设置 → 桌面歌词 → 显示翻译）。
+  // 注意这里不能带 `&& !!tlrc`：开关是全局状态，一旦因为「当前这首没有翻译」
+  // 被置成 false，下一首有翻译的歌也不会再显示翻译了，而且设置页那个开关
+  // 看起来还是开着的。有没有翻译由原生按 translationText 是否为空自行判断。
+  await toggleTranslation(setting['desktopLyric.showTranslation'])
   if (playerState.isPlay && !global.lx.gettingUrlId) {
     void getPosition().then(position => {
       void play(position * 1000)
@@ -71,7 +76,8 @@ export const showDesktopLyric = async() => {
 }
 
 export const hideDesktopLyric = async() => {
-  return hideDesktopLyricView()
+  // 同上：前后台切换会高频调用，调用方全是 void，这里必须自己兜住 reject
+  await hideDesktopLyricView().catch(() => {})
 }
 
 export const playDesktopLyric = play

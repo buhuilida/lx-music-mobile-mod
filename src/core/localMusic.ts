@@ -3,6 +3,8 @@ import { PermissionsAndroid, Platform } from 'react-native'
 import { existsFile, readDir, externalStorageDirectoryPath } from '@/utils/fs'
 import { createList, overwriteListMusics, getListMusics } from '@/core/list'
 import listState from '@/store/list/state'
+import { getAudioFiles, isMediaStoreAvailable } from '@/utils/nativeModules/mediaStore'
+import { formatPlayTime2 } from '@/utils/common'
 
 /**
  * 本地音乐扫描（1.16.0，参照 LX-X 的本地音乐库；1.17.1 重写）
@@ -127,9 +129,72 @@ export const requestScanPermission = async(): Promise<boolean> => {
 type ProgressHandler = (count: number) => void
 
 /**
- * 扫描本地音频文件（只读取路径，不读标签，保证速度）
+ * 从系统媒体库取音频（首选）。
+ * MediaStore 已经把全设备音频索引好了，一次查询就能拿全，
+ * 不受分区存储、应用私有目录（网易云 / QQ 音乐 / 酷狗的下载目录）限制。
+ */
+const scanByMediaStore = async(onProgress?: ProgressHandler): Promise<Array<{ path: string, name: string, duration: number, title: string, artist: string, album: string }>> => {
+  if (!isMediaStoreAvailable()) return []
+  const list = await getAudioFiles()
+  const result: Array<{ path: string, name: string, duration: number, title: string, artist: string, album: string }> = []
+  const seen = new Set<string>()
+  for (const item of list) {
+    if (!item?.path) continue
+    if (!isAudioFile(item.name || item.path)) continue
+    const path = item.path.replace(/^file:\/\//, '')
+    if (seen.has(path)) continue
+    seen.add(path)
+    result.push({
+      path,
+      name: item.name || path.substring(path.lastIndexOf('/') + 1),
+      duration: Number(item.duration) || 0,
+      title: item.title || '',
+      artist: item.artist || '',
+      album: item.album || '',
+    })
+  }
+  onProgress?.(result.length)
+  return result
+}
+
+/**
+ * 扫描本地音频文件
+ *
+ * 优先走系统媒体库；媒体库不可用（老系统 / 模块缺失）或结果为空时，
+ * 再退回目录遍历兜底。之前的实现只有目录遍历，扫不到应用私有目录里的歌，
+ * 用户看到的现象就是「给了权限也扫不到音乐」。
  */
 export const scanLocalMusic = async(onProgress?: ProgressHandler): Promise<LX.Music.MusicInfoLocal[]> => {
+  // 首选：系统媒体库
+  try {
+    const mediaList = await scanByMediaStore(onProgress)
+    if (mediaList.length) {
+      return mediaList.map((item) => {
+        const parsed = parseFileName(item.name)
+        const name = item.title || parsed.name
+        const singer = item.artist || parsed.singer
+        const info: LX.Music.MusicInfoLocal = {
+          id: `local_${hashCode(item.path)}`,
+          source: 'local',
+          name,
+          singer,
+          // MediaStore 的时长是毫秒，列表展示用 mm:ss
+          interval: item.duration > 0 ? formatPlayTime2(item.duration / 1000) : null,
+          meta: {
+            songId: item.path,
+            albumName: item.album || '',
+            picUrl: null,
+            filePath: item.path,
+            ext: getExt(item.name),
+          },
+        }
+        return info
+      }).sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'))
+    }
+  } catch {
+    // 媒体库查询失败（权限 / ROM 异常）时继续走目录遍历
+  }
+
   const files: Array<{ path: string, name: string }> = []
   const seen = new Set<string>()
   let lastReport = 0

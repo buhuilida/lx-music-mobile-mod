@@ -116,7 +116,7 @@ export const storageDataPrefixOld = {
   notificationTipEnable: '@notification_tip_enable',
 } as const
 
-export const APP_PROVIDER_NAME = 'cn.toside.music.mobile.provider'
+export const APP_PROVIDER_NAME = 'com.lxmod.music.provider'
 
 
 // 侧边栏图标必须一一对应，不能两个入口共用同一个图标：

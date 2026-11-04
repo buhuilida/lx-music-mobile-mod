@@ -36,6 +36,38 @@ import { type ListInfoItem } from '@/store/songlist/state'
 // const store = getStore()
 // const getTheme = () => getter('common', 'theme')(store.getState())
 
+/**
+ * 防连点导航（1.22.18）
+ *
+ * 之前的 push 没有做任何去重，手指快速连点两次就会 push 两个同样的页面。
+ * 新页面 push 的瞬间上层还是空白的（导航原生容器背景 + 透明状态栏），
+ * 观感就是「点快了会黑一下」，返回时还要多按一次。
+ * 这里对同一个 componentId + 页面 + 参数做 400ms 去重，正常操作完全无感。
+ */
+const PUSH_GUARD_MS = 400
+const recentPushes = new Map<string, number>()
+function shouldSkipPush(componentId: string, name: string, passProps?: Record<string, any>) {
+  let id = ''
+  if (passProps) {
+    try {
+      id = JSON.stringify(passProps)
+    } catch {
+      id = ''
+    }
+  }
+  const key = `${componentId}:${name}:${id}`
+  const now = Date.now()
+  const last = recentPushes.get(key)
+  if (last != null && now - last < PUSH_GUARD_MS) return true
+  recentPushes.set(key, now)
+  if (recentPushes.size > 40) {
+    for (const [k, t] of recentPushes) {
+      if (now - t > PUSH_GUARD_MS * 4) recentPushes.delete(k)
+    }
+  }
+  return false
+}
+
 export async function pushHomeScreen() {
   /*
     Navigation.setDefaultOptions({
@@ -104,6 +136,7 @@ export async function pushHomeScreen() {
   })
 }
 export function pushPlayDetailScreen(componentId: string, skipAnimation = false) {
+  if (shouldSkipPush(componentId, PLAY_DETAIL_SCREEN)) return
   /*
     Navigation.setDefaultOptions({
       topBar: {
@@ -218,6 +251,7 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
   })
 }
 export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem) {
+  if (shouldSkipPush(componentId, SONGLIST_DETAIL_SCREEN, { id: info.id })) return
   const theme = themeState.theme
 
   requestAnimationFrame(() => {
@@ -322,6 +356,7 @@ export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem
   })
 }
 export function pushCommentScreen(componentId: string) {
+  if (shouldSkipPush(componentId, COMMENT_SCREEN)) return
   /*
     Navigation.setDefaultOptions({
       topBar: {
@@ -406,6 +441,7 @@ export function pushCommentScreen(componentId: string) {
 }
 
 export function pushListenTogetherScreen(componentId: string) {
+  if (shouldSkipPush(componentId, LISTEN_TOGETHER_SCREEN)) return
   requestAnimationFrame(() => {
     const theme = themeState.theme
 
@@ -659,6 +695,7 @@ export function pushTabBasedApp() {
  */
 
 export function pushDownloadScreen(componentId: string) {
+  if (shouldSkipPush(componentId, DOWNLOAD_SCREEN)) return
   requestAnimationFrame(() => {
     const theme = themeState.theme
 
@@ -690,6 +727,7 @@ export function pushDownloadScreen(componentId: string) {
 }
 
 export function pushLocalMusicScreen(componentId: string) {
+  if (shouldSkipPush(componentId, LOCAL_MUSIC_SCREEN)) return
   requestAnimationFrame(() => {
     const theme = themeState.theme
 
@@ -745,6 +783,7 @@ export function pushLocalMusicScreen(componentId: string) {
  * 通用全屏页面（无原生顶栏，由页面自绘头部）
  */
 function pushFullScreen(componentId: string, name: string, passProps?: Record<string, any>) {
+  if (shouldSkipPush(componentId, name, passProps)) return
   requestAnimationFrame(() => {
     const theme = themeState.theme
     const width = windowSizeTools.getSize().width

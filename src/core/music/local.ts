@@ -16,7 +16,7 @@ import {
 import { getLocalFilePath } from '@/utils/music'
 import { readLyric, readPic } from '@/utils/localMediaMetadata'
 import { stat } from '@/utils/fs'
-import { getWebDAVStreamUrl } from '@/core/webdavMusic'
+import { resolveWebDAVPlaySource } from '@/core/webdavMusic'
 
 const getOtherSourceByLocal = async<T>(musicInfo: LX.Music.MusicInfoLocal, handler: (infos: LX.Music.MusicInfoOnline[]) => Promise<T>) => {
   let result: LX.Music.MusicInfoOnline[] = []
@@ -77,7 +77,9 @@ export const getMusicUrl = async({ musicInfo, isRefresh, allowToggleSource = tru
   // WebDAV 云盘歌曲（1.23.0）：直接返回网盘直链，不走本地文件与换源逻辑
   if (musicInfo.meta?.webdav) {
     const remotePath = musicInfo.meta.remotePath ?? musicInfo.meta.filePath
-    const url = getWebDAVStreamUrl({ remotePath })
+    // 部分网盘会 302 到对象存储的预签名地址，这里先解析出最终地址，
+    // 否则带 Basic 认证头跳到 S3 会被 400 拒掉（1.22.26）
+    const url = await resolveWebDAVPlaySource(remotePath, isRefresh)
     if (!url) throw new Error('WEBDAV_NOT_CONFIGURED')
     playingInfoActions.setPlayingInfo('local', musicInfo.source)
     return url

@@ -100,7 +100,12 @@ def getNpmPackageJson() {
 def npmPackageJson = getNpmPackageJson()
 def verCode = npmPackageJson["versionCode"]
 def verName = npmPackageJson["version"]
-def applicationName = npmPackageJson["name"]
+// 产物文件名跟随应用名（不跟随 package.json 里的 npm 包名）
+// 用 -PorigPkg 构建「保留原包名」版本：applicationId 回到 cn.toside.music.mobile，
+// 可与旧安装覆盖升级、数据不清空；代价是无法与原版洛雪共存。
+def isOrigPkg = project.hasProperty('origPkg')
+def applicationName = isOrigPkg ? "lxmod-origpkg" : "lxmod"
+def targetApplicationId = isOrigPkg ? "cn.toside.music.mobile" : "com.lxmod.music"
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -108,9 +113,12 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "cn.toside.music.mobile"
+    // namespace 固定不动：Java 源码与 R 类都在 com.lxmod.music 下。
+    // applicationId 可以与之不同，Manifest 里的组件已写全限定名，
+    // 因此两种包名都指向同一批类，不会出现 ClassNotFoundException。
+    namespace "com.lxmod.music"
     defaultConfig {
-        applicationId "cn.toside.music.mobile"
+        applicationId targetApplicationId
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode verCode
@@ -191,17 +199,18 @@ android {
     applicationVariants.all { variant ->
         def flavorTag = variant.flavorName == "backscreen" ? "-backscreen" : ""
         variant.outputs.each { output ->
-            // For each separate APK per architecture, set a unique version code as described here:
-            // https://developer.android.com/studio/build/configure-apk-splits.html
-            // Example: versionCode 1 will generate 1001 for armeabi-v7a, 1002 for x86, etc.
-            def versionCodes = ["armeabi-v7a": 1, "x86": 2, "arm64-v8a": 3, "x86_64": 4]
+            // 所有产物的 versionCode 保持一致，且必须是「版本号 * 1000」这一量级。
+            // 坑：1.22.20 及更早用的是 versionCode*1000+abiCode，arm64 包实际是 125003；
+            // 1.22.21 一度把这里改成裸 versionCode（126），结果比 1.22.20 还小，
+            // 系统判定为降级安装、直接弹「已安装更高版本」。
+            // 现在统一 versionCode*1000，两个包（universal / arm64）versionCode 相同可互相覆盖，
+            // 同时保证对历史版本单调递增。
             def abi = output.getFilter(OutputFile.ABI)
+            output.versionCodeOverride = defaultConfig.versionCode * 1000
             if (abi == null) {  // null for the universal-debug, universal-release variants
                 output.outputFileName =
                         "${applicationName}-v${defaultConfig.versionName}${flavorTag}-universal.apk"
             } else {
-                output.versionCodeOverride =
-                        defaultConfig.versionCode * 1000 + versionCodes.get(abi)
                 output.outputFileName =
                         "${applicationName}-v${defaultConfig.versionName}${flavorTag}-${abi}.apk"
             }

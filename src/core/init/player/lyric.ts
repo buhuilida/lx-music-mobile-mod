@@ -1,8 +1,6 @@
 import { init as initLyricPlayer, toggleTranslation, toggleRoma, play, pause, stop, setLyric, setPlaybackRate, syncLyricPosition } from '@/core/lyric'
 import { updateSetting } from '@/core/common'
-import { onDesktopLyricPositionChange, showDesktopLyric, hideDesktopLyric, onLyricLinePlay, showRemoteLyric } from '@/core/desktopLyric'
-import { AppState } from 'react-native'
-import settingState from '@/store/setting/state'
+import { onDesktopLyricPositionChange, showDesktopLyric, onLyricLinePlay, showRemoteLyric } from '@/core/desktopLyric'
 import playerState from '@/store/player/state'
 import { updateNowPlayingTitles } from '@/plugins/player/utils'
 import { setLastLyric } from '@/core/player/playInfo'
@@ -57,13 +55,10 @@ export default async(setting: LX.AppSetting) => {
   })
 
 
-  // 桌面歌词是给「切到别的 App 时」看的：回到本 App 自动隐藏，
-  // 否则悬浮窗会盖在设置/播放页上并拦截那一整块的点击
-  AppState.addEventListener('change', (state) => {
-    if (!settingState.setting['desktopLyric.enable']) return
-    if (state == 'active') void hideDesktopLyric()
-    else if (state == 'background') void showDesktopLyric()
-  })
+  // 注意：这里刻意不做「切前后台自动显隐」。
+  // 原版桌面歌词是用户手动开启后常驻的悬浮窗，回到 App 也照样显示、可以拖动位置；
+  // 之前加过一段 AppState 监听（active 就 hide），结果一回到 App 歌词就消失，
+  // 用户看到的现象是「根本没有桌面歌词」。切前台时是否需要隐藏由用户自己关开关决定。
 
   global.app_event.on('play', play)
   global.app_event.on('pause', pause)

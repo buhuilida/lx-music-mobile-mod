@@ -1,4 +1,4 @@
-# 编译说明（v1.21.0）
+# 编译说明（v1.22.19）
 
 本包已包含签名文件 `android/app/lxmusic-release.keystore` 与 `android/keystore.properties`，
 `android/app/build.gradle` 的 release 构建会直接使用它们（与 1.17.x / 1.18.0 同签名，可覆盖安装）。
@@ -17,6 +17,26 @@ cd android
 产物：`android/app/build/outputs/apk/standard/release/`
 - `*-universal.apk`（全架构，推荐）
 - `*-arm64-v8a.apk` / `*-armeabi-v7a.apk`
+
+## 两种包名怎么切（1.22.19）
+
+同一份源码，靠一个 Gradle 属性切换 `applicationId`，**不需要改任何代码**：
+
+| 目标 | 命令 | 产物 | 包名 |
+|---|---|---|---|
+| 新包名版（可与原版洛雪共存） | `./gradlew assembleStandardRelease` | `lxmod-v1.22.19-*.apk` | `com.lxmod.music` |
+| 原包名版（可覆盖升级旧安装、保数据） | `./gradlew assembleStandardRelease -PorigPkg` | `lxmod-origpkg-v1.22.19-*.apk` | `cn.toside.music.mobile` |
+| 背景播放变体（借壳汽水音乐） | `./gradlew assembleBackscreenRelease` | `lxmod-v1.22.19-backscreen-*.apk` | `com.luna.music` |
+
+实现要点，改包名时别踩：
+
+1. `namespace` 固定 `com.lxmod.music`（Java 源码与 `R` 类都在这里），只有 `applicationId` 变。
+2. `AndroidManifest.xml` 里 `MainApplication` / `MainActivity` / `player.LxMediaBrowserService`
+   必须写**全限定名**（`com.lxmod.music.MainActivity`）。写成 `.MainActivity` 时会按
+   `applicationId` 解析，换包名后直接 `ClassNotFoundException` 启动闪退。
+3. FileProvider 用 `${applicationId}.provider` 占位符；JS 侧安装 APK 时通过
+   `getPackageName()` 取运行时包名拼 authority，不要硬编码。
+4. 两种包名的产物会互相覆盖输出目录里的同名文件——先构建哪个就先拷走，别指望它们同时躺在 release 目录。
 
 若内存较小的机器编译 JS 时报 daemon 崩溃，可用：
 ```bash
@@ -45,4 +65,4 @@ NODE_OPTIONS="--max-old-space-size=4096" ./gradlew assembleStandardRelease \
 补丁是幂等的，重复 `npm install` 不会重复插入。
 
 ## 本次改动
-见 `更新说明-1.21.0.md`。
+见 `更新说明-1.22.19.md`。

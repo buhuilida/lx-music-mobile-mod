@@ -312,6 +312,33 @@ const ThemeEditor = ({ componentId, initial, onCancel, onSaved }: {
     setBgInput('')
   }
 
+  /**
+   * 切换亮色 / 暗色。
+   * 之前只改 isDark 不动背景色，会做出「暗背景 + 深色字」的主题——
+   * 整个界面发黑、文字几乎看不清（用户反馈的「点快了会黑」就是这个）。
+   * 这里把背景色一起切到对应预设，用户已经手工调过的非预设颜色也按亮度纠正。
+   */
+  const toggleDark = () => {
+    const nextDark = !isDark
+    setIsDark(nextDark)
+    const presetList = nextDark ? PRESET_BG_DARK : PRESET_BG_LIGHT
+    const isPreset = presetList.includes(background) || (nextDark ? PRESET_BG_LIGHT : PRESET_BG_DARK).includes(background)
+    if (isPreset) {
+      setBackground(presetList[0])
+      return
+    }
+    // 自定义背景色：按亮度判断是否与新模式的文字颜色冲突，冲突就换成预设
+    const rgb = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/.exec(background)
+    if (!rgb) {
+      setBackground(presetList[0])
+      return
+    }
+    const [r, g, b] = [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])]
+    const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+    // 暗色模式需要深背景，亮色模式需要浅背景
+    if ((nextDark && luminance > 0.5) || (!nextDark && luminance < 0.5)) setBackground(presetList[0])
+  }
+
   const handleSave = () => {
     if (!name.trim()) {
       toast(t('theme_name_required'), 'long')
@@ -402,7 +429,7 @@ const ThemeEditor = ({ componentId, initial, onCancel, onSaved }: {
               placeholderTextColor={theme['c-350']}
             />
           </View>
-          <TouchableOpacity style={styles.darkRow} onPress={() => { setIsDark(!isDark) }} activeOpacity={0.6}>
+          <TouchableOpacity style={styles.darkRow} onPress={() => { toggleDark() }} activeOpacity={0.6}>
             <Text size={13}>{t('theme_editor_dark')}</Text>
             <View style={[styles.switch, { backgroundColor: isDark ? theme['c-primary'] : theme['c-400'] }]}>
               <View style={[styles.switchDot, isDark ? styles.switchDotOn : null]} />

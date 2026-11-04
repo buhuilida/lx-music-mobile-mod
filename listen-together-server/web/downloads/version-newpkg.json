@@ -1,0 +1,37 @@
+{
+  "version": "1.22.26",
+  "versionCode": 131000,
+  "date": "2026-11-04",
+  "desc": "v1.22.26（新包名 com.lxmod.music）· WebDAV 云盘音乐播放修复\n\n核心修复：\n- 部分网盘（如 pan.cdn.ad）对文件 GET 会 302 跳到对象存储的预签名地址，\n  播放器底层会把 Basic 认证头一起带过去，对象存储判定「两套认证」直接 400\n  InvalidArgument，表现是「目录能看、点了播不了」。现在播放前先解析跳转，\n  只有同源地址才附加认证头。\n\n其他修复：\n- 目录浏览从 2 次 PROPFIND 降到 1 次（坚果云 30 分钟限 600 次请求）\n- 撞 429/503 等限流不再直接失败，3 次退避重试，并给出明确提示\n- 网盘返回绝对地址时路径会被拼成 /https://...，必然 404，已修\n- 换服务器地址后旧曲库仍生效，改为自动失效\n- 扫描撞 5000 首上限 / 子目录读取失败时，不再静默丢歌\n\nversionCode 131000，可直接覆盖 1.22.20 ~ 1.22.25。",
+  "history": [
+    {
+      "version": "1.22.25",
+      "desc": "App 内歌词页逐字渲染重做；修自动滚动失效 / 逐字回跳 / 时间轴断裂"
+    },
+    {
+      "version": "1.22.24",
+      "desc": "桌面歌词翻译与逐字修复；修开关污染 / 空白 / 回调堆积"
+    },
+    {
+      "version": "1.22.23",
+      "desc": "桌面歌词恢复上游常驻行为；修「一直显示 LX Music ^-^」；在线更新双源回退"
+    },
+    {
+      "version": "1.22.22",
+      "desc": "修复「已安装更高版本」装不上：versionCode 统一为 版本号×1000"
+    },
+    {
+      "version": "1.22.21",
+      "desc": "桌面歌词修复（该版 versionCode 有误装不上）"
+    },
+    {
+      "version": "1.22.20",
+      "desc": "关歌词崩溃 / 退出崩溃 / 锁屏歌词失效修复；新增本地备份"
+    }
+  ],
+  "download": {
+    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lxmod-v1.22.26-arm64-v8a.apk?sharecode=MKPWEVLBUS",
+    "universal": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lxmod-v1.22.26-universal.apk?sharecode=MKPWEVLBUS",
+    "backscreen": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lxmod-v1.22.26-backscreen-arm64-v8a.apk?sharecode=MKPWEVLBUS"
+  }
+}

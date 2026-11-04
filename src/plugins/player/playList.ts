@@ -4,7 +4,7 @@ import { defaultUrl } from '@/config'
 // import { action as playerAction } from '@/store/modules/player'
 import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
-import { getWebDAVAuthHeader } from '@/core/webdavMusic'
+import { getWebDAVAuthHeader, getWebDAVServer, isSameOrigin } from '@/core/webdavMusic'
 
 
 const list: LX.Player.Track[] = []
@@ -51,7 +51,10 @@ const buildTracks = (musicInfo: LX.Player.PlayMusic, url?: LX.Player.Track['url'
   const isWebdav = 'progress' in musicInfo
     ? !!(musicInfo.metadata.musicInfo as unknown as LX.Music.MusicInfoLocal).meta?.webdav
     : !!(musicInfo as LX.Music.MusicInfoLocal).meta?.webdav
-  const authHeader = isWebdav ? getWebDAVAuthHeader() : null
+  // 解析过跳转的地址可能指向对象存储（预签名），那种地址再带 Authorization
+  // 会被判定成「两套认证」直接 400，只给同源地址加认证头（1.22.26）
+  const needAuth = isWebdav && !!url && isSameOrigin(String(url), getWebDAVServer().url)
+  const authHeader = needAuth ? getWebDAVAuthHeader() : null
   const headers = authHeader ? { Authorization: authHeader } : undefined
   if (url) {
     track.push({

@@ -84,6 +84,96 @@ const tokenizeLine = (text: string): Token[] => {
   return tokens
 }
 
+/**
+ * 按主歌词行时间，在逐字歌词里就近匹配一行。
+ *
+ * 主歌词（lrc）和逐字歌词（lxlyric）来自两份文本，同一音源给出的时间戳
+ * 也常有几十毫秒出入。用严格相等（或 ±10ms）去查表，一旦对不上这一行就
+ * 退化成普通渲染，用户看到的是「有的歌有逐字、有的歌没有」这种不稳定现象。
+ *
+ * @param lines 已按 time 升序的逐字行（parseWordLyric 内部已排序）
+ * @param time 主歌词行时间（ms）
+ * @param tolerance 允许的最大误差（ms）
+ */
+export const findWordLine = (lines: WordLyricLine[], time: number, tolerance = 400): WordLyricLine | undefined => {
+  if (!lines.length) return
+  let lo = 0
+  let hi = lines.length - 1
+  let prev = -1
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1
+    if (lines[mid].time <= time) {
+      prev = mid
+      lo = mid + 1
+    } else {
+      hi = mid - 1
+    }
+  }
+  const before = prev >= 0 ? lines[prev] : null
+  const after = prev + 1 < lines.length ? lines[prev + 1] : null
+  let target = before
+  if (after && (!target || Math.abs(after.time - time) < Math.abs(target.time - time))) target = after
+  if (!target) return
+  return Math.abs(target.time - time) <= tolerance ? target : undefined
+}
+
+// CJK 汉字 / 假名 / 谚文 / 全角标点 / CJK 标点：这些按字独立成单元
+const CJK_RXP = /[\u2E80-\u9FFF\u3000-\u303F\u3040-\u30FF\uAC00-\uD7AF\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFFEF]/
+
+/** 渲染单元：CJK 单字，或一整段连续拉丁串（保证英文单词不会被拆到两行） */
+export interface WordLyricUnit {
+  text: string
+  time: number
+  duration: number
+}
+
+/**
+ * 把逐字时间轴展开成渲染单元。
+ *
+ * 不少音源一条标签里塞了多个字（如 `<0,800>抚平你的心灵`），如果直接按
+ * words 渲染，整条标签只会在一个时间点全部变色，「逐字」名存实亡。
+ * 这里按字符均分时值，让每个字都有自己的起始时间；连续的拉丁字符/数字
+ * 合并成一个单元，避免 RN 的 flexWrap 把英文单词从中间断开。
+ */
+export const buildWordUnits = (words: WordLyricWord[]): WordLyricUnit[] => {
+  const units: WordLyricUnit[] = []
+  for (const word of words) {
+    const chars = Array.from(word.text)
+    if (!chars.length) continue
+
+    if (chars.length == 1) {
+      units.push({ text: chars[0], time: word.time, duration: word.duration })
+      continue
+    }
+
+    const per = word.duration / chars.length
+    let buf = ''
+    let bufTime = 0
+    let bufDuration = 0
+    const flush = () => {
+      if (!buf) return
+      units.push({ text: buf, time: bufTime, duration: bufDuration })
+      buf = ''
+      bufDuration = 0
+    }
+
+    for (let i = 0; i < chars.length; i++) {
+      const ch = chars[i]
+      const time = word.time + per * i
+      if (CJK_RXP.test(ch) || ch == ' ' || ch == '\t') {
+        flush()
+        units.push({ text: ch, time, duration: per })
+      } else {
+        if (!buf) bufTime = time
+        buf += ch
+        bufDuration += per
+      }
+    }
+    flush()
+  }
+  return units
+}
+
 export const parseWordLyric = (raw: string | null | undefined): WordLyricLine[] => {
   if (!raw) return []
   const lines: WordLyricLine[] = []
@@ -96,6 +186,29 @@ export const parseWordLyric = (raw: string | null | undefined): WordLyricLine[] 
 
     const tokens = tokenizeLine(text)
     if (!tokens.length) continue
+
+    /**
+     * 判断本行逐字时间戳的基准：相对行首，还是绝对时间。
+     *
+     * 原来是逐字判断 `if (start < lineTime) start += lineTime`，问题在于
+     * 「行时长 > 行时间」的长句（比如第 2 秒开始、唱了 12 秒的一行）里，
+     * 前几个字 start 小于行时间会被加成绝对时间，后面的字超过行时间又不加，
+     * 同一行的时间轴直接断成两截，表现为逐字唱到一半突然跳到很后面。
+     *
+     * 改成整行统一判定：洛雪 `<a,b>` 的第一个字一般从 0 开始（远小于行时间），
+     * A2 `<mm:ss.xx>` 的第一个字则贴着行时间。
+     */
+    let firstTagStart: number | null = null
+    for (const token of tokens) {
+      if (!token.text && token.start != null) {
+        firstTagStart = token.start
+        break
+      }
+    }
+    const isAbsoluteTime = firstTagStart != null &&
+      lineTime > 0 &&
+      (firstTagStart >= 1000 || Math.abs(firstTagStart - lineTime) <= 300)
+    const timeBase = isAbsoluteTime ? 0 : lineTime
 
     const words: WordLyricWord[] = []
     const consumedTags = new Set<number>()
@@ -127,8 +240,7 @@ export const parseWordLyric = (raw: string | null | undefined): WordLyricLine[] 
         if (lastWord) lastWord.text += token.text
         continue
       }
-      // 洛雪标签的开始时间可能是相对行首的毫秒；明显小于行时间时按相对处理
-      if (start < lineTime) start += lineTime
+      start += timeBase
       lastWord = { text: token.text, time: start, duration: duration ?? 0 }
       words.push(lastWord)
     }

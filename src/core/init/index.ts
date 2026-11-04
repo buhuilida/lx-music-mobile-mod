@@ -18,6 +18,8 @@ import settingState from '@/store/setting/state'
 import { checkUpdate } from '@/core/version'
 import { bootLog } from '@/utils/bootLog'
 import { cheatTip } from '@/utils/tools'
+import { getPackageName } from '@/utils/nativeModules/utils'
+import { setProviderPackage } from '@/utils/lyricInfo'
 
 let isFirstPush = true
 const handlePushedHomeScreen = async() => {
@@ -42,6 +44,13 @@ export default async() => {
   bootLog('Font size changed.')
   const setting = await initSetting()
   bootLog('Setting inited.')
+
+  // 锁屏歌词 payload 的 provider 必须是运行时包名：
+  // 原包名版是 cn.toside.music.mobile，写死新包名会让 ColorOS 找不到应用，
+  // 表现为「锁屏歌词不显示」且没有任何报错。必须在 initPlayer 之前注入。
+  const pkg = await getPackageName().catch(() => null)
+  if (pkg) setProviderPackage(pkg)
+  bootLog('Package name injected.')
   // console.log(setting)
 
   await initTheme(setting)

@@ -12,8 +12,6 @@ import {
   setDesktopLyric,
   pauseDesktopLyric,
   setDesktopLyricPlaybackRate,
-  toggleDesktopLyricTranslation,
-  toggleDesktopLyricRoma,
 } from '@/core/desktopLyric'
 import { getPosition } from '@/plugins/player'
 import playerState from '@/store/player/state'
@@ -129,7 +127,10 @@ export const setPlaybackRate = async(playbackRate: number) => {
  */
 export const toggleTranslation = async(isShowTranslation: boolean) => {
   lrcToggleTranslation(isShowTranslation)
-  await toggleDesktopLyricTranslation(isShowTranslation)
+  // 注意：这里刻意不再联动桌面歌词。
+  // 桌面歌词有独立的 desktopLyric.showTranslation 开关（设置 → 桌面歌词 → 显示翻译），
+  // 之前两边写同一个原生字段，导致「App 内关掉翻译后桌面歌词也没了翻译，
+  // 但设置页那个开关还显示是开着的」这种自相矛盾的状态。
   if (playerState.isPlay) play()
 }
 
@@ -139,7 +140,7 @@ export const toggleTranslation = async(isShowTranslation: boolean) => {
  */
 export const toggleRoma = async(isShowLyricRoma: boolean) => {
   lrcToggleRoma(isShowLyricRoma)
-  await toggleDesktopLyricRoma(isShowLyricRoma)
+  // 同上：桌面歌词的音译由 desktopLyric 自己的设置控制
   if (playerState.isPlay) play()
 }
 

@@ -9,6 +9,7 @@ import { useSettingValue } from '@/store/setting/hook'
 import { AnimatedColorText } from '@/components/common/Text'
 import WordLyricText from '@/components/common/WordLyricText'
 import type { WordLyricLine } from '@/utils/wordLyric'
+import { findWordLine } from '@/utils/wordLyric'
 import { setSpText } from '@/utils/pixelRatio'
 import playerState from '@/store/player/state'
 import { scrollTo } from '@/utils/scroll'
@@ -91,16 +92,12 @@ const LrcLine = memo(({ line, lineNum, activeLine, wordLine, onLayout }: LinePro
     prevProps.activeLine != nextProps.lineNum &&
     nextProps.activeLine != nextProps.lineNum
 })
-const wait = async() => new Promise(resolve => setTimeout(resolve, 100))
 
 export default () => {
   const lyricLines = useLrcSet()
   const wordLines = useWordLyricLines()
-  const wordLineMap = useMemo(() => {
-    const map = new Map<number, WordLyricLine>()
-    for (const wl of wordLines) map.set(Math.round(wl.time / 20), wl)
-    return map
-  }, [wordLines])
+  // 与 Vertical/Lyric.tsx 一致：按时间就近匹配，而不是 ±10ms 的严格查表
+  const wordLineFor = (time: number) => findWordLine(wordLines, time)
   const { line } = useLrcPlay()
   const flatListRef = useRef<FlatList>(null)
   const playLineRef = useRef<PlayLineType>(null)
@@ -132,10 +129,11 @@ export default () => {
       // console.log('handleScrollToActive', index)
       if (scrollInfoRef.current && lineRef.current.line - lineRef.current.prevLine == 1) {
         let offset = listLayoutInfoRef.current.spaceHeight
-        for (let line = 0; line < index; line++) {
-          offset += listLayoutInfoRef.current.lineHeights[line]
+        // 同 Vertical/Lyric.tsx：循环变量泄漏到作用域外，babel 改名后引用 `line` 必抛 ReferenceError
+        for (let i = 0; i < index; i++) {
+          offset += listLayoutInfoRef.current.lineHeights[i] ?? 0
         }
-        offset += (listLayoutInfoRef.current.lineHeights[line] ?? 0) / 2
+        offset += (listLayoutInfoRef.current.lineHeights[index] ?? 0) / 2
         try {
           scrollCancelRef.current = scrollTo(flatListRef.current, scrollInfoRef.current, offset - scrollInfoRef.current.layoutMeasurement.height * 0.42, 600, () => {
             scrollCancelRef.current = null
@@ -203,6 +201,11 @@ export default () => {
         clearTimeout(scrollTimoutRef.current)
         scrollTimoutRef.current = null
       }
+      // 同 Vertical/Lyric.tsx：平滑滚动是定时器循环，卸载后必须停
+      if (scrollCancelRef.current) {
+        scrollCancelRef.current()
+        scrollCancelRef.current = null
+      }
     }
   }, [])
 
@@ -246,6 +249,7 @@ export default () => {
       return
     }
 
+    if (delayScrollTimeout.current) clearTimeout(delayScrollTimeout.current)
     delayScrollTimeout.current = setTimeout(() => {
       delayScrollTimeout.current = null
       handleScrollToActive()
@@ -262,8 +266,17 @@ export default () => {
   }, [isShowLyricProgressSetting])
 
   const handleScrollToIndexFailed: FlatListType['onScrollToIndexFailed'] = (info) => {
-    void wait().then(() => {
-      handleScrollToActive(info.index)
+    // 同 Vertical/Lyric.tsx：盲目重试会无限递归，先粗滚到附近再精确跳一次
+    const offset = Math.max(0, (info.averageItemLength || 40) * info.index)
+    requestAnimationFrame(() => {
+      try {
+        flatListRef.current?.scrollToOffset({ offset, animated: false })
+      } catch {}
+      setTimeout(() => {
+        try {
+          flatListRef.current?.scrollToIndex({ index: info.index, animated: false, viewPosition: 0.42 })
+        } catch {}
+      }, 80)
     })
   }
 
@@ -284,7 +297,7 @@ export default () => {
 
   const renderItem: FlatListType['renderItem'] = ({ item, index }) => {
     return (
-      <LrcLine line={item} lineNum={index} activeLine={line} wordLine={wordLineMap.get(Math.round(item.time / 20))} onLayout={handleLineLayout} />
+      <LrcLine line={item} lineNum={index} activeLine={line} wordLine={wordLineFor(item.time)} onLayout={handleLineLayout} />
     )
   }
   const getkey: FlatListType['keyExtractor'] = (item, index) => `${index}${item.text}`

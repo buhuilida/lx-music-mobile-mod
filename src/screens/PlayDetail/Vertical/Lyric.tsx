@@ -8,6 +8,7 @@ import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { AnimatedColorText } from '@/components/common/Text'
 import WordLyricText from '@/components/common/WordLyricText'
+import { findWordLine } from '@/utils/wordLyric'
 import type { WordLyricLine } from '@/utils/wordLyric'
 import { setSpText } from '@/utils/pixelRatio'
 import playerState from '@/store/player/state'
@@ -131,16 +132,17 @@ const LrcLine = memo(({ line, lineNum, activeLine, wordLine, onLayout }: LinePro
     prevProps.activeLine != nextProps.lineNum &&
     nextProps.activeLine != nextProps.lineNum
 })
-const wait = async() => new Promise(resolve => setTimeout(resolve, 100))
 
 export default () => {
   const lyricLines = useLrcSet()
   const wordLines = useWordLyricLines()
-  const wordLineMap = useMemo(() => {
-    const map = new Map<number, WordLyricLine>()
-    for (const wl of wordLines) map.set(Math.round(wl.time / 20), wl)
-    return map
-  }, [wordLines])
+  /**
+   * 主歌词（lrc）与逐字歌词（lxlyric）是两份文本，同一个音源给的时间戳也常有
+   * 几十毫秒出入。1.22.24 用 `Math.round(time / 20)` 做 Map key，只能容忍 ±10ms，
+   * 一旦对不上，这一行就悄悄退化成普通渲染（没有逐字、字号也不一样），
+   * 表现就是「有时有逐字有时没有」。这里改成按时间就近匹配（±400ms）。
+   */
+  const wordLineFor = (time: number) => findWordLine(wordLines, time)
   const { line } = useLrcPlay()
   const flatListRef = useRef<FlatList>(null)
   const playLineRef = useRef<PlayLineType>(null)
@@ -172,10 +174,14 @@ export default () => {
       // console.log('handleScrollToActive', index)
       if (scrollInfoRef.current && lineRef.current.line - lineRef.current.prevLine == 1) {
         let offset = listLayoutInfoRef.current.spaceHeight
-        for (let line = 0; line < index; line++) {
-          offset += listLayoutInfoRef.current.lineHeights[line]
+        // 注意：这里原先是 `for (let line ...)`，循环结束后再引用 `line`，
+        // babel 把循环变量改名成 _line 后 `line` 就成了未定义标识符，
+        // 计算 offset 时必抛 ReferenceError，被外层 try/catch 静默吞掉，
+        // 结果就是「按行自动滚动」整条路径失效，只能等跳行时走 scrollToIndex。
+        for (let i = 0; i < index; i++) {
+          offset += listLayoutInfoRef.current.lineHeights[i] ?? 0
         }
-        offset += (listLayoutInfoRef.current.lineHeights[line] ?? 0) / 2
+        offset += (listLayoutInfoRef.current.lineHeights[index] ?? 0) / 2
         try {
           scrollCancelRef.current = scrollTo(flatListRef.current, scrollInfoRef.current, offset - scrollInfoRef.current.layoutMeasurement.height * 0.42, 600, () => {
             scrollCancelRef.current = null
@@ -243,6 +249,12 @@ export default () => {
         clearTimeout(scrollTimoutRef.current)
         scrollTimoutRef.current = null
       }
+      // 平滑滚动是 10ms 一步的 setTimeout 循环，卸载后不停会继续对已销毁的
+      // FlatList 调 scrollToOffset
+      if (scrollCancelRef.current) {
+        scrollCancelRef.current()
+        scrollCancelRef.current = null
+      }
     }
   }, [])
 
@@ -286,6 +298,9 @@ export default () => {
       return
     }
 
+    // 快速连播时上一行的延迟还没到期就来了新行，旧的必须清掉，
+    // 否则多个 600ms 定时器叠在一起，一帧里连发几次 scrollTo
+    if (delayScrollTimeout.current) clearTimeout(delayScrollTimeout.current)
     delayScrollTimeout.current = setTimeout(() => {
       delayScrollTimeout.current = null
       handleScrollToActive()
@@ -302,8 +317,19 @@ export default () => {
   }, [isShowLyricProgressSetting])
 
   const handleScrollToIndexFailed: FlatListType['onScrollToIndexFailed'] = (info) => {
-    void wait().then(() => {
-      handleScrollToActive(info.index)
+    // 目标行还没进入渲染窗口时 FlatList 跳不过去。原实现是 100ms 后直接重试，
+    // 每次都失败就会无限递归（快歌 / 切歌到很靠后的行时容易撞上，表现为歌词卡住 + 掉帧）。
+    // 这里先按平均行高粗滚到目标附近，让目标行进入渲染窗口，再补一次精确跳转。
+    const offset = Math.max(0, (info.averageItemLength || 40) * info.index)
+    requestAnimationFrame(() => {
+      try {
+        flatListRef.current?.scrollToOffset({ offset, animated: false })
+      } catch {}
+      setTimeout(() => {
+        try {
+          flatListRef.current?.scrollToIndex({ index: info.index, animated: false, viewPosition: 0.42 })
+        } catch {}
+      }, 80)
     })
   }
 
@@ -324,7 +350,7 @@ export default () => {
 
   const renderItem: FlatListType['renderItem'] = ({ item, index }) => {
     return (
-      <LrcLine line={item} lineNum={index} activeLine={line} wordLine={wordLineMap.get(Math.round(item.time / 20))} onLayout={handleLineLayout} />
+      <LrcLine line={item} lineNum={index} activeLine={line} wordLine={wordLineFor(item.time)} onLayout={handleLineLayout} />
     )
   }
   const getkey: FlatListType['keyExtractor'] = (item, index) => `${index}${item.text}`

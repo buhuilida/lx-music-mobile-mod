@@ -1,7 +1,7 @@
 import { httpGet } from '@/utils/request'
 import { author, name } from '../../package.json'
 import { downloadFile, stopDownload, temporaryDirectoryPath, readDir, stat, unlink } from '@/utils/fs'
-import { getSupportedAbis, installApk } from '@/utils/nativeModules/utils'
+import { getSupportedAbis, installApk, getPackageName } from '@/utils/nativeModules/utils'
 import { APP_PROVIDER_NAME } from '@/config/constant'
 
 const abis = [
@@ -18,8 +18,32 @@ const abis = [
  * 原版的 GitHub / npm 源更新的是原版安装包，对二改版没有意义，因此不再使用。
  */
 const address = [
+  ['https://aa9247f7339b2cb18.app.workbuddy.host/downloads/version.json?sharecode=ER6OKBO4HG', 'direct'],
+  // 备用源必须也是「新包名清单」：旧站的 version.json 服务的是 1.22.17 及更早的老版本，
+  // 里面指向的是原包名包 cn.toside.music.mobile，新包名用户装上去是另一个应用。
+  ['https://af384ee6deb6e09e2.app.workbuddy.host/downloads/version-newpkg.json?sharecode=MKPWEVLBUS', 'direct'],
+]
+// 原包名版（cn.toside.music.mobile）单独一份清单：它如果去拉新包名版的清单，
+// 会下载到 com.lxmod.music 的安装包，装上去是另一个应用，覆盖不了自己，
+// 用户看到的现象就是「点了更新，版本号没变」。
+const addressOrigPkg = [
+  ['https://aa9247f7339b2cb18.app.workbuddy.host/downloads/version-orig.json?sharecode=ER6OKBO4HG', 'direct'],
+  // 旧站的 version.json 就是原包名清单，可以直接作为回退源
   ['https://af384ee6deb6e09e2.app.workbuddy.host/downloads/version.json?sharecode=MKPWEVLBUS', 'direct'],
 ]
+let cachedAddressList
+const getAddressList = async() => {
+  if (cachedAddressList) return cachedAddressList
+  // getPackageName 走原生桥，理论上可能 reject（桥未就绪、模块缺失）。
+  // 这里不能让它冒泡：一旦抛错，检查更新会直接失败，用户只看到「检查更新失败」，
+  // 却不知道只是拿包名失败。拿不到就按新包名清单走。
+  let pkg = null
+  try {
+    pkg = await getPackageName()
+  } catch {}
+  cachedAddressList = pkg == 'cn.toside.music.mobile' ? addressOrigPkg : address
+  return cachedAddressList
+}
 
 
 const request = async(url, retryNum = 0) => {
@@ -73,7 +97,8 @@ const getNpmPkgInfo = async(url) => {
 }
 
 export const getVersionInfo = async(index = 0) => {
-  const [url, source] = address[index]
+  const list = await getAddressList()
+  const [url, source] = list[index]
   let promise
   switch (source) {
     case 'direct':
@@ -86,7 +111,7 @@ export const getVersionInfo = async(index = 0) => {
 
   return promise.catch(async(err) => {
     index++
-    if (index >= address.length) throw err
+    if (index >= list.length) throw err
     return getVersionInfo(index)
   })
 }
@@ -124,9 +149,17 @@ export const downloadNewVersion = async(version, onDownload = noop) => {
   const modDownload = latestInfo?.download
   let url = typeof modDownload === 'string' && modDownload
     ? modDownload
-    : modDownload?.[abi] || `https://github.com/${author.name}/${name}/releases/download/v${version}/${name}-v${version}-${abi}.apk`
-  // 版本信息里可能是相对路径（如 /downloads/xx.apk），下载器需要完整 URL
-  if (url.startsWith('/')) url = (latestInfoOrigin || 'https://af384ee6deb6e09e2.app.workbuddy.host') + url
+    // 清单里只提供 arm64-v8a / universal / backscreen 三个键。
+    // 32 位机型（armeabi-v7a）或模拟器（x86）取不到自己的键，
+    // 以前会直接落到 GitHub 回退 —— 那是原版洛雪的安装包，装上去等于换了个应用。
+    // 这里先退到 universal（全架构包），真的没有才走 GitHub。
+    : modDownload?.[abi] || modDownload?.universal ||
+      `https://github.com/${author.name}/${name}/releases/download/v${version}/${name}-v${version}-${abi}.apk`
+  // 版本信息里可能是相对路径（如 /downloads/xx.apk 或 downloads/xx.apk），下载器需要完整 URL
+  if (!/^https?:\/\//i.test(url)) {
+    const origin = latestInfoOrigin || 'https://af384ee6deb6e09e2.app.workbuddy.host'
+    url = origin + (url.startsWith('/') ? '' : '/') + url
+  }
 
   // 关键修复（1.21.0）：安装包文件名必须带版本号，下载前还要把旧包删干净。
   // 旧实现固定用 cache/lx-music-mobile.apk，只要上一次下载中断（或系统保留了
@@ -164,5 +197,8 @@ export const downloadNewVersion = async(version, onDownload = noop) => {
 
 export const updateApp = async() => {
   if (!apkSavePath) throw new Error('apk Save Path is null')
-  await installApk(apkSavePath, APP_PROVIDER_NAME)
+  // FileProvider 的 authority 是 `${applicationId}.provider`，
+  // backscreen 变体的 applicationId 不是 APP_PROVIDER_NAME 里的那个包名，必须取实际值
+  const packageName = await getPackageName().catch(() => null)
+  await installApk(apkSavePath, packageName ? `${packageName}.provider` : APP_PROVIDER_NAME)
 }

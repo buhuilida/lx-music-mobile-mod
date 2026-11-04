@@ -16,8 +16,7 @@ import { playList } from '@/core/player/player'
 import {
   getWebDAVStore,
   isWebDAVConfigured,
-  listWebDAVFolders,
-  listWebDAVSongs,
+  listWebDAVDirectory,
   scanWebDAVSongs,
   clearWebDAVSongs,
   toLocalMusicInfo,
@@ -58,8 +57,9 @@ export default memo(({ componentId }: { componentId: string }) => {
   const load = useCallback((target: string) => {
     setLoading(true)
     setError(null)
-    void Promise.all([listWebDAVFolders(target), listWebDAVSongs(target)])
-      .then(([folderList, songList]) => {
+    // 一次 PROPFIND 同时取目录和音频，少发一半请求（坚果云对请求次数有限流）
+    void listWebDAVDirectory(target)
+      .then(({ folders: folderList, songs: songList }) => {
         setFolders(folderList)
         setSongs(songList)
         setPath(target)
@@ -70,7 +70,8 @@ export default memo(({ componentId }: { componentId: string }) => {
           message == 'WEBDAV_NOT_CONFIGURED' ? t('webdav_not_configured')
             : message == 'WEBDAV_AUTH_FAILED' ? t('webdav_auth_failed')
               : message == 'WEBDAV_TIMEOUT' ? t('webdav_timeout')
-                : `${t('webdav_load_failed')}: ${message}`,
+                : message == 'WEBDAV_BUSY' ? t('webdav_rate_limited')
+                  : `${t('webdav_load_failed')}: ${message}`,
         )
         setFolders([])
         setSongs([])
@@ -106,9 +107,23 @@ export default memo(({ componentId }: { componentId: string }) => {
       if (count % 50 == 0) toast(t('webdav_scan_progress', { count }), 'short')
     }).then((store) => {
       setScanned(store.songs)
-      toast(t('webdav_scan_done', { count: store.songs.length }), 'long')
+      const extra: string[] = []
+      if (store.truncated) extra.push(t('webdav_scan_truncated'))
+      if (store.failedDirs) extra.push(t('webdav_scan_partial', { count: store.failedDirs }))
+      toast(
+        extra.length
+          ? `${t('webdav_scan_done', { count: store.songs.length })}，${extra.join('；')}`
+          : t('webdav_scan_done', { count: store.songs.length }),
+        'long',
+      )
     }).catch((err: Error) => {
-      toast(`${t('webdav_scan_failed')}: ${err?.message ?? ''}`, 'long')
+      const message = err?.message ?? ''
+      toast(
+        message == 'WEBDAV_BUSY'
+          ? t('webdav_rate_limited')
+          : `${t('webdav_scan_failed')}: ${message}`,
+        'long',
+      )
     }).finally(() => { setScanning(false) })
   }, [path, scanning, t])
 

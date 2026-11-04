@@ -55,11 +55,11 @@ export default () => {
       renderItem={renderItem}
       keyExtractor={getkey}
       contentContainerStyle={styles.content}
-      maxToRenderPerBatch={2}
-      // updateCellsBatchingPeriod={80}
-      windowSize={2}
-      // removeClippedSubviews={true}
-      initialNumToRender={1}
+      maxToRenderPerBatch={6}
+      // windowSize 2 / initialNumToRender 1 会让快速滑动时整屏都是空白，
+      // 配上半透明的主题背景看起来就像「黑屏」。这里调到常规值。
+      windowSize={5}
+      initialNumToRender={3}
     />
   )
 }

@@ -5,6 +5,7 @@ import { getQualityFallbacks } from '@/core/music/utils'
 import { existsFile, mkdir, privateStorageDirectoryPath, stat, unlink } from '@/utils/fs'
 import { checkStoragePermissions, requestStoragePermission, toast } from '@/utils/tools'
 import { writeMetadata, writePic, writeLyric } from '@/utils/localMediaMetadata'
+import { scanFile } from '@/utils/nativeModules/utils'
 import { buildLyrics } from '@/utils/lrcTools'
 import downloadState from '@/store/download/state'
 import downloadActions from '@/store/download/action'
@@ -98,9 +99,10 @@ export const clearDownloadDirCache = () => {
 }
 
 let showedPrivateTip = false
+let showedCustomPathTip = false
 
 /**
- * 解析下载目录：优先写入系统 Download 文件夹，没有存储权限时回退到私有目录
+ * 解析下载目录：自定义目录 → 系统 Download → 应用私有目录
  */
 export const resolveDownloadDirectory = async(): Promise<string> => {
   // 1. 用户自定义目录优先
@@ -110,6 +112,11 @@ export const resolveDownloadDirectory = async(): Promise<string> => {
       await ensureDir(customPath)
       if (await probeWritable(customPath)) return customPath
     } catch {}
+    // 静默回退到别处，用户会以为「设置了没生效」，还找不到歌下到哪去了
+    if (!showedCustomPathTip) {
+      showedCustomPathTip = true
+      toast(global.i18n.t('setting_download_path_unavailable'), 'long')
+    }
   }
 
   let granted = storageCache.granted
@@ -336,6 +343,13 @@ export const downloadMusic = async(musicInfo: LX.Music.MusicInfoOnline, quality:
     if (result.statusCode && (result.statusCode < 200 || result.statusCode >= 300)) throw new Error(`HTTP ${result.statusCode}`)
     // 下载完成后按设置写入标签 / 封面 / 歌词（1.23.0）
     await applyDownloadMetadata({ filePath, baseName, dir: targetDir, musicInfo }).catch(() => {})
+    // 写到公共目录（Download / SD 卡）的文件只是「存在」，MediaStore 不会自动感知。
+    // 不主动通知，下载完成后「本地音乐」和第三方播放器都搜不到这首歌。
+    if (!targetDir.startsWith(privateStorageDirectoryPath)) {
+      // 扫描失败不影响下载结果，但必须 catch：否则原生 reject 会变成
+      // unhandled promise rejection，Hermes 下会打红字甚至中断队列
+      scanFile(filePath).catch(() => {})
+    }
     const info = await stat(filePath).catch(() => null)
     const item: LX.Download.ExtItem = {
       id,

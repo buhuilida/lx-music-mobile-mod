@@ -13,7 +13,21 @@ import { parseWordLyric, buildAutoWordLyric, hasWordTags } from '@/utils/wordLyr
  * - payload 不能过大，否则 MediaSession.setMetadata 会触发 Binder 事务超限。
  */
 
-export const PROVIDER_PACKAGE = 'cn.toside.music.mobile'
+/**
+ * 写入 payload 的 provider —— 必须是**运行时的实际包名**。
+ *
+ * 之前写成常量 'com.lxmod.music'：原包名版（cn.toside.music.mobile）下，
+ * ColorOS 拿到 provider 会按包名去找应用，找不到就整条歌词链路静默失效
+ * —— 不报错、不崩溃，就是锁屏没歌词，最难查的那类问题。
+ *
+ * 由 init/index.ts 启动时通过原生 getPackageName() 注入。
+ */
+let providerPackage = 'com.lxmod.music'
+
+/** 启动时注入真实包名（由 init/index.ts 调用） */
+export const setProviderPackage = (pkg: string) => {
+  if (pkg) providerPackage = pkg
+}
 
 /**
  * 单条 payload 上限。
@@ -129,7 +143,7 @@ export const buildLyricInfoJson = (options: BuildLyricInfoOptions): string | nul
     lyric,
     rawLyric,
     translationLyric,
-    provider: PROVIDER_PACKAGE,
+    provider: providerPackage,
     source: 'lx-music-mobile',
     trackKey: meta.trackKey ?? '',
     sessionGeneration: options.generation ?? 0,
@@ -169,7 +183,7 @@ export const buildEmptyLyricInfoJson = (meta?: LyricTrackMeta, generation?: numb
     lyricType: 0,
     lyric: '',
     noLyric: true,
-    provider: PROVIDER_PACKAGE,
+    provider: providerPackage,
     trackKey: meta?.trackKey ?? '',
     sessionGeneration: generation ?? 0,
   })

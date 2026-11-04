@@ -137,7 +137,7 @@ const createLocalMusicInfos = async(filePaths: string[], errorPath: string[]): P
       filePaths.shift(),
     ].filter(Boolean) as string[]
 
-    await Promise.all(tasks.map(async (path: string) => readMetadata(path).then(info => ([path, info] as const)))).then((res) => {
+    await Promise.all(tasks.map(async path => readMetadata(path).then(info => ([path, info] as const)))).then((res) => {
       for (const [path, info] of res) {
         if (!info) {
           errorPath.push(path)

@@ -71,6 +71,43 @@ const withAlpha = (color: string, alpha: number) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
+/** 解析 rgb()/rgba() 的 RGB 分量，解析失败返回 null */
+const parseRgb = (color: string): [number, number, number] | null => {
+  const match = /^rgba?\(([^)]+)\)$/i.exec(color.trim())
+  if (!match) return null
+  const parts = match[1].split(',').map(part => parseFloat(part))
+  if (parts.length < 3 || parts.some(n => !Number.isFinite(n))) return null
+  return [parts[0], parts[1], parts[2]]
+}
+
+/** 相对亮度（0~1），用于判断背景是深色还是浅色 */
+const relativeLuminance = (color: string): number | null => {
+  const rgb = parseRgb(color)
+  if (!rgb) return null
+  const [r, g, b] = rgb.map((v) => {
+    const c = Math.min(255, Math.max(0, v)) / 255
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+  })
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+const isColorDark = (color: string) => {
+  const l = relativeLuminance(color)
+  return l != null ? l < 0.45 : false
+}
+
+/** 深色背景配浅色字、浅色背景配深色字；对比度足够时保持主题原色 */
+const ensureFontContrast = (fontColor: string, bgIsDark: boolean) => {
+  const l = relativeLuminance(fontColor)
+  // 解析不出来（比如颜色名）时不动，交给系统
+  if (l == null) return fontColor
+  if (bgIsDark && l > 0.5) return fontColor
+  if (!bgIsDark && l < 0.5) return fontColor
+  // 深浅反了：换成对应方向的常规文字色
+  const rgb = parseRgb(fontColor)!
+  return bgIsDark ? 'rgb(229, 229, 229)' : `rgb(${Math.round(rgb[0] * 0.15)}, ${Math.round(rgb[1] * 0.15)}, ${Math.round(rgb[2] * 0.15)})`
+}
+
 export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
   let bgImg: ImageSourcePropType | undefined
   let bgImgPortrait: ImageSourcePropType | undefined
@@ -100,14 +137,19 @@ export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
     bgImgLandscape = bgImg
   }
 
-  theme.config.extInfo = { ...theme.config.extInfo }
+  // 注意：这里必须用局部副本，不能写回 theme.config.extInfo。
+  // 内置主题数组是模块级单例，写回会把 `var(...)` 变量引用永久替换成固定色值，
+  // 之后再切主题 / 改主题色就再也拿不到正确颜色了。
+  const extInfoResolved: Record<string, string> = { ...theme.config.extInfo }
 
   for (const [k, v] of Object.entries(theme.config.extInfo) as Array<[ExtInfoKey, LX.Theme['config']['extInfo'][ExtInfoKey]]>) {
     if (!v || !v.startsWith('var(')) continue
-    theme.config.extInfo[k] = theme.config.themeColors[v.replace(varColorRxp, '$1') as ColorsKey]
+    extInfoResolved[k] = theme.config.themeColors[v.replace(varColorRxp, '$1') as ColorsKey]
   }
 
   const themeColors = { ...theme.config.themeColors }
+  const mainBgBase = extInfoResolved['c-main-background'] ??
+    (theme.isDark ? 'rgb(19, 19, 19)' : 'rgb(255, 255, 255)')
   // 内置带图主题（如近墨者黑）的主背景是半透明的，图片才能透出来。
   // 自定义主题背景色是不透明纯色，所以这里必须做同样的覆写——
   // 注意竖屏 / 横屏单独设置的图片也要触发（它们不走 bgImg），否则图片会被纯色背景完全盖住
@@ -118,24 +160,31 @@ export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
      * extInfo 在 themeColors 之后展开，所以这里必须写回 extInfo，否则会被覆盖——
      * 之前「自定义背景只有内置带图主题能看到」就是这个原因。
      */
-    const extColors = theme.config.extInfo as unknown as Record<string, string>
-    const baseMainBackground = extColors['c-main-background'] ??
-      (theme.isDark ? 'rgb(19, 19, 19)' : 'rgb(255, 255, 255)')
     // 蒙层不透明度允许用户调节（1.15.0，移植自 LX-X 的背景不透明度功能），限制在 0.3 ~ 1
     const userOpacity = Number(settingState.setting['theme.customBgOpacity'])
     const opacity = Number.isFinite(userOpacity) ? Math.min(1, Math.max(0.3, userOpacity)) : (theme.isDark ? 0.78 : 0.72)
-    extColors['c-main-background'] = withAlpha(baseMainBackground, opacity)
+    extInfoResolved['c-main-background'] = withAlpha(mainBgBase, opacity)
   }
+
+  // 文字与背景对比度兜底：主题编辑里切换「亮色 / 暗色」时背景色可能没跟着换，
+  // 会做出「暗背景 + 深色字」的主题（整页发黑、字看不清）。这里按实际背景亮度纠偏，
+  // 不改变用户选的主色，只保证正文可读。
+  const mainBgIsDark = isColorDark(mainBgBase)
+  const fontColor = ensureFontContrast(theme.config.themeColors['c-850'], mainBgIsDark)
+  const labelColor = ensureFontContrast(
+    bgImg && !mainBgIsDark ? theme.config.themeColors['c-650'] : theme.config.themeColors['c-450'],
+    mainBgIsDark,
+  )
 
   return {
     id: theme.id,
     name: theme.name,
     isDark: theme.isDark,
     ...themeColors,
-    ...theme.config.extInfo,
-    'c-font': theme.config.themeColors['c-850'],
+    ...(extInfoResolved as unknown as LX.Theme['config']['extInfo']),
+    'c-font': fontColor,
     // 有背景图时辅助文字用更深的灰，避免浅色照片下看不清
-    'c-font-label': bgImg && !theme.isDark ? theme.config.themeColors['c-650'] : theme.config.themeColors['c-450'],
+    'c-font-label': labelColor,
     'c-primary-font': theme.config.themeColors['c-primary'],
     'c-primary-font-hover': theme.config.themeColors['c-primary-alpha-300'],
     'c-primary-font-active': theme.config.themeColors['c-primary-dark-100-alpha-200'],
