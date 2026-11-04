@@ -21,7 +21,7 @@
 
 - **应用名称**：LX Mod（桌面与系统设置里显示）
 - **应用包名**：`com.lxmod.music`（与原版洛雪 **可共存安装**）
-- **当前版本**：1.22.27（versionCode 132000）
+- **当前版本**：1.22.33（versionCode 138000）
 - **作者**：月下独酌 · QQ 3139606844
 
 ## 下载
@@ -30,16 +30,16 @@
 
 | 文件 | 适用场景 |
 | --- | --- |
-| `lxmod-v1.22.27-arm64-v8a.apk` | 新包名常规版，绝大多数手机（可与原版共存） |
-| `lxmod-v1.22.27-universal.apk` | 新包名全架构版，不知道选哪个就选它 |
-| `lxmod-v1.22.27-backscreen-arm64-v8a.apk` | 新包名 + 锁屏歌词增强 |
-| `lxmod-origpkg-v1.22.27-arm64-v8a.apk` | **原包名** `cn.toside.music.mobile`，用于从旧版覆盖升级（保留数据，不能与原版共存） |
-| `lxmod-origpkg-v1.22.27-universal.apk` | 原包名全架构版 |
-| `lx-music-mod-src-v1.22.27.zip` | 源码（不含签名密钥） |
+| `lxmod-v1.22.33-arm64-v8a.apk` | 新包名常规版，绝大多数手机（可与原版共存） |
+| `lxmod-v1.22.33-universal.apk` | 新包名全架构版，不知道选哪个就选它 |
+| `lxmod-v1.22.33-backscreen-arm64-v8a.apk` | 新包名 + 锁屏歌词增强 |
+| `lxmod-origpkg-v1.22.33-arm64-v8a.apk` | **原包名** `cn.toside.music.mobile`，用于从旧版覆盖升级（保留数据，不能与原版共存） |
+| `lxmod-origpkg-v1.22.33-universal.apk` | 原包名全架构版 |
+| `lx-music-mod-src-v1.22.33.zip` | 源码（不含签名密钥） |
 
 > 安装包文件名前缀沿用 `lxmod`（构建产物名），安装到手机后应用显示为 **LX Mod**。
 
-> 从旧版（1.22.20 ~ 1.22.26）升级：想保留数据就用 `lxmod-origpkg-*`；想和原版洛雪并存就用 `lxmod-*`（两者数据不互通，需重新登录）。
+> 从旧版（1.22.20 ~ 1.22.32）升级：想保留数据就用 `lxmod-origpkg-*`；想和原版洛雪并存就用 `lxmod-*`（两者数据不互通，需重新登录）。
 
 ## 功能
 
@@ -71,6 +71,7 @@
 ### 其他
 
 - 听歌播报（系统 TTS）、下载管理、下载文件内嵌标签 / 封面 / 歌词
+- **侧边栏自绘抽屉**：不再使用原生 `DrawerLayoutAndroid`，宽度与遮罩共用一个 `Animated.Value`，从结构上杜绝「遮罩拉满、抽屉不出来、还吃掉所有触摸」（1.22.33）
 - 主题系统：导入 / 导出 / 编辑自定义主题，支持竖屏与横屏背景图、字体、亮暗模式
 - 在线检查更新，一键下载安装新版本
 - 二改功能全量说明见 [doc/mod-features.md](doc/mod-features.md)

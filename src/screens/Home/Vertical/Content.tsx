@@ -8,11 +8,12 @@ import { COMPONENT_IDS } from '@/config/constant'
 import DrawerLayoutFixed, { type DrawerLayoutFixedType } from '@/components/common/DrawerLayoutFixed'
 import { scaleSizeW } from '@/utils/pixelRatio'
 
-const MAX_WIDTH = scaleSizeW(300)
-
 const Content = () => {
   const drawer = useRef<DrawerLayoutFixedType>(null)
   const drawerLayoutPosition = useSettingValue('common.drawerLayoutPosition')
+  // 不能放在模块顶层：模块加载早于 windowSizeTools.init()，算出来会是 0，
+  // 抽屉宽度被 Math.min 截成 0 后，打开抽屉只会看到一层遮罩。
+  const maxWidth = scaleSizeW(300)
 
   useEffect(() => {
     const changeVisible = (visible: boolean) => {
@@ -37,7 +38,7 @@ const Content = () => {
     <DrawerLayoutFixed
       ref={drawer}
       widthPercentage={0.7}
-      widthPercentageMax={MAX_WIDTH}
+      widthPercentageMax={maxWidth}
       visibleNavNames={[COMPONENT_IDS.home]}
       // drawerWidth={width}
       drawerPosition={drawerLayoutPosition}
