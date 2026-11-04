@@ -122,3 +122,11 @@ jobs:
           fi
           git commit -m "chore: 同步更新清单到 ${{ steps.ver.outputs.tag }}"
           git push origin HEAD:main
+
+      - name: 刷新 jsDelivr 缓存
+        if: startsWith(github.ref, 'refs/tags/') || inputs.release
+        continue-on-error: true
+        run: |
+          # jsDelivr 对 @main 会缓存很久，不主动刷的话备用源会一直吐旧清单
+          curl -sf --max-time 30 "https://purge.jsdelivr.net/gh/${{ github.repository }}@main/release/version.json" > /dev/null \
+            || echo "purge 失败（不影响发布，CDN 到期后会自更新）"
