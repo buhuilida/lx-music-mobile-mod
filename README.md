@@ -94,3 +94,31 @@ npm run build-android-arm64 -- -PorigPkg
 - 软件不内置任何音源，音源需自行导入，使用产生的后果由使用者自行承担。
 - 二改基于 [lyswhut/lx-music-mobile](https://github.com/lyswhut/lx-music-mobile)，感谢上游作者与所有贡献者。
 - 非官方渠道的任何二次打包均与本项目无关。
+
+## 本仓库（fork）的发布方式
+
+本仓库是 [`yzdz666/lx-music-mobile-mod`](https://github.com/yzdz666/lx-music-mobile-mod) 的 fork，在跟上上游的同时保留了一批自有改动（百度网盘、下载前歌词探测、定时器修复等）。包名与上游解耦：`standard` = `com.lxmod.music`，`backscreen`（共存版，主产物）= `cn.lxmusic.mod`。
+
+**应用内更新只认本仓库的 Release**：
+
+```
+https://github.com/buhuilida/lx-music-mobile-mod/releases/latest/download/version.json
+```
+
+**发版**（打 tag 触发 `.github/workflows/android-release.yml`，自动构建、生成清单、上传 Release）：
+
+```bash
+# 1. 改 package.json 的 version / versionCode
+# 2. 提交后打 tag 并推送
+git tag v1.22.26-mod.1 && git push origin v1.22.26-mod.1
+```
+
+CI 需要 4 个 secret：`ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`。签名与本地 `android/app/lxmod.keystore` 必须一致，否则装不上已有版本。
+
+**本地构建**：
+
+```bash
+cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a -I ../gradle-mirrors.gradle
+```
+
+> `vendor/` 下三个 `file:` 依赖的 `lib/` 是构建产物且被包内 `.gitignore` 排除，已强制入库（CI 无法现场生成），改动依赖后记得重新生成并提交。
