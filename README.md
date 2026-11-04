@@ -1,8 +1,8 @@
 <p align="center">
-  <img width="120" src="https://github.com/lyswhut/lx-music-mobile/raw/master/doc/images/icon.png" alt="lxmod logo">
+  <img width="120" src="https://github.com/lyswhut/lx-music-mobile/raw/master/doc/images/icon.png" alt="LX Mod logo">
 </p>
 
-<h1 align="center">lxmod</h1>
+<h1 align="center">LX Mod</h1>
 
 <p align="center">
   <a href="https://github.com/yzdz666/lx-music-mobile-mod/releases"><img src="https://img.shields.io/github/v/release/yzdz666/lx-music-mobile-mod?label=release" alt="Release"></a>
@@ -17,8 +17,9 @@
 
 ## 这是什么
 
-**lxmod** 是 [lyswhut/lx-music-mobile](https://github.com/lyswhut/lx-music-mobile)（洛雪音乐移动版）的二次开发版本，在保留原有播放、歌单、音源机制的基础上，补齐了一批日常使用中缺席的能力。
+**LX Mod** 是 [lyswhut/lx-music-mobile](https://github.com/lyswhut/lx-music-mobile)（洛雪音乐移动版）的二次开发版本，在保留原有播放、歌单、音源机制的基础上，补齐了一批日常使用中缺席的能力。
 
+- **应用名称**：LX Mod（桌面与系统设置里显示）
 - **应用包名**：`com.lxmod.music`（与原版洛雪 **可共存安装**）
 - **当前版本**：1.22.26（versionCode 131000）
 - **作者**：月下独酌 · QQ 3139606844
@@ -34,6 +35,8 @@
 | `lxmod-v1.22.26-backscreen-arm64-v8a.apk` | 新包名 + 锁屏歌词增强 |
 | `lxmod-origpkg-v1.22.26-arm64-v8a.apk` | **原包名** `cn.toside.music.mobile`，用于从旧版覆盖升级（保留数据，不能与原版共存） |
 | `lx-music-mod-src-v1.22.26.zip` | 源码（不含签名密钥） |
+
+> 安装包文件名前缀沿用 `lxmod`（构建产物名），安装到手机后应用显示为 **LX Mod**。
 
 > 从旧版（1.22.20 ~ 1.22.25）升级：想保留数据就用 `lxmod-origpkg-*`；想和原版洛雪并存就用 `lxmod-*`（两者数据不互通，需重新登录）。
 
