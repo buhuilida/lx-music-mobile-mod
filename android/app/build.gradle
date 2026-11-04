@@ -210,14 +210,11 @@ android {
     applicationVariants.all { variant ->
         def flavorTag = variant.flavorName == "backscreen" ? "-backscreen" : ""
         variant.outputs.each { output ->
-            // 所有产物的 versionCode 保持一致，且必须是「版本号 * 1000」这一量级。
-            // 坑：1.22.20 及更早用的是 versionCode*1000+abiCode，arm64 包实际是 125003；
-            // 1.22.21 一度把这里改成裸 versionCode（126），结果比 1.22.20 还小，
-            // 系统判定为降级安装、直接弹「已安装更高版本」。
-            // 现在统一 versionCode*1000，两个包（universal / arm64）versionCode 相同可互相覆盖，
-            // 同时保证对历史版本单调递增。
+            // 本仓库（mod 版）的 versionCode 是日期式（如 20261122），已经远大于上游的「版本号*1000」，
+            // 再乘 1000 会超过 int32 上限（2,147,483,647），APK 里的 versionCode 直接变成空值，
+            // 覆盖安装与版本比较全部失效。因此这里保持原值，所有 ABI 产物取同一个 code。
             def abi = output.getFilter(OutputFile.ABI)
-            output.versionCodeOverride = defaultConfig.versionCode * 1000
+            output.versionCodeOverride = defaultConfig.versionCode
             if (abi == null) {  // null for the universal-debug, universal-release variants
                 output.outputFileName =
                         "${applicationName}-v${defaultConfig.versionName}${flavorTag}-universal.apk"
