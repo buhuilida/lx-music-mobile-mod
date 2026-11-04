@@ -1,16 +1,16 @@
 {
-  "version": "1.22.27-mod.1",
-  "versionCode": 20261123,
+  "version": "1.22.27-mod.2",
+  "versionCode": 20261124,
   "desc": "",
   "history": [],
   "download": {
-    "arm64-v8a": "https://github.com/buhuilida/lx-music-mobile-mod/releases/download/v1.22.27-mod.1/lxmod-v1.22.27-mod.1-backscreen-arm64-v8a.apk",
-    "universal": "https://github.com/buhuilida/lx-music-mobile-mod/releases/download/v1.22.27-mod.1/lxmod-v1.22.27-mod.1-backscreen-universal.apk"
+    "arm64-v8a": "https://github.com/buhuilida/lx-music-mobile-mod/releases/download/v1.22.27-mod.2/lxmod-v1.22.27-mod.2-backscreen-arm64-v8a.apk",
+    "universal": "https://github.com/buhuilida/lx-music-mobile-mod/releases/download/v1.22.27-mod.2/lxmod-v1.22.27-mod.2-backscreen-universal.apk"
   },
   "downloadByPackage": {
     "com.lxmod.music": {
-      "arm64-v8a": "https://github.com/buhuilida/lx-music-mobile-mod/releases/download/v1.22.27-mod.1/lxmod-v1.22.27-mod.1-arm64-v8a.apk",
-      "universal": "https://github.com/buhuilida/lx-music-mobile-mod/releases/download/v1.22.27-mod.1/lxmod-v1.22.27-mod.1-universal.apk"
+      "arm64-v8a": "https://github.com/buhuilida/lx-music-mobile-mod/releases/download/v1.22.27-mod.2/lxmod-v1.22.27-mod.2-arm64-v8a.apk",
+      "universal": "https://github.com/buhuilida/lx-music-mobile-mod/releases/download/v1.22.27-mod.2/lxmod-v1.22.27-mod.2-universal.apk"
     }
   }
 }
