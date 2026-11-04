@@ -47,8 +47,8 @@ const getAddressList = async() => address
 const request = async(url, retryNum = 0) => {
   return new Promise((resolve, reject) => {
     httpGet(url, {
-      // 更新清单是「多源依次试」，单源必须尽快失败，否则用户要干等两三分钟
-      timeout: 8000,
+      // 多源并发竞速，单源不必等太久：6 秒没回就让它出局
+      timeout: 6000,
     }, (err, resp, body) => {
       if (err || resp.statusCode != 200) {
         ++retryNum >= 1
@@ -73,46 +73,56 @@ let latestInfoOrigin = ''
  */
 const withCacheBust = (url) => `${url}${url.includes('?') ? '&' : '?'}_=${Date.now()}`
 
-const getDirectInfo = async(url) => {
-  return request(withCacheBust(url)).then(info => {
-    if (info.version == null) throw new Error('failed')
-    latestInfo = info
-    try {
-      latestInfoOrigin = new URL(url).origin
-    } catch {
-      latestInfoOrigin = ''
-    }
-    return info
-  })
-}
-
-const getNpmPkgInfo = async(url) => {
-  return request(url).then(json => {
-    if (!json.versionInfo) throw new Error('failed')
-    const info = JSON.parse(json.versionInfo)
-    if (info.version == null) throw new Error('failed')
-    return info
-  })
-}
-
-export const getVersionInfo = async(index = 0) => {
-  const list = await getAddressList()
-  const [url, source] = list[index]
-  let promise
-  switch (source) {
-    case 'direct':
-      promise = getDirectInfo(url)
-      break
-    case 'npm':
-      promise = getNpmPkgInfo(url)
-      break
+/** 单源解析：只返回结果，不写全局状态（并发竞速时由胜者写） */
+const fetchDirect = async(url) => {
+  const info = await request(withCacheBust(url))
+  if (info == null || info.version == null) throw new Error('invalid version info')
+  let origin = ''
+  try {
+    origin = new URL(url).origin
+  } catch {
+    origin = ''
   }
+  return { info, origin }
+}
 
-  return promise.catch(async(err) => {
-    index++
-    if (index >= list.length) throw err
-    return getVersionInfo(index)
-  })
+const fetchNpm = async(url) => {
+  const json = await request(url)
+  if (!json?.versionInfo) throw new Error('invalid npm info')
+  const info = JSON.parse(json.versionInfo)
+  if (info?.version == null) throw new Error('invalid npm info')
+  return { info, origin: '' }
+}
+
+/** 竞速：谁先给出有效清单就用谁，全部失败才抛错 */
+const firstSuccess = (tasks) => new Promise((resolve, reject) => {
+  let failed = 0
+  let settled = false
+  for (const task of tasks) {
+    task.then(result => {
+      if (settled) return
+      settled = true
+      resolve(result)
+    }).catch(() => {
+      if (settled) return
+      if (++failed >= tasks.length) {
+        settled = true
+        reject(new Error('all update sources failed'))
+      }
+    })
+  }
+})
+
+export const getVersionInfo = async() => {
+  const list = await getAddressList()
+  // 并发请求所有源。
+  // 串行回退的体验很差：第一个源（镜像）不通要等满超时才开始试第二个，
+  // 用户看到的就是「点了检查更新，转半分钟才提示失败」。竞速后耗时≈最快那个源。
+  const tasks = list.map(([url, source]) => source == 'npm' ? fetchNpm(url) : fetchDirect(url))
+  const winner = await firstSuccess(tasks)
+  latestInfo = winner.info
+  latestInfoOrigin = winner.origin
+  return winner.info
 }
 
 const getTargetAbi = async() => {
