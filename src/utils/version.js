@@ -1,5 +1,4 @@
 import { httpGet } from '@/utils/request'
-import { author, name } from '../../package.json'
 import { downloadFile, stopDownload, temporaryDirectoryPath, readDir, stat, unlink } from '@/utils/fs'
 import { getPackageName, getSupportedAbis, installApk } from '@/utils/nativeModules/utils'
 import { APP_PROVIDER_NAME } from '@/config/constant'
@@ -13,37 +12,24 @@ const abis = [
 ]
 
 /**
- * 二改版的更新检查地址（与一起听服务器同域，下载页也在这里）。
- * 分享链接网关要求所有请求都带 sharecode。
- * 原版的 GitHub / npm 源更新的是原版安装包，对二改版没有意义，因此不再使用。
+ * 更新源：本仓库（fork）的 GitHub Releases。
+ *
+ * `releases/latest/download/version.json` 是固定地址，永远指向最新一次 release
+ * 里挂的版本清单（发布流程见 .github/workflows/android-release.yml），
+ * 不走 GitHub API，因此没有 60 次/小时的限流，也不依赖任何自建站点。
+ * 清单里的 download 是该次 release 的 assets 绝对地址。
+ *
+ * 为什么按包名分开下：本仓库有两个变体，装的是哪个就必须下哪个，
+ * 否则会把 com.lxmod.music 的包装到 cn.lxmusic.mod 上（系统直接拒装，或装成另一个应用）。
  */
+const REPO = 'buhuilida/lx-music-mobile-mod'
+const RELEASE_BASE = `https://github.com/${REPO}/releases`
 const address = [
-  ['https://aa9247f7339b2cb18.app.workbuddy.host/downloads/version.json?sharecode=ER6OKBO4HG', 'direct'],
-  // 备用源必须也是「新包名清单」：旧站的 version.json 服务的是 1.22.17 及更早的老版本，
-  // 里面指向的是原包名包 cn.toside.music.mobile，新包名用户装上去是另一个应用。
-  ['https://af384ee6deb6e09e2.app.workbuddy.host/downloads/version-newpkg.json?sharecode=MKPWEVLBUS', 'direct'],
+  [`${RELEASE_BASE}/latest/download/version.json`, 'direct'],
+  // 备用源：仓库里长期维护的一份清单（发布流程同步提交），latest 重定向异常时兜底
+  [`https://raw.githubusercontent.com/${REPO}/main/release/version.json`, 'direct'],
 ]
-// 原包名版（cn.toside.music.mobile）单独一份清单：它如果去拉新包名版的清单，
-// 会下载到 com.lxmod.music 的安装包，装上去是另一个应用，覆盖不了自己，
-// 用户看到的现象就是「点了更新，版本号没变」。
-const addressOrigPkg = [
-  ['https://aa9247f7339b2cb18.app.workbuddy.host/downloads/version-orig.json?sharecode=ER6OKBO4HG', 'direct'],
-  // 旧站的 version.json 就是原包名清单，可以直接作为回退源
-  ['https://af384ee6deb6e09e2.app.workbuddy.host/downloads/version.json?sharecode=MKPWEVLBUS', 'direct'],
-]
-let cachedAddressList
-const getAddressList = async() => {
-  if (cachedAddressList) return cachedAddressList
-  // getPackageName 走原生桥，理论上可能 reject（桥未就绪、模块缺失）。
-  // 这里不能让它冒泡：一旦抛错，检查更新会直接失败，用户只看到「检查更新失败」，
-  // 却不知道只是拿包名失败。拿不到就按新包名清单走。
-  let pkg = null
-  try {
-    pkg = await getPackageName()
-  } catch {}
-  cachedAddressList = pkg == 'cn.toside.music.mobile' ? addressOrigPkg : address
-  return cachedAddressList
-}
+const getAddressList = async() => address
 
 
 const request = async(url, retryNum = 0) => {
@@ -136,7 +122,8 @@ async function removeStaleApks() {
     const items = await readDir(temporaryDirectoryPath)
     const targets = (items || [])
       .map(item => item.path || `${temporaryDirectoryPath}/${item.name}`)
-      .filter(path => /\/lx-music-mobile.*\.apk$/i.test(path))
+      // 本仓库产物的文件名是 lxmod-*，历史版本是 lx-music-mobile-*，两种都要清
+      .filter(path => /\/(lx-music-mobile|lxmod).*\.apk$/i.test(path))
     for (const path of targets) {
       await unlink(path).catch(() => {})
     }
@@ -146,18 +133,18 @@ async function removeStaleApks() {
 export const downloadNewVersion = async(version, onDownload = noop) => {
   const abi = await getTargetAbi()
   // 优先使用版本信息里下发的下载地址（二改版自建下载页），没有时回退到 GitHub
-  const modDownload = latestInfo?.download
+  // 装的是哪个变体就下哪个变体的包：standard=com.lxmod.music，共存版=cn.lxmusic.mod
+  const pkg = await getPackageName().catch(() => null)
+  const perPkg = pkg ? latestInfo?.downloadByPackage?.[pkg] : null
+  const modDownload = perPkg ?? latestInfo?.download
   let url = typeof modDownload === 'string' && modDownload
     ? modDownload
-    // 清单里只提供 arm64-v8a / universal / backscreen 三个键。
-    // 32 位机型（armeabi-v7a）或模拟器（x86）取不到自己的键，
-    // 以前会直接落到 GitHub 回退 —— 那是原版洛雪的安装包，装上去等于换了个应用。
-    // 这里先退到 universal（全架构包），真的没有才走 GitHub。
+    // 清单里没有对应 abi 时退到 universal（全架构包），再没有才按 assets 命名规则猜
     : modDownload?.[abi] || modDownload?.universal ||
-      `https://github.com/${author.name}/${name}/releases/download/v${version}/${name}-v${version}-${abi}.apk`
+      `${RELEASE_BASE}/download/v${version}/lxmod-v${version}-${abi}.apk`
   // 版本信息里可能是相对路径（如 /downloads/xx.apk 或 downloads/xx.apk），下载器需要完整 URL
   if (!/^https?:\/\//i.test(url)) {
-    const origin = latestInfoOrigin || 'https://af384ee6deb6e09e2.app.workbuddy.host'
+    const origin = latestInfoOrigin || RELEASE_BASE
     url = origin + (url.startsWith('/') ? '' : '/') + url
   }
 
