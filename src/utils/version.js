@@ -26,6 +26,21 @@ const abis = [
 const REPO = 'buhuilida/lx-music-mobile-mod'
 const RELEASE_BASE = `https://github.com/${REPO}/releases`
 
+/**
+ * 自建静态分发站（WorkBuddy 发布，国内直连）。
+ *
+ * 只用于「下载安装包」：实测 3.8~10 MB/s，比 GitHub 镜像快 5~9 倍，且支持 Range 断点续传。
+ * 不参与「检查更新」——那份文件要我每次发版手动上传，一旦忘了就会一直报旧版本；
+ * 清单仍从 GitHub 系列源取（CI 自动更新，永远最新）。
+ *
+ * 文件名规则与 Release 资产一致：lxmod-v<version>[-backscreen]-<abi>.apk
+ * 站上没有对应文件时返回 404，自动回退到 GitHub 镜像。
+ */
+const STATIC_HOST = 'https://lxmod-update.app.workbuddy.host'
+const STATIC_SHARECODE = '5ALQPTLBLM'
+const staticApkUrl = (version, variant, abi) =>
+  `${STATIC_HOST}/lxmod-v${version}${variant}-${abi}.apk?sharecode=${STATIC_SHARECODE}`
+
 /** 国内 GitHub 加速镜像（镜像地址 = 前缀 + 原始地址） */
 const GITHUB_MIRRORS = [
   'https://ghfast.top/',
@@ -234,9 +249,14 @@ export const downloadNewVersion = async(version, onDownload = noop) => {
     return promise
   }
 
-  // 先镜像后回源：国内直连 github.com 大概率超时，逐个候选地址试，
+  // 候选顺序：自建静态站 → GitHub 镜像 → GitHub 原地址。
   // 每个候选都完整下完并验大小，失败就删掉残留换下一个。
-  const candidates = [...new Set([...mirrorUrls(url), url])]
+  const variant = pkg == 'com.lxmod.music' ? '' : '-backscreen'
+  const candidates = [...new Set([
+    staticApkUrl(version, variant, abi),
+    ...mirrorUrls(url),
+    url,
+  ])]
   let lastErr
   for (const candidate of candidates) {
     try {
