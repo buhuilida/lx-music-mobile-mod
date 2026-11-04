@@ -65,7 +65,15 @@
 备用      https://cdn.jsdelivr.net/gh/buhuilida/lx-music-mobile-mod@main/release/version.json
 ```
 
-安装包同样是「先镜像、失败回源」逐个尝试，避免国内直连 github.com 超时。
+安装包优先从**自建静态分发站**下载（国内直连，实测 3.8~10 MB/s，支持 Range 断点续传），
+站上没有对应文件时按「GitHub 镜像 → GitHub 原地址」逐级回退：
+
+```
+分发站  https://lxmod-update.app.workbuddy.host/<文件名>?sharecode=5ALQPTLBLM
+```
+
+> 分发站只承载安装包，**不参与版本判断**：那份清单要发版时手动上传，漏传会导致永远报旧版本，
+> 所以「检查更新」始终取 GitHub 系列源（CI 自动更新，永远最新）。
 
 > 启动时的自动检查默认关闭（避免调试包被自动更新覆盖），需要在设置里手动点「检查更新」。
 
