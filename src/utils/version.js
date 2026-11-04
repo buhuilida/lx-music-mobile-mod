@@ -1,3 +1,4 @@
+import { compareVer } from '@/utils'
 import { httpGet } from '@/utils/request'
 import { downloadFile, stopDownload, temporaryDirectoryPath, readDir, stat, unlink } from '@/utils/fs'
 import { getPackageName, getSupportedAbis, installApk } from '@/utils/nativeModules/utils'
@@ -33,11 +34,12 @@ const GITHUB_MIRRORS = [
 const mirrorUrls = (url) => GITHUB_MIRRORS.map(prefix => `${prefix}${url}`)
 
 const address = [
-  // 1. 镜像优先：国内直连 github.com 的成功率太低
-  ...mirrorUrls(`${RELEASE_BASE}/latest/download/version.json`).map(url => [url, 'direct']),
-  // 2. jsDelivr CDN：仓库里同步维护了一份清单，国内通常可直连
+  // 1. jsDelivr：纯 CDN 直取仓库里的清单，不经代理转发、无 302，国内小文件通常最快。
+  //    发布后 CI 会 commit 回 main 并 purge 缓存，所以内容不会长期落后。
   [`https://cdn.jsdelivr.net/gh/${REPO}@main/release/version.json`, 'direct'],
-  // 3. 回源：镜像全挂时再试原始地址
+  // 2. 镜像：直接把 GitHub 的 latest 清单转发回来，国内可用性最好
+  ...mirrorUrls(`${RELEASE_BASE}/latest/download/version.json`).map(url => [url, 'direct']),
+  // 3. 回源：上面全挂时再试原始地址
   [`${RELEASE_BASE}/latest/download/version.json`, 'direct'],
   [`https://raw.githubusercontent.com/${REPO}/main/release/version.json`, 'direct'],
 ]
@@ -47,8 +49,8 @@ const getAddressList = async() => address
 const request = async(url, retryNum = 0) => {
   return new Promise((resolve, reject) => {
     httpGet(url, {
-      // 多源并发竞速，单源不必等太久：6 秒没回就让它出局
-      timeout: 6000,
+      // 多源并发竞速，单源不必等太久：5 秒没回就让它出局
+      timeout: 5000,
     }, (err, resp, body) => {
       if (err || resp.statusCode != 200) {
         ++retryNum >= 1
@@ -75,7 +77,9 @@ const withCacheBust = (url) => `${url}${url.includes('?') ? '&' : '?'}_=${Date.n
 
 /** 单源解析：只返回结果，不写全局状态（并发竞速时由胜者写） */
 const fetchDirect = async(url) => {
-  const info = await request(withCacheBust(url))
+  // jsDelivr 是 CDN，加随机参数会让它每次都回源，反而更慢；它的新鲜度靠 CI 发布后 purge
+  const target = /cdn\.jsdelivr\.net/.test(url) ? url : withCacheBust(url)
+  const info = await request(target)
   if (info == null || info.version == null) throw new Error('invalid version info')
   let origin = ''
   try {
@@ -94,26 +98,58 @@ const fetchNpm = async(url) => {
   return { info, origin: '' }
 }
 
-/** 竞速：谁先给出有效清单就用谁，全部失败才抛错 */
+/**
+ * 竞速取清单：第一个成功的结果先记下来，再等一个很短的宽限期（默认 600ms）。
+ *
+ * 为什么要宽限而不是「谁先到用谁」：jsDelivr 这类 CDN 可能还在吐上一个版本的缓存，
+ * 如果它最先返回就直接采信，就会出现「明明发了新版却提示已是最新」。
+ * 宽限期内如果有别的源给出更高版本号，就用更高的那个；没有就用手上第一个。
+ */
+const GRACE_MS = 600
 const firstSuccess = (tasks) => new Promise((resolve, reject) => {
+  const results = []
   let failed = 0
-  let settled = false
+  let done = false
+  let timer = null
+
+  const pickBest = () => {
+    let best = results[0]
+    for (const item of results) {
+      if (compareVer(item.info.version, best.info.version) == 1) best = item
+    }
+    return best
+  }
+  const settle = (value, isError) => {
+    if (done) return
+    done = true
+    if (timer) clearTimeout(timer)
+    if (isError) reject(value)
+    else resolve(results.length ? pickBest() : value)
+  }
+
   for (const task of tasks) {
     task.then(result => {
-      if (settled) return
-      settled = true
-      resolve(result)
-    }).catch(() => {
-      if (settled) return
-      if (++failed >= tasks.length) {
-        settled = true
-        reject(new Error('all update sources failed'))
+      if (done) return
+      results.push(result)
+      // 第一个结果到达后启动宽限计时
+      if (!timer) {
+        timer = setTimeout(() => { settle(null, false) }, GRACE_MS)
       }
+      if (results.length >= tasks.length) settle(null, false)
+    }).catch(() => {
+      if (done) return
+      if (++failed >= tasks.length) settle(new Error('all update sources failed'), true)
     })
   }
 })
 
+/** 60 秒内的重复检查直接用上次结果：设置页连点「检查更新」不必每次都走网络 */
+const CACHE_TTL = 60 * 1000
+let cachedInfo = null
+let cachedAt = 0
+
 export const getVersionInfo = async() => {
+  if (cachedInfo && Date.now() - cachedAt < CACHE_TTL) return cachedInfo
   const list = await getAddressList()
   // 并发请求所有源。
   // 串行回退的体验很差：第一个源（镜像）不通要等满超时才开始试第二个，
@@ -122,6 +158,8 @@ export const getVersionInfo = async() => {
   const winner = await firstSuccess(tasks)
   latestInfo = winner.info
   latestInfoOrigin = winner.origin
+  cachedInfo = winner.info
+  cachedAt = Date.now()
   return winner.info
 }
 
