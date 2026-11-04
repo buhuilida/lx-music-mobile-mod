@@ -61,6 +61,9 @@ const SKIP_FILES = [
   /^node_modules\//,
   /^package-lock\.json$/,
   /^vendor\//,
+  // 检查器自身的规则里必然写着这些字面量（否则没法匹配），不扫自己。
+  // 这也意味着：往这个文件里塞真实信息不会被自己发现，改它时需人工复核。
+  /^scripts\/privacy-check\.mjs$/,
 ]
 const BINARY_EXT = /\.(png|jpe?g|gif|webp|bmp|ico|ttf|otf|woff2?|so|a|aar|jar|apk|keystore|jks|zip|gz|mp3|mp4|db|bundle|hprof)$/i
 
