@@ -12,6 +12,8 @@ const defaultSetting: LX.AppSetting = {
   'common.allowProgressBarSeek': true,
   'common.showBackBtn': false,
   'common.showExitBtn': true,
+  // 侧边栏要隐藏的项（JSON 数组字符串），空数组=全部显示
+  'common.hiddenNavIds': '[]',
   'common.useSystemFileSelector': true,
   'common.alwaysKeepStatusbarHeight': false,
 

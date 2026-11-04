@@ -4,7 +4,7 @@
   "about_credit_lxx": "LX-X Music：播放失败兜底、背景不透明度/模糊、播放页常亮、音质徽标、WebDAV 自动备份等功能来源",
   "about_credit_title": "引用项目 / 致谢",
   "about_free_tip": "本软件完全免费。",
-  "about_mod_github_app": "App 源码仓库（GitHub：yzdz666/lx-music-mobile-mod）",
+  "about_mod_github_app": "本仓库源码（GitHub：buhuilida/lx-music-mobile-mod）",
   "about_mod_github_server": "一起听服务端 / 网页版源码（GitHub：yzdz666/listen-together-server）",
   "about_mod_home": "二改版主页（下载最新安装包 / 源码）",
   "about_modified_by": "二改：{name}",
@@ -14,7 +14,7 @@
   "about_pact_name": "许可协议",
   "about_pact_prefix": "你已签署本软件的",
   "about_pact_suffix": "。",
-  "about_repo_title": "官方项目地址：",
+  "about_repo_title": "本仓库地址：",
   "about_sponsor": "赞赏支持（感谢大家支持 ❤）",
   "about_sponsor_caption": "月下独酌版 赞助码",
   "about_sponsor_close": "关闭",
@@ -1153,4 +1153,12 @@
   "baidu_pan_err_unknown": "上传失败（错误码 {code}）",
   "baidu_pan_upload_retry": "重试上传",
   "baidu_pan_uploaded": "已上传"
+,
+  "about_fork_intro": "本仓库是个人特化版：目标只有一件事——一步把带逐字歌词和完整歌曲信息的音频文件下载并传到百度网盘；其余功能都跟随上游，仅作附带。",
+  "about_upstream_title": "上游与致谢",
+  "about_upstream_lx": "原版：lyswhut/lx-music-mobile",
+  "about_upstream_mod": "二改版（本仓库上游）：yzdz666/lx-music-mobile-mod",
+  "about_upstream_tip": "播放内核、音源机制、界面等绝大部分能力来自上面两个项目，本仓库只做特化与同步。",
+  "about_credit_mod": "二改版：一起听、主题、WebDAV、音质档位等功能来源",
+  "setting_nav_menus_tip": "关掉的项不会出现在侧边栏，也不会参与首页左右滑动；至少保留一项。"
 }

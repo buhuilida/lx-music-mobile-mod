@@ -4,7 +4,7 @@ import { useNavActiveId, useStatusbarHeight } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
 import { confirmDialog, createStyle, exitApp as backHome } from '@/utils/tools'
-import { NAV_MENUS } from '@/config/constant'
+import { getVisibleNavMenus, parseHiddenNavIds } from '@/utils/navMenus'
 import type { InitState } from '@/store/common/state'
 import commonState from '@/store/common/state'
 import { navigations } from '@/navigation'
@@ -109,6 +109,7 @@ export default memo(() => {
   // console.log('render drawer nav')
   const showBackBtn = useSettingValue('common.showBackBtn')
   const showExitBtn = useSettingValue('common.showExitBtn')
+  const hideNavIds = parseHiddenNavIds(useSettingValue('common.hiddenNavIds'))
 
   const handlePress = (id: IdType) => {
     switch (id) {
@@ -146,7 +147,7 @@ export default memo(() => {
       <Header />
       <ScrollView style={styles.menus}>
         <View style={styles.list}>
-          {NAV_MENUS.map(menu => <MenuItem key={menu.id} id={menu.id} icon={menu.icon} onPress={handlePress} />)}
+          {getVisibleNavMenus(hideNavIds).map(menu => <MenuItem key={menu.id} id={menu.id} icon={menu.icon} onPress={handlePress} />)}
         </View>
       </ScrollView>
       {

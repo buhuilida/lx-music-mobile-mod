@@ -15,6 +15,7 @@ import { useSettingValue } from '@/store/setting/hook'
 import { navigations } from '@/navigation'
 import commonState from '@/store/common/state'
 import { loadBaiduPanAuth } from '@/core/baiduPan/auth'
+import { getVisibleNavMenus, parseHiddenNavIds } from '@/utils/navMenus'
 
 const styles = createStyle({
   container: {
@@ -103,6 +104,7 @@ export default memo(() => {
   // console.log('render drawer nav')
   const showBackBtn = useSettingValue('common.showBackBtn')
   const showExitBtn = useSettingValue('common.showExitBtn')
+  const hideNavIds = parseHiddenNavIds(useSettingValue('common.hiddenNavIds'))
 
   const handlePress = (id: IdType) => {
     switch (id) {
@@ -168,7 +170,7 @@ export default memo(() => {
       <Header />
       <ScrollView style={styles.menus}>
         <View style={styles.list}>
-          {NAV_MENUS.map(menu => <MenuItem key={menu.id} id={menu.id} icon={menu.icon} onPress={handlePress} />)}
+          {getVisibleNavMenus(hideNavIds).map(menu => <MenuItem key={menu.id} id={menu.id} icon={menu.icon} onPress={handlePress} />)}
         </View>
       </ScrollView>
 

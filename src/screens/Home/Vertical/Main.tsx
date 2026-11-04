@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef, type ComponentType } from 'react'
 import { View } from 'react-native'
 import Search from '../Views/Search'
 import SongList from '../Views/SongList'
@@ -12,6 +12,8 @@ import { createStyle } from '@/utils/tools'
 import PagerView, { type PageScrollStateChangedNativeEvent, type PagerViewOnPageSelectedEvent } from 'react-native-pager-view'
 import { setNavActiveId } from '@/core/common'
 import settingState from '@/store/setting/state'
+import { useSettingValue } from '@/store/setting/hook'
+import { getVisiblePagerIds, parseHiddenNavIds } from '@/utils/navMenus'
 
 const hideKeys = [
   'list.isShowAlbumName',
@@ -220,38 +222,38 @@ const SettingPage = () => {
   return visible ? component : null
 }
 
-const viewMap = {
-  nav_search: 0,
-  nav_songlist: 1,
-  nav_top: 2,
-  nav_love: 3,
-  nav_download: 4,
-  // 一起听是独立 push 页面，不会切换 pager，这里仅为类型完整（1.14 侧边栏入口）
+// 非 pager 页面（一起听 / 本地 / 我的 / 云盘 / 平台设置）都是独立 push 页面，
+// 这里给个占位索引，仅为类型完整；滑动顺序见 getVisiblePagerIds()。
+const NON_PAGER_INDEX: Record<string, number> = {
   nav_listen: 0,
-  // 本地音乐点击后跳到歌单视图并选中「本地音乐」列表（1.17 侧边栏入口）
-  nav_local: 1,
-  // 我的音乐 / 平台设置都是独立 push 页面，仅用于类型完整
-  nav_mine: 1,
-  // 云盘(WebDAV)是独立 push 页面（1.22.11 侧边栏入口）
-  nav_cloud: 1,
-  // 百度网盘是首页 pager 视图
-  nav_baidu_pan: 6,
-  nav_platform: 5,
-  nav_setting: 5,
+  nav_local: 0,
+  nav_mine: 0,
+  nav_cloud: 0,
+  nav_platform: 0,
 }
-const indexMap = [
-  'nav_search',
-  'nav_songlist',
-  'nav_top',
-  'nav_love',
-  'nav_download',
-  'nav_setting',
-  'nav_baidu_pan',
-] as const
+
+/** 可滑动页面 → 组件 */
+const PAGER_PAGES: Record<string, ComponentType> = {
+  nav_search: SearchPage,
+  nav_songlist: SongListPage,
+  nav_top: LeaderboardPage,
+  nav_love: MylistPage,
+  nav_download: DownloadPage,
+  nav_baidu_pan: BaiduPanPage,
+  nav_setting: SettingPage,
+}
 
 const Main = () => {
   const pagerViewRef = useRef<ComponentRef<typeof PagerView>>(null)
-  let activeIndexRef = useRef(viewMap[commonState.navActiveId])
+  const hiddenNavIds = parseHiddenNavIds(useSettingValue('common.hiddenNavIds'))
+  // 顺序直接来自 NAV_MENUS：侧边栏怎么排，左右滑就怎么走，不再单独维护一份顺序
+  const indexMap = useMemo(() => getVisiblePagerIds(hiddenNavIds), [hiddenNavIds])
+  const viewMap = useMemo(() => {
+    const map: Record<string, number> = { ...NON_PAGER_INDEX }
+    indexMap.forEach((id, i) => { map[id] = i })
+    return map
+  }, [indexMap])
+  let activeIndexRef = useRef(viewMap[commonState.navActiveId] ?? 0)
   // const isScrollingRef = useRef(false)
   // const scrollPositionRef = useRef(-1)
 
@@ -274,9 +276,9 @@ const Main = () => {
     // console.log(nativeEvent)
     activeIndexRef.current = nativeEvent.position
     if (activeIndexRef.current != viewMap[commonState.navActiveId]) {
-      setNavActiveId(indexMap[activeIndexRef.current])
+      setNavActiveId(indexMap[activeIndexRef.current] as CommonState['navActiveId'])
     }
-  }, [])
+  }, [indexMap, viewMap])
 
   const onPageScrollStateChanged = useCallback(({ nativeEvent }: PageScrollStateChangedNativeEvent) => {
     // console.log(nativeEvent)
@@ -317,12 +319,22 @@ const Main = () => {
       global.state_event.off('navActiveIdUpdated', handleUpdate)
       global.state_event.off('configUpdated', handleConfigUpdate)
     }
-  }, [])
+    // viewMap 会随「侧边栏显示项」变化，必须进依赖，否则切换后点侧边栏会跳到旧下标
+  }, [viewMap])
 
+
+  // 当前选中的页面被关掉时，切到第一个还在显示的页面
+  useEffect(() => {
+    if (indexMap.includes(commonState.navActiveId)) return
+    setNavActiveId(indexMap[0] as CommonState['navActiveId'])
+  }, [indexMap])
 
   const component = useMemo(() => (
     <PagerView ref={pagerViewRef}
-      initialPage={activeIndexRef.current}
+      // 页面集合变化时整体重建，避免原生层残留旧的子 View
+      key={indexMap.join(',')}
+      // 重建时按当前选中页算下标（activeIndexRef 是旧的页序号，重建后不可靠）
+      initialPage={viewMap[commonState.navActiveId] ?? 0}
       // onPageScroll={handlePageScroll}
       offscreenPageLimit={1}
       onPageSelected={onPageSelected}
@@ -330,27 +342,14 @@ const Main = () => {
       scrollEnabled={settingState.setting['common.homePageScroll']}
       style={styles.pagerView}
     >
-      <View collapsable={false} key="nav_search" style={styles.pageStyle}>
-        <SearchPage />
-      </View>
-      <View collapsable={false} key="nav_songlist" style={styles.pageStyle}>
-        <SongListPage />
-      </View>
-      <View collapsable={false} key="nav_top" style={styles.pageStyle}>
-        <LeaderboardPage />
-      </View>
-      <View collapsable={false} key="nav_love" style={styles.pageStyle}>
-        <MylistPage />
-      </View>
-      <View collapsable={false} key="nav_download" style={styles.pageStyle}>
-        <DownloadPage />
-      </View>
-      <View collapsable={false} key="nav_setting" style={styles.pageStyle}>
-        <SettingPage />
-      </View>
-      <View collapsable={false} key="nav_baidu_pan" style={styles.pageStyle}>
-        <BaiduPanPage />
-      </View>
+      {indexMap.map(id => {
+        const Page = PAGER_PAGES[id]
+        return (
+          <View collapsable={false} key={id} style={styles.pageStyle}>
+            <Page />
+          </View>
+        )
+      })}
       {/* <View collapsable={false} key="nav_search" style={styles.pageStyle}>
         <Search />
       </View>
@@ -367,7 +366,7 @@ const Main = () => {
         <Setting />
       </View> */}
     </PagerView>
-  ), [onPageScrollStateChanged, onPageSelected])
+  ), [onPageScrollStateChanged, onPageSelected, indexMap])
 
   return component
 }
