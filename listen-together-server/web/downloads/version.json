@@ -1,9 +1,13 @@
 {
-  "version": "1.22.26",
-  "versionCode": 131000,
+  "version": "1.22.27",
+  "versionCode": 132000,
   "date": "2026-11-04",
-  "desc": "v1.22.26（原包名版 cn.toside.music.mobile）· WebDAV 云盘音乐播放修复\n\n- 修「云盘目录能浏览、点播放一直失败」：302 跳到对象存储时把 Basic 认证头\n  带了过去，被判定两套认证直接 400\n- 目录浏览请求量减半，撞限流自动退避重试并明确提示\n- 修服务器返回绝对地址时路径拼错必 404\n- 换服务器后旧曲库自动失效；扫描不全时给出提示\n\n可直接覆盖旧版，歌单 / 设置 / 登录态全部保留。versionCode 131000。",
+  "desc": "v1.22.27（原包名版 cn.toside.music.mobile）· 歌词里的 // 清理\n\n- 清掉歌词里的 `//` 占位行（音源用它表示「这行没有翻译」）\n- 覆盖 App 歌词页、桌面歌词、锁屏歌词、投屏、一起听、下载歌词导出\n- QQ 歌词从源头过滤，新拉取的歌词不再带占位行\n- 修下载带翻译歌词时一半翻译行丢失（正则 lastIndex 残留）\n\n可直接覆盖旧版，歌单 / 设置 / 登录态 / 云盘曲库全部保留。versionCode 132000。",
   "history": [
+    {
+      "version": "1.22.26",
+      "desc": "WebDAV 云盘音乐播放修复：302 跳转不再丢认证、限流自动重试"
+    },
     {
       "version": "1.22.25",
       "desc": "App 内歌词页逐字渲染重做；修自动滚动失效 / 逐字回跳 / 时间轴断裂"
@@ -30,7 +34,8 @@
     }
   ],
   "download": {
-    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lxmod-origpkg-v1.22.26-arm64-v8a.apk?sharecode=MKPWEVLBUS",
-    "universal": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lxmod-origpkg-v1.22.26-universal.apk?sharecode=MKPWEVLBUS"
-  }
+    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lxmod-origpkg-v1.22.27-arm64-v8a.apk?sharecode=MKPWEVLBUS",
+    "universal": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lxmod-origpkg-v1.22.27-universal.apk?sharecode=MKPWEVLBUS"
+  },
+  "source": "lx-music-mod-src-v1.22.27.zip"
 }

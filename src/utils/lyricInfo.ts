@@ -1,4 +1,5 @@
 import { parseWordLyric, buildAutoWordLyric, hasWordTags } from '@/utils/wordLyric'
+import { isLyricPlaceholder } from '@/utils/lrcTools'
 
 /**
  * ColorOS / OPlus 系统歌词 payload 生成（纯函数，便于单测）
@@ -69,6 +70,8 @@ export const normalizeTimedLrc = (lrc: string): string => {
     if (!tags.length) continue
     const text = line.replace(anyTimeTagRxp, '').trim()
     if (!text) continue
+    // `//` 是音源给的「本行无翻译」占位符，别写进系统歌词 payload
+    if (isLyricPlaceholder(text)) continue
     for (const time of tags) out.push(`${msToLrcTag(time)}${text}`)
   }
   return out.join('\n')
@@ -91,6 +94,8 @@ export const buildRawWordLyric = (lrc: string, wordLyric?: string): string => {
   const out: string[] = []
   for (const line of lines) {
     if (!line.words.length) continue
+    // 整行只有 `//` 占位符的，不生成逐字行
+    if (isLyricPlaceholder(line.words.map(word => word.text).join(''))) continue
     let body = msToLrcTag(line.time)
     for (const word of line.words) body += `<${msToLrcTag(word.time).slice(1, -1)}>${word.text}`
     // 最后一个字的结束点：系统据此判断扫光结束

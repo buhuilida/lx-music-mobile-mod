@@ -20,6 +20,11 @@ const parseTools = {
     wordTimeAll: /(\(\d+,\d+\))/g,
     timeLabelFixRxp: /(?:\.0+|0+)$/,
   },
+  /** `//` 这类「本行无翻译 / 无音译」的占位符，不是歌词内容 */
+  isPlaceholder(text) {
+    const value = text.trim()
+    return value.length > 0 && value.length <= 4 && /^[/／]+$/.test(value)
+  },
   msFormat(timeMs) {
     if (Number.isNaN(timeMs)) return ''
     let ms = timeMs % 1000
@@ -58,6 +63,8 @@ const parseTools = {
       if (!startTimeStr) continue
 
       let words = line.replace(this.rxps.lineTime, '')
+      // `//` 占位符行既没有正文也没有逐字信息，整行丢掉
+      if (this.isPlaceholder(words.replace(this.rxps.wordTimeAll, ''))) continue
 
       lrcLines.push(`${startTimeStr}${words.replace(this.rxps.wordTimeAll, '')}`)
 
@@ -122,6 +129,7 @@ const parseTools = {
       if (!result) return
       const words = line.replace(this.rxps.lineTime2, '')
       if (!words.trim()) return
+      if (this.isPlaceholder(words)) return
       const t1 = this.getIntv(result[1])
 
       while (lrcLines.length) {
@@ -152,6 +160,7 @@ const parseTools = {
       if (!result) return
       const words = line.replace(this.rxps.lineTime2, '')
       if (!words.trim()) return
+      if (this.isPlaceholder(words)) return
       let time = result[1]
       if (time.includes('.')) {
         time += ''.padStart(3 - time.split('.')[1].length, '0')

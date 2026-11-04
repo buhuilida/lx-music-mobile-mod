@@ -1,3 +1,5 @@
+import { isLyricPlaceholder } from '@/utils/lrcTools'
+
 /**
  * 逐字歌词解析（1.16.0 / 1.17.0 增强）
  *
@@ -247,6 +249,8 @@ export const parseWordLyric = (raw: string | null | undefined): WordLyricLine[] 
 
     if (!words.length) continue
     const lineText = words.map(w => w.text).join('')
+    // 逐字源里同样可能有 `//` 占位行：留着会被就近匹配到相邻那句上，导致整句变成斜杠
+    if (isLyricPlaceholder(lineText)) continue
     // 补全缺失的 duration：下一个字开始时间 - 当前字开始时间
     for (let i = 0; i < words.length; i++) {
       if (!words[i].duration) {
@@ -287,6 +291,7 @@ export const buildAutoWordLyric = (lyric: string | null | undefined): string => 
     if (!m) continue
     const text = stripWordTags(line.slice(m[0].length)).trim()
     if (!text) continue
+    if (isLyricPlaceholder(text)) continue
     parsed.push({ time: tagToMs(m as RegExpMatchArray), text })
   }
   if (parsed.length < 2) return ''

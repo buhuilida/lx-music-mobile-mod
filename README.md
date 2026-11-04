@@ -1,8 +1,8 @@
 <p align="center">
-  <img width="120" src="https://github.com/lyswhut/lx-music-mobile/raw/master/doc/images/icon.png" alt="lxmod logo">
+  <img width="120" src="https://github.com/lyswhut/lx-music-mobile/raw/master/doc/images/icon.png" alt="LX Mod logo">
 </p>
 
-<h1 align="center">lxmod</h1>
+<h1 align="center">LX Mod</h1>
 
 <p align="center">
   <a href="https://github.com/yzdz666/lx-music-mobile-mod/releases"><img src="https://img.shields.io/github/v/release/yzdz666/lx-music-mobile-mod?label=release" alt="Release"></a>
@@ -17,10 +17,11 @@
 
 ## 这是什么
 
-**lxmod** 是 [lyswhut/lx-music-mobile](https://github.com/lyswhut/lx-music-mobile)（洛雪音乐移动版）的二次开发版本，在保留原有播放、歌单、音源机制的基础上，补齐了一批日常使用中缺席的能力。
+**LX Mod** 是 [lyswhut/lx-music-mobile](https://github.com/lyswhut/lx-music-mobile)（洛雪音乐移动版）的二次开发版本，在保留原有播放、歌单、音源机制的基础上，补齐了一批日常使用中缺席的能力。
 
+- **应用名称**：LX Mod（桌面与系统设置里显示）
 - **应用包名**：`com.lxmod.music`（与原版洛雪 **可共存安装**）
-- **当前版本**：1.22.26（versionCode 131000）
+- **当前版本**：1.22.27（versionCode 132000）
 - **作者**：月下独酌 · QQ 3139606844
 
 ## 下载
@@ -29,13 +30,16 @@
 
 | 文件 | 适用场景 |
 | --- | --- |
-| `lxmod-v1.22.26-arm64-v8a.apk` | 新包名常规版，绝大多数手机（可与原版共存） |
-| `lxmod-v1.22.26-universal.apk` | 新包名全架构版，不知道选哪个就选它 |
-| `lxmod-v1.22.26-backscreen-arm64-v8a.apk` | 新包名 + 锁屏歌词增强 |
-| `lxmod-origpkg-v1.22.26-arm64-v8a.apk` | **原包名** `cn.toside.music.mobile`，用于从旧版覆盖升级（保留数据，不能与原版共存） |
-| `lx-music-mod-src-v1.22.26.zip` | 源码（不含签名密钥） |
+| `lxmod-v1.22.27-arm64-v8a.apk` | 新包名常规版，绝大多数手机（可与原版共存） |
+| `lxmod-v1.22.27-universal.apk` | 新包名全架构版，不知道选哪个就选它 |
+| `lxmod-v1.22.27-backscreen-arm64-v8a.apk` | 新包名 + 锁屏歌词增强 |
+| `lxmod-origpkg-v1.22.27-arm64-v8a.apk` | **原包名** `cn.toside.music.mobile`，用于从旧版覆盖升级（保留数据，不能与原版共存） |
+| `lxmod-origpkg-v1.22.27-universal.apk` | 原包名全架构版 |
+| `lx-music-mod-src-v1.22.27.zip` | 源码（不含签名密钥） |
 
-> 从旧版（1.22.20 ~ 1.22.25）升级：想保留数据就用 `lxmod-origpkg-*`；想和原版洛雪并存就用 `lxmod-*`（两者数据不互通，需重新登录）。
+> 安装包文件名前缀沿用 `lxmod`（构建产物名），安装到手机后应用显示为 **LX Mod**。
+
+> 从旧版（1.22.20 ~ 1.22.26）升级：想保留数据就用 `lxmod-origpkg-*`；想和原版洛雪并存就用 `lxmod-*`（两者数据不互通，需重新登录）。
 
 ## 功能
 
@@ -57,6 +61,7 @@
 - 系统歌词（锁屏 / ColorOS、OPlus `lyricInfo` 协议）
 - 歌词灵动岛：当前歌词 + 进度推到常驻通知，Android 16 起尝试 Live Update
 - App 内逐字歌词渲染、桌面歌词
+- **歌词占位符清理**：QQ 音乐 / TME 用 `//` 表示「该行无翻译」，现在 App 歌词页、桌面歌词、锁屏、投屏、一起听、下载导出六个出口统一过滤，不再出现满屏 `//`（1.22.27）
 
 ### 云盘与备份
 
