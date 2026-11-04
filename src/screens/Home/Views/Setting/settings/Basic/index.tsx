@@ -17,6 +17,7 @@ import IsAlwaysKeepStatusbarHeight from './IsAlwaysKeepStatusbarHeight'
 import IsShowBackBtn from './IsShowBackBtn'
 import IsShowExitBtn from './IsShowExitBtn'
 import DrawerLayoutPosition from './DrawerLayoutPosition'
+import NavMenus from './NavMenus'
 import { useI18n } from '@/lang/i18n'
 
 export default memo(() => {
@@ -36,6 +37,7 @@ export default memo(() => {
       <IsAlwaysKeepStatusbarHeight />
       <Theme />
       <DrawerLayoutPosition />
+      <NavMenus />
       <Language />
       <FontSize />
       <ShareType />

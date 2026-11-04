@@ -4,7 +4,7 @@
   "about_credit_lxx": "LX-X Music: source of failure fallback, bg opacity/blur, keep screen on, quality badge and WebDAV auto backup features",
   "about_credit_title": "Referenced projects / credits",
   "about_free_tip": "This software is completely free.",
-  "about_mod_github_app": "App source repo (GitHub: yzdz666/lx-music-mobile-mod)",
+  "about_mod_github_app": "This repo (GitHub: buhuilida/lx-music-mobile-mod)",
   "about_mod_github_server": "Listen-together server / web source (GitHub: yzdz666/listen-together-server)",
   "about_mod_home": "Mod homepage (download APK / source)",
   "about_modified_by": "Modified by {name}",
@@ -14,7 +14,7 @@
   "about_pact_name": "License Agreement",
   "about_pact_prefix": "You have agreed to the ",
   "about_pact_suffix": ".",
-  "about_repo_title": "Official project address:",
+  "about_repo_title": "This repo:",
   "about_sponsor": "Sponsor (thanks for your support ❤)",
   "about_sponsor_caption": "Sponsor QR code",
   "about_sponsor_close": "Close",
@@ -1153,4 +1153,12 @@
   "baidu_pan_err_unknown": "Upload failed (error code {code})",
   "baidu_pan_upload_retry": "Retry upload",
   "baidu_pan_uploaded": "Uploaded"
+,
+  "about_fork_intro": "This repo is a personal special build with one goal: download audio carrying word-by-word lyrics and full tags, then upload it to Baidu Netdisk in one step. Everything else follows upstream and is incidental.",
+  "about_upstream_title": "Upstream & credits",
+  "about_upstream_lx": "Original: lyswhut/lx-music-mobile",
+  "about_upstream_mod": "Modded (this repo's upstream): yzdz666/lx-music-mobile-mod",
+  "about_upstream_tip": "Playback core, music sources and UI come from those two projects; this repo only adds a specialization and keeps in sync.",
+  "about_credit_mod": "Modded build: listen-together, themes, WebDAV, quality tiers",
+  "setting_nav_menus_tip": "Unchecked items leave the drawer and are skipped when swiping. At least one item stays."
 }

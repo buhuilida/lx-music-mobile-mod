@@ -67,6 +67,12 @@ declare global {
       'common.showExitBtn': boolean
 
       /**
+       * 侧边栏要隐藏的菜单项，JSON 数组字符串（如 '["nav_cloud","nav_mine"]'）
+       * 空数组表示全部显示；被隐藏的项同时也不会出现在左右滑动里
+       */
+      'common.hiddenNavIds': string
+
+      /**
        * 使用系统文件选择器
        */
       'common.useSystemFileSelector': boolean

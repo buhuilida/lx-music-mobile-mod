@@ -4,7 +4,7 @@
   "about_credit_lxx": "LX-X Music：播放失敗兜底、背景不透明度/模糊、播放頁常亮、音質徽標、WebDAV 自動備份等功能來源",
   "about_credit_title": "引用專案 / 致謝",
   "about_free_tip": "本軟體完全免費。",
-  "about_mod_github_app": "App 源碼倉庫（GitHub：yzdz666/lx-music-mobile-mod）",
+  "about_mod_github_app": "本倉庫原始碼（GitHub：buhuilida/lx-music-mobile-mod）",
   "about_mod_github_server": "一起聽服務端 / 網頁版源碼（GitHub：yzdz666/listen-together-server）",
   "about_mod_home": "二改版主頁（下載最新安裝包 / 源碼）",
   "about_modified_by": "二改：{name}",
@@ -14,7 +14,7 @@
   "about_pact_name": "授權條款",
   "about_pact_prefix": "你已簽署本軟體的",
   "about_pact_suffix": "。",
-  "about_repo_title": "官方專案位址：",
+  "about_repo_title": "本倉庫位址：",
   "about_sponsor": "讚賞支持（感謝大家支持 ❤）",
   "about_sponsor_caption": "月下獨酌版 贊助碼",
   "about_sponsor_close": "關閉",
@@ -1153,4 +1153,12 @@
   "baidu_pan_err_unknown": "上傳失敗（錯誤碼 {code}）",
   "baidu_pan_upload_retry": "重試上傳",
   "baidu_pan_uploaded": "已上傳"
+,
+  "about_fork_intro": "本倉庫是個人特化版：目標只有一件事——一步把帶逐字歌詞和完整歌曲資訊的音訊檔下載並傳到百度網盤；其餘功能都跟隨上游，僅作附帶。",
+  "about_upstream_title": "上游與致謝",
+  "about_upstream_lx": "原版：lyswhut/lx-music-mobile",
+  "about_upstream_mod": "二改版（本倉庫上游）：yzdz666/lx-music-mobile-mod",
+  "about_upstream_tip": "播放內核、音源機制、介面等絕大部分能力來自上面兩個專案，本倉庫只做特化與同步。",
+  "about_credit_mod": "二改版：一起聽、主題、WebDAV、音質檔位等功能來源",
+  "setting_nav_menus_tip": "關掉的項目不會出現在側邊欄，也不會參與首頁左右滑動；至少保留一項。"
 }
