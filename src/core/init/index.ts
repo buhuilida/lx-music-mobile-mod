@@ -15,7 +15,7 @@ import { initSystemLyric } from '@/core/player/systemLyric'
 import { setApiSource } from '@/core/apiSource'
 import commonActions from '@/store/common/action'
 import settingState from '@/store/setting/state'
-// import { checkUpdate } from '@/core/version'
+import { checkUpdate } from '@/core/version'
 import { bootLog } from '@/utils/bootLog'
 import { cheatTip } from '@/utils/tools'
 import { getPackageName } from '@/utils/nativeModules/utils'
@@ -27,9 +27,9 @@ const handlePushedHomeScreen = async() => {
   if (settingState.setting['common.isAgreePact']) {
     if (isFirstPush) {
       isFirstPush = false
-      // 调试版明确关闭自动更新检查：避免启动时弹「发现新版本」打断排查，
-      // 也避免误点更新把我们正在测的包覆盖掉。设置页里的手动「检查更新」仍然可用。
-      // void checkUpdate()
+      // 自动检查更新。延迟 3 秒：等首屏数据先加载完，避免启动瞬间和歌单/音源抢网络。
+      // 有新版才弹窗，用户「忽略此版本」后不再提示；检查失败也只 7 天内提示一次。
+      setTimeout(() => { void checkUpdate() }, 3000)
       void initDeeplink()
     }
   } else {
