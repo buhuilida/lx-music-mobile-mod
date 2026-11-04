@@ -5,10 +5,10 @@ on:
     tags: ['v*']
   workflow_dispatch:
     inputs:
-      note:
-        description: '本次构建备注（只记录在运行里）'
-        required: false
-        default: ''
+      release:
+        description: '构建通过后自动发布 Release（tag 取 package.json 的 version）'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -22,6 +22,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 隐私检查（阻断项命中即停止）
+        run: node scripts/privacy-check.mjs
 
       - uses: actions/setup-node@v4
         with:
@@ -34,6 +39,14 @@ jobs:
           java-version: '17'
 
       - uses: gradle/actions/setup-gradle@v3
+
+      - name: 读取版本号
+        id: ver
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "本次构建：$VERSION"
 
       - name: 安装 Android SDK 组件
         run: |
@@ -79,7 +92,7 @@ jobs:
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: apk-${{ github.ref_name }}-${{ github.sha }}
+          name: apk-${{ steps.ver.outputs.version }}-${{ github.sha }}
           path: |
             android/app/build/outputs/apk/**/release/*.apk
             release/version.json
@@ -87,12 +100,25 @@ jobs:
           if-no-files-found: error
 
       - name: 发布 Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || inputs.release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: ${{ steps.ver.outputs.tag }}
           generate_release_notes: true
           files: |
             android/app/build/outputs/apk/**/release/*.apk
             release/version.json
+
+      - name: 同步清单回 main（jsDelivr 镜像用）
+        if: startsWith(github.ref, 'refs/tags/') || inputs.release
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add release/version.json
+          if git diff --cached --quiet; then
+            echo "清单无变化，跳过"
+            exit 0
+          fi
+          git commit -m "chore: 同步更新清单到 ${{ steps.ver.outputs.tag }}"
+          git push origin HEAD:main

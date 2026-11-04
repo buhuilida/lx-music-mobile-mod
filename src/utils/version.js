@@ -12,21 +12,33 @@ const abis = [
 ]
 
 /**
- * 更新源：本仓库（fork）的 GitHub Releases。
+ * 更新源：本仓库的 GitHub Releases + 国内镜像。
  *
- * `releases/latest/download/version.json` 是固定地址，永远指向最新一次 release
- * 里挂的版本清单（发布流程见 .github/workflows/android-release.yml），
- * 不走 GitHub API，因此没有 60 次/小时的限流，也不依赖任何自建站点。
- * 清单里的 download 是该次 release 的 assets 绝对地址。
+ * 国内直连 github.com 经常超时，所以清单和安装包都「先镜像、后回源」：
+ *   镜像地址 = 加速前缀 + 原始地址（ghfast.top / gh-proxy.com 两个轮着试）
+ *   回源地址 = jsDelivr（清单）/ raw / releases 原始地址
+ * 清单固定取 releases/latest/download/version.json，不走 GitHub API，没有限流。
  *
  * 为什么按包名分开下：本仓库有两个变体，装的是哪个就必须下哪个，
- * 否则会把 com.lxmod.music 的包装到 cn.lxmusic.mod 上（系统直接拒装，或装成另一个应用）。
+ * 否则会把 com.lxmod.music 的包装到 cn.lxmusic.mod 上（系统直接拒装）。
  */
 const REPO = 'buhuilida/lx-music-mobile-mod'
 const RELEASE_BASE = `https://github.com/${REPO}/releases`
+
+/** 国内 GitHub 加速镜像（镜像地址 = 前缀 + 原始地址） */
+const GITHUB_MIRRORS = [
+  'https://ghfast.top/',
+  'https://gh-proxy.com/',
+]
+const mirrorUrls = (url) => GITHUB_MIRRORS.map(prefix => `${prefix}${url}`)
+
 const address = [
+  // 1. 镜像优先：国内直连 github.com 的成功率太低
+  ...mirrorUrls(`${RELEASE_BASE}/latest/download/version.json`).map(url => [url, 'direct']),
+  // 2. jsDelivr CDN：仓库里同步维护了一份清单，国内通常可直连
+  [`https://cdn.jsdelivr.net/gh/${REPO}@main/release/version.json`, 'direct'],
+  // 3. 回源：镜像全挂时再试原始地址
   [`${RELEASE_BASE}/latest/download/version.json`, 'direct'],
-  // 备用源：仓库里长期维护的一份清单（发布流程同步提交），latest 重定向异常时兜底
   [`https://raw.githubusercontent.com/${REPO}/main/release/version.json`, 'direct'],
 ]
 const getAddressList = async() => address
@@ -35,10 +47,11 @@ const getAddressList = async() => address
 const request = async(url, retryNum = 0) => {
   return new Promise((resolve, reject) => {
     httpGet(url, {
-      timeout: 10000,
+      // 更新清单是「多源依次试」，单源必须尽快失败，否则用户要干等两三分钟
+      timeout: 8000,
     }, (err, resp, body) => {
       if (err || resp.statusCode != 200) {
-        ++retryNum >= 3
+        ++retryNum >= 1
           ? reject(err || new Error(resp.statusMessage || resp.statusCode))
           : request(url, retryNum).then(resolve).catch(reject)
       } else resolve(body)
@@ -152,34 +165,48 @@ export const downloadNewVersion = async(version, onDownload = noop) => {
   // 旧实现固定用 cache/lx-music-mobile.apk，只要上一次下载中断（或系统保留了
   // 旧文件），RNFS 复用同名文件就会把上一个版本的包当成这次更新装上去 ——
   // 表现就是「更新日志已经是新版，装完还是旧版本」。
-  // 安装包地址也带时间戳：同一版本号重传过安装包时，不能让 CDN 把旧包发回来
-  url = withCacheBust(url)
   const savePath = `${temporaryDirectoryPath}/lx-music-mobile-${version}-${abi}.apk`
   await removeStaleApks()
 
-  if (downloadJobId) stopDownload(downloadJobId)
+  const startDownload = (target) => {
+    if (downloadJobId) stopDownload(downloadJobId)
+    // 安装包地址带时间戳：同一版本号重传过安装包时，不能让 CDN 把旧包发回来
+    const { jobId, promise } = downloadFile(withCacheBust(target), savePath, {
+      progressInterval: 500,
+      connectionTimeout: 20000,
+      readTimeout: 30000,
+      begin({ statusCode, contentLength }) {
+        onDownload(contentLength, 0)
+      },
+      progress({ contentLength, bytesWritten }) {
+        onDownload(contentLength, bytesWritten)
+      },
+    })
+    downloadJobId = jobId
+    return promise
+  }
 
-  const { jobId, promise } = downloadFile(url, savePath, {
-    progressInterval: 500,
-    connectionTimeout: 20000,
-    readTimeout: 30000,
-    begin({ statusCode, contentLength }) {
-      onDownload(contentLength, 0)
-    },
-    progress({ contentLength, bytesWritten }) {
-      onDownload(contentLength, bytesWritten)
-    },
-  })
-  downloadJobId = jobId
-  return promise.then(async() => {
-    // 下完必须确认文件真的落了盘：大小不对就报错，绝不拿旧包去安装
-    const info = await stat(savePath).catch(() => null)
-    if (!info || !info.size || info.size < 1024 * 1024) {
-      throw new Error(`downloaded apk is invalid: ${info?.size ?? 0}`)
+  // 先镜像后回源：国内直连 github.com 大概率超时，逐个候选地址试，
+  // 每个候选都完整下完并验大小，失败就删掉残留换下一个。
+  const candidates = [...new Set([...mirrorUrls(url), url])]
+  let lastErr
+  for (const candidate of candidates) {
+    try {
+      await startDownload(candidate)
+      // 下完必须确认文件真的落了盘：大小不对就报错，绝不拿旧包去安装
+      const info = await stat(savePath).catch(() => null)
+      if (!info || !info.size || info.size < 1024 * 1024) {
+        throw new Error(`downloaded apk is invalid: ${info?.size ?? 0}`)
+      }
+      apkSavePath = savePath
+      return await updateApp()
+    } catch (err) {
+      lastErr = err
+      // 镜像返回错误页时也会写成小文件，必须清掉，否则下一个候选会读到脏文件
+      await unlink(savePath).catch(() => {})
     }
-    apkSavePath = savePath
-    return updateApp()
-  })
+  }
+  throw lastErr ?? new Error('download failed')
 }
 
 export const updateApp = async() => {
