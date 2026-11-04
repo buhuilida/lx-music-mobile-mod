@@ -19,6 +19,7 @@ import settingState from '@/store/setting/state'
 import { updateNowPlayingTitles } from '@/plugins/player/utils'
 import { publishSystemLyric } from '@/core/player/systemLyric'
 import { hasWordTags, stripWordTags } from '@/utils/wordLyric'
+import { stripLyricPlaceholderLines } from '@/utils/lrcTools'
 
 /**
  * init lyric
@@ -36,19 +37,22 @@ const handleSetLyric = async(lyric: string, translation = '', romalrc = '') => {
   // 逐字歌词：优先用当前歌曲已加载的 lxlyric；歌词本身是逐字格式时直接解析它（1.17.0 修复 <0,200> 裸显）
   const lxlyric = playerState.musicInfo.lxlrc ?? undefined
   const inlineWord = !lxlyric && hasWordTags(lyric)
-  const cleanLrc = hasWordTags(lyric) ? stripWordTags(lyric) : lyric
+  const cleanLrc = stripLyricPlaceholderLines(hasWordTags(lyric) ? stripWordTags(lyric) : lyric)
+  // `//` 是音源给的「本行无翻译 / 无音译」占位符，不清掉就会在每行歌词下面多出一行斜杠
+  const cleanTranslation = stripLyricPlaceholderLines(translation)
+  const cleanRoma = stripLyricPlaceholderLines(romalrc)
   const wordSource = lxlyric ?? (inlineWord ? lyric : undefined)
-  lrcSetLyric(cleanLrc, translation, romalrc, wordSource)
-  await setDesktopLyric(cleanLrc, translation, romalrc, wordSource)
+  lrcSetLyric(cleanLrc, cleanTranslation, cleanRoma, wordSource)
+  await setDesktopLyric(cleanLrc, cleanTranslation, cleanRoma, wordSource)
   // 按 ColorOS / OPlus 的 lyricInfo 契约，把整首歌词交给系统渲染
-  publishSystemLyric(cleanLrc, translation, wordSource)
+  publishSystemLyric(cleanLrc, cleanTranslation, wordSource)
   if (settingState.setting['player.isShowBluetoothFullLyric']) {
     void updateNowPlayingTitles({
       lyric: cleanLrc,
     })
   }
   // 一起听：房主把歌词推给房间（由 listenTogether 注册，避免循环依赖）
-  lyricPublisher?.({ lrc: cleanLrc, tlrc: translation, rlrc: romalrc })
+  lyricPublisher?.({ lrc: cleanLrc, tlrc: cleanTranslation, rlrc: cleanRoma })
 }
 
 interface LyricPayload {

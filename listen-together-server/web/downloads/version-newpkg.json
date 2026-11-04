@@ -1,9 +1,13 @@
 {
-  "version": "1.22.26",
-  "versionCode": 131000,
+  "version": "1.22.27",
+  "versionCode": 132000,
   "date": "2026-11-04",
-  "desc": "v1.22.26（新包名 com.lxmod.music）· WebDAV 云盘音乐播放修复\n\n核心修复：\n- 部分网盘（如 pan.cdn.ad）对文件 GET 会 302 跳到对象存储的预签名地址，\n  播放器底层会把 Basic 认证头一起带过去，对象存储判定「两套认证」直接 400\n  InvalidArgument，表现是「目录能看、点了播不了」。现在播放前先解析跳转，\n  只有同源地址才附加认证头。\n\n其他修复：\n- 目录浏览从 2 次 PROPFIND 降到 1 次（坚果云 30 分钟限 600 次请求）\n- 撞 429/503 等限流不再直接失败，3 次退避重试，并给出明确提示\n- 网盘返回绝对地址时路径会被拼成 /https://...，必然 404，已修\n- 换服务器地址后旧曲库仍生效，改为自动失效\n- 扫描撞 5000 首上限 / 子目录读取失败时，不再静默丢歌\n\nversionCode 131000，可直接覆盖 1.22.20 ~ 1.22.25。",
+  "desc": "v1.22.27（新包名 com.lxmod.music）· 歌词里的 // 清理\n\n`//` 是 QQ 音乐（TME）翻译歌词里的占位符：这一行没有翻译时，正文就写 `//`。\n之前把翻译原样塞给渲染层，于是每句没翻译的歌词下面都多出一行 `//`。\n英文歌、日文歌最明显。\n\n现在 App 歌词页（竖屏/横屏/逐字）、桌面歌词、锁屏系统歌词、投屏、一起听、\n下载歌词导出，六个出口全部清掉占位行；QQ 歌词在拉取时也从源头过滤。\n\n顺手修：下载带翻译的歌词时，一半翻译行会丢。原因是代码里用带 g 的正则做 exec，\nlastIndex 残留导致每隔一行匹配失败。8 行歌词实测 8 行全保留（修复前只剩 4 行）。\n\nversionCode 132000，可直接覆盖 1.22.20 ~ 1.22.26。",
   "history": [
+    {
+      "version": "1.22.26",
+      "desc": "WebDAV 云盘音乐播放修复：302 跳转不再丢认证、限流自动重试"
+    },
     {
       "version": "1.22.25",
       "desc": "App 内歌词页逐字渲染重做；修自动滚动失效 / 逐字回跳 / 时间轴断裂"
@@ -30,8 +34,8 @@
     }
   ],
   "download": {
-    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lxmod-v1.22.26-arm64-v8a.apk?sharecode=MKPWEVLBUS",
-    "universal": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lxmod-v1.22.26-universal.apk?sharecode=MKPWEVLBUS",
-    "backscreen": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lxmod-v1.22.26-backscreen-arm64-v8a.apk?sharecode=MKPWEVLBUS"
+    "arm64-v8a": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lxmod-v1.22.27-arm64-v8a.apk?sharecode=MKPWEVLBUS",
+    "universal": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lxmod-v1.22.27-universal.apk?sharecode=MKPWEVLBUS",
+    "backscreen": "https://af384ee6deb6e09e2.app.workbuddy.host/downloads/lxmod-v1.22.27-backscreen-arm64-v8a.apk?sharecode=MKPWEVLBUS"
   }
 }

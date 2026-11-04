@@ -26,6 +26,7 @@ import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
 import { tranditionalize } from '@/utils/simplify-chinese-main'
 import { hasWordTags, stripWordTags } from '@/utils/wordLyric'
+import { stripLyricPlaceholderLines } from '@/utils/lrcTools'
 import { getPosition } from '@/plugins/player'
 export {
   onLyricLinePlay,
@@ -51,9 +52,9 @@ export const showDesktopLyric = async() => {
     textPositionX: setting['desktopLyric.textPosition.x'],
     textPositionY: setting['desktopLyric.textPosition.y'],
   }).catch(err => { console.log('show desktop lyric failed', err) })
-  let lrc = playerState.musicInfo.lrc ?? ''
-  let tlrc = playerState.musicInfo.tlrc ?? ''
-  let rlrc = playerState.musicInfo.rlrc ?? ''
+  let lrc = stripLyricPlaceholderLines(playerState.musicInfo.lrc ?? '')
+  let tlrc = stripLyricPlaceholderLines(playerState.musicInfo.tlrc ?? '')
+  let rlrc = stripLyricPlaceholderLines(playerState.musicInfo.rlrc ?? '')
   let wordLyric = playerState.musicInfo.lxlrc ?? ''
   if (setting['player.isS2t']) {
     lrc = tranditionalize(lrc)
@@ -111,9 +112,9 @@ export const onDesktopLyricPositionChange = onPositionChange
 export const showRemoteLyric = async(isSend: boolean) => {
   await setSendLyricTextEvent(isSend)
   if (isSend) {
-    let lrc = playerState.musicInfo.lrc ?? ''
-    let tlrc = playerState.musicInfo.tlrc ?? ''
-    let rlrc = playerState.musicInfo.rlrc ?? ''
+    let lrc = stripLyricPlaceholderLines(playerState.musicInfo.lrc ?? '')
+    let tlrc = stripLyricPlaceholderLines(playerState.musicInfo.tlrc ?? '')
+    let rlrc = stripLyricPlaceholderLines(playerState.musicInfo.rlrc ?? '')
     let wordLyric = playerState.musicInfo.lxlrc ?? ''
     if (settingState.setting['player.isS2t']) {
       lrc = tranditionalize(lrc)
