@@ -12,6 +12,11 @@ import downloadActions from '@/store/download/action'
 import { getListMusics } from '@/utils/listManage'
 import settingState from '@/store/setting/state'
 import { QUALITY_ORDER, SELECTABLE_QUALITYS, getQualityFileExt } from '@/config/quality'
+import { BaiduPanError, errnoToText } from '@/core/baiduPan/api'
+import { isBaiduPanLoggedIn, loadBaiduPanAuth } from '@/core/baiduPan/auth'
+import { uploadFileToPan } from '@/core/baiduPan/upload'
+import { buildAutoWordLyric, buildRawWordLyric } from '@/utils/wordLyric'
+import { dlog } from '@/utils/debugLog'
 
 const storageKey = '@__download_list__'
 
@@ -180,6 +185,77 @@ const updateTask = (id: string, task: Partial<LX.Download.ExtTask>) => {
   downloadActions.setTask(id, task)
 }
 
+const fileNameOfPath = (filePath: string) => filePath.split(/[\\/]/).pop() ?? ''
+
+/** 把上传结果写回下载列表项（任务态会被清掉，列表项要留痕） */
+const saveItemUpload = async(itemId: string, upload: LX.Download.ExtItem['upload']) => {
+  const list = downloadState.list.map((item) => item.id == itemId ? { ...item, upload } : item)
+  await saveList(list)
+}
+
+/**
+ * 下载完成后上传到百度网盘
+ * 失败只影响上传状态，不影响已下载的文件；可在下载页重试
+ */
+const uploadToPan = async(id: string, item: LX.Download.ExtItem) => {
+  const fileName = fileNameOfPath(item.filePath)
+  if (!fileName) return
+
+  if (!isBaiduPanLoggedIn()) await loadBaiduPanAuth()
+  if (!isBaiduPanLoggedIn()) {
+    const upload = { status: 'fail' as const, progress: 0, errorMsg: errnoToText(-6) }
+    updateTask(id, { upload })
+    await saveItemUpload(item.id, upload)
+    toast(`${fileName} ${global.i18n.t('baidu_pan_upload_failed')}：${errnoToText(-6)}`, 'long')
+    return
+  }
+
+  dlog('pan', '触发上传', fileName, '目标目录=' + String(settingState.setting['download.baiduPanDir']),
+    'saveTarget=' + String(settingState.setting['download.saveTarget']))
+  updateTask(id, { upload: { status: 'uploading', progress: 0 } })
+  try {
+    const result = await uploadFileToPan({
+      localPath: item.filePath,
+      // 优先用任务创建时的目录快照，这样之后改设置不会影响已排队的任务
+      dir: item.panDir ?? settingState.setting['download.baiduPanDir'],
+      fileName,
+      onProgress: ({ percent }) => {
+        updateTask(id, { upload: { status: 'uploading', progress: Math.round(percent * 100) } })
+      },
+    })
+    const upload = { status: 'success' as const, progress: 100, remotePath: result.remotePath }
+    updateTask(id, { upload })
+    await saveItemUpload(item.id, upload)
+    toast(`${fileName} ${global.i18n.t('baidu_pan_upload_success')}`)
+
+    if (settingState.setting['download.deleteLocalAfterUpload']) {
+      await unlink(item.filePath).catch(() => {})
+      await saveList(downloadState.list.filter((row) => row.id != item.id))
+    }
+  } catch (err: any) {
+    const code = err instanceof BaiduPanError ? err.code : -1
+    dlog('pan', '上传失败', fileName, 'code=' + code, err?.message ?? err)
+    const upload = { status: 'fail' as const, progress: 0, errorMsg: errnoToText(code) }
+    updateTask(id, { upload })
+    await saveItemUpload(item.id, upload)
+    toast(`${fileName} ${global.i18n.t('baidu_pan_upload_failed')}：${errnoToText(code)}`, 'long')
+  }
+}
+
+/** 手动上传某个已下载的条目到网盘（下载页用，本地保存的条目也能补传） */
+export const uploadItemToPan = async(itemId: string) => {
+  const item = downloadState.list.find((row) => row.id == itemId)
+  if (!item) return
+  await uploadToPan(item.id, item)
+}
+
+/** 重试上传（下载页用） */
+export const retryUpload = async(itemId: string) => {
+  const item = downloadState.list.find((row) => row.id == itemId)
+  if (!item) return
+  await uploadToPan(item.id, item)
+}
+
 export const clearTask = (id: string) => {
   downloadActions.removeTask(id)
 }
@@ -242,12 +318,22 @@ export const applyDownloadMetadata = async(options: {
   if (needLyric) {
     try {
       const lyricInfo = await getLyricInfo({ musicInfo })
-      const content = buildLyrics(
+      let content = buildLyrics(
         lyricInfo as unknown as LX.Music.LyricInfo,
         false,
         !!lyricInfo.tlyric,
         !!setting['download.writeRomaLyric'],
       )
+      // mod 版增强：优先写「逐字增强 LRC」（A2 绝对时间），可用设置里的「写逐字歌词」关闭；
+      // 没有逐字源时按行时长均分兜底。上游渲染链路本身不认逐字，这里只影响落盘文件/内嵌歌词。
+      if (setting['download.writeWordLyric']) {
+        const raw = lyricInfo as unknown as { lyric?: string, lxlyric?: string }
+        if (raw?.lyric) {
+          const word = raw.lxlyric || buildAutoWordLyric(raw.lyric)
+          const enhanced = word ? buildRawWordLyric(raw.lyric, word) : ''
+          if (enhanced) content = enhanced
+        }
+      }
       if (!content) throw new Error('no lyric')
       if (setting['download.writeEmbedLyric']) await writeLyric(filePath, content)
       if (writeLrcFile) await RNFS.writeFile(`${dirPath}${baseName}.lrc`, content, 'utf8')
@@ -263,7 +349,11 @@ export const applyDownloadMetadata = async(options: {
  * 下载歌曲到 App 私有目录
  * @param quality 指定音质，不传则使用设置里的默认下载音质
  */
-export const downloadMusic = async(musicInfo: LX.Music.MusicInfoOnline, quality: LX.Quality): Promise<boolean> => {
+export const downloadMusic = async(
+  musicInfo: LX.Music.MusicInfoOnline,
+  quality: LX.Quality,
+  options: { panDir?: string } = {},
+): Promise<boolean> => {
   const id = buildItemId(musicInfo, quality)
   if (downloadState.list.some(item => item.id == id)) return true
   // waiting 也算进行中：worker 取到任务先置 waiting 再取链接，
@@ -341,7 +431,7 @@ export const downloadMusic = async(musicInfo: LX.Music.MusicInfoOnline, quality:
   try {
     const result = await ret.promise
     if (result.statusCode && (result.statusCode < 200 || result.statusCode >= 300)) throw new Error(`HTTP ${result.statusCode}`)
-    // 下载完成后按设置写入标签 / 封面 / 歌词（1.23.0）
+    // 下载完成后按设置写入标签 / 封面 / 歌词（1.23.0；mod 版在其中补了逐字歌词）
     await applyDownloadMetadata({ filePath, baseName, dir: targetDir, musicInfo }).catch(() => {})
     // 写到公共目录（Download / SD 卡）的文件只是「存在」，MediaStore 不会自动感知。
     // 不主动通知，下载完成后「本地音乐」和第三方播放器都搜不到这首歌。
@@ -351,6 +441,8 @@ export const downloadMusic = async(musicInfo: LX.Music.MusicInfoOnline, quality:
       scanFile(filePath).catch(() => {})
     }
     const info = await stat(filePath).catch(() => null)
+    // 指定了网盘目录（播放页「下载到网盘」）就强制走上传，忽略「保存位置」设置
+    const saveTarget = options.panDir ? 'baiduPan' : settingState.setting['download.saveTarget'] ?? 'local'
     const item: LX.Download.ExtItem = {
       id,
       musicInfo,
@@ -360,11 +452,17 @@ export const downloadMusic = async(musicInfo: LX.Music.MusicInfoOnline, quality:
       ext,
       size: info?.size ?? 0,
       createdAt: Date.now(),
+      panDir: options.panDir,
+      upload: saveTarget == 'baiduPan' ? { status: 'uploading', progress: 0 } : undefined,
     }
     await saveList([item, ...downloadState.list])
     updateTask(id, { status: 'completed', progress: 100 })
-    setTimeout(() => { clearTask(id) }, 1200)
     global.app_event.downloadListUpdate()
+
+    if (saveTarget == 'baiduPan') {
+      await uploadToPan(id, item)
+    }
+    setTimeout(() => { clearTask(id) }, 1200)
     return true
   } catch (err: any) {
     try {

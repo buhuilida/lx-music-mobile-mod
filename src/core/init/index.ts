@@ -15,7 +15,7 @@ import { initSystemLyric } from '@/core/player/systemLyric'
 import { setApiSource } from '@/core/apiSource'
 import commonActions from '@/store/common/action'
 import settingState from '@/store/setting/state'
-import { checkUpdate } from '@/core/version'
+// import { checkUpdate } from '@/core/version'
 import { bootLog } from '@/utils/bootLog'
 import { cheatTip } from '@/utils/tools'
 import { getPackageName } from '@/utils/nativeModules/utils'
@@ -27,7 +27,9 @@ const handlePushedHomeScreen = async() => {
   if (settingState.setting['common.isAgreePact']) {
     if (isFirstPush) {
       isFirstPush = false
-      void checkUpdate()
+      // 调试版明确关闭自动更新检查：避免启动时弹「发现新版本」打断排查，
+      // 也避免误点更新把我们正在测的包覆盖掉。设置页里的手动「检查更新」仍然可用。
+      // void checkUpdate()
       void initDeeplink()
     }
   } else {

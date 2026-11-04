@@ -1,4 +1,5 @@
 import { NativeModules, Platform } from 'react-native'
+import { safeNum } from '@/utils/safeNativeArgs'
 
 interface ExtNativeModule {
   pickImage: () => Promise<{ path: string }>
@@ -41,7 +42,7 @@ export const pickImage = async(): Promise<string | null> => {
 export const speak = async(text: string, rate = 1): Promise<void> => {
   if (!ext.speak || !text) return
   try {
-    await ext.speak(text, rate)
+    await ext.speak(text, safeNum(rate, 1, 'Ext.speak.rate'))
   } catch {}
 }
 

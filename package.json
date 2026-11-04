@@ -1,7 +1,7 @@
 {
   "name": "lx-music-mobile",
-  "version": "1.22.26",
-  "versionCode": 131,
+  "version": "1.22.26-mod.1",
+  "versionCode": 20261122,
   "private": true,
   "scripts": {
     "dev": "react-native run-android --active-arch-only",
@@ -22,7 +22,6 @@
     "clear:full": "git clean -fdx -e android/keystore.properties -e android/app/*.keystore",
     "build:theme": "node src/theme/themes/createThemes.js",
     "publish": "node publish",
-    "postinstall": "node dependencies-patch.js",
     "check:screens": "node scripts/check-screens.js",
     "check:contrast": "node scripts/check-contrast.js"
   },
@@ -60,16 +59,16 @@
     "pako": "^2.1.0",
     "react": "18.2.0",
     "react-native": "0.73.11",
-    "react-native-background-timer": "github:lyswhut/react-native-background-timer#55ecaa80880e9cec1fff81f3ce10e6250ab3c40c",
+    "react-native-background-timer": "file:vendor/react-native-background-timer",
     "react-native-exception-handler": "^2.10.10",
-    "react-native-file-system": "github:lyswhut/react-native-file-system#fcb0e6f55af684ac60598c720c77cfe0502f2c65",
+    "react-native-file-system": "file:vendor/react-native-file-system",
     "react-native-fs": "^2.20.0",
-    "react-native-local-media-metadata": "github:lyswhut/react-native-local-media-metadata#1b5be310d112afce0df598d3e9c7521c3311049c",
+    "react-native-local-media-metadata": "file:vendor/react-native-local-media-metadata",
     "react-native-navigation": "7.39.2",
     "react-native-pager-view": "6.7.1",
     "react-native-quick-base64": "^2.2.2",
     "react-native-quick-md5": "^3.0.9",
-    "react-native-track-player": "github:lyswhut/react-native-track-player#d76fe8ff483548a022f29e8b3e8f33111e9c28b6",
+    "react-native-track-player": "file:vendor/react-native-track-player",
     "react-native-vector-icons": "10.2.0",
     "react-native-webview": "^13.16.0"
   },

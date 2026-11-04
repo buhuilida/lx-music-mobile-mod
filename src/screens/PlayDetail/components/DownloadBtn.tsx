@@ -10,7 +10,8 @@ import { useDownloadList } from '@/store/download/hook'
 import { useI18n } from '@/lang'
 import { buildItemId, downloadMusic, getBestQuality, getMusicQualities } from '@/core/download'
 import { getQualityFullLabel } from '@/config/quality'
-import { createStyle, toast } from '@/utils/tools'
+import { confirmDialog, createStyle, tipDialog, toast } from '@/utils/tools'
+import { probeLyric } from '@/core/download/probeLyric'
 
 export default memo(() => {
   const t = useI18n()
@@ -41,7 +42,7 @@ export default memo(() => {
     popupRef.current?.setVisible(true)
   }
 
-  const startDownload = (quality: LX.Quality) => {
+  const startDownload = async(quality: LX.Quality) => {
     if (!musicInfo) return
     const id = buildItemId(musicInfo, quality)
     if (downloads.some(item => item.id == id)) {
@@ -49,6 +50,21 @@ export default memo(() => {
       return
     }
     popupRef.current?.setVisible(false)
+
+    // 下载前先看歌词情况：没有逐字提示一下，没有歌词直接不下
+    const lyricState = await probeLyric(musicInfo)
+    if (lyricState == 'none') {
+      await tipDialog({ message: t('download_no_lyric_tip') })
+      return
+    }
+    if (lyricState == 'line') {
+      const ok = await confirmDialog({
+        message: t('download_no_word_lyric_tip'),
+        cancelButtonText: t('download_cancel'),
+      })
+      if (!ok) return
+    }
+
     toast(t('download_started', { name: musicInfo.name }))
     void downloadMusic(musicInfo, quality)
   }
@@ -63,7 +79,7 @@ export default memo(() => {
           {musicInfo
             ? <TouchableOpacity
                 style={styles.qualityItem}
-                onPress={() => { startDownload(getBestQuality(musicInfo)) }}
+                onPress={() => { void startDownload(getBestQuality(musicInfo)) }}
                 activeOpacity={0.6}
               >
                 <Text size={14} color={theme['c-primary-font']}>{t('download_best_quality')}</Text>

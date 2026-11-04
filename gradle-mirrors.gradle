@@ -1,0 +1,22 @@
+// Gradle 初始化脚本：为所有工程注入国内镜像（仅用于本地构建加速，不改动项目源码）
+// 用法：./gradlew <task> -I gradle-mirrors.gradle
+def MIRRORS = [
+  'https://maven.aliyun.com/repository/google',
+  'https://maven.aliyun.com/repository/public',
+  'https://maven.aliyun.com/repository/gradle-plugin',
+]
+
+gradle.allprojects { project ->
+  project.buildscript {
+    repositories {
+      MIRRORS.each { u -> maven { url u } }
+      google()
+      mavenCentral()
+    }
+  }
+  project.repositories {
+    MIRRORS.each { u -> maven { url u } }
+    google()
+    mavenCentral()
+  }
+}

@@ -9,6 +9,8 @@ import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { onScreenStateChange } from '@/utils/nativeModules/utils'
 import { AppState } from 'react-native'
+import { safeNum } from '@/utils/safeNativeArgs'
+import { dlog } from '@/utils/debugLog'
 
 const delaySavePlayInfo = throttleBackgroundTimer(() => {
   void savePlayInfo({
@@ -28,9 +30,12 @@ export default () => {
   /** 上一次读到的播放位置（秒），用于识别「回绕」 */
   let lastPosition = -1
 
+  let tickCount = 0
   const getCurrentTime = () => {
     let id = playerState.musicInfo.id
     void getPosition().then(position => {
+      tickCount++
+      if (tickCount % 10 == 0) dlog('progress', '进度采样', 'position=' + position, 'isPlay=' + playerState.isPlay, 'tick=' + tickCount)
       if (!position || id != playerState.musicInfo.id) return
       setNowPlayTime(position)
       if (!playerState.isPlay) return
@@ -68,15 +73,30 @@ export default () => {
 
   const clearUpdateTimeout = () => {
     if (!updateTimeout) return
-    BackgroundTimer.clearInterval(updateTimeout)
+    clearInterval(updateTimeout)
     updateTimeout = null
+    dlog('progress', '进度计时器已停止')
   }
+  /**
+   * 进度条的前进靠这个循环定时调用 getPosition()。
+   *
+   * 原实现用 BackgroundTimer.setInterval：它的 JS shim 每次回调后再调一次原生
+   * RNBackgroundTimer.setTimeout 来续期。实测这个原生定时器会漏触发（我们在播放
+   * 防抖上见过延迟 3~7 秒、以及完全不触发），而 setInterval 只要漏一次就永久停了 ——
+   * 表现就是进度条卡住不动，拖动却能跳（拖动走的是 setProgress 事件，不依赖定时器）。
+   * 这里改用 JS 定时器（JSTimers），由 JS 线程自己驱动。
+   */
   const startUpdateTimeout = () => {
-    if (!isScreenOn) return
+    if (!isScreenOn) {
+      dlog('progress', '未启动进度计时器：屏幕状态为关闭')
+      return
+    }
     clearUpdateTimeout()
-    updateTimeout = BackgroundTimer.setInterval(() => {
+    const interval = safeNum(1000 / settingState.setting['player.playbackRate'], 1000, 'BackgroundTimer.interval')
+    dlog('progress', '启动进度计时器', 'interval=' + interval)
+    updateTimeout = setInterval(() => {
       getCurrentTime()
-    }, 1000 / settingState.setting['player.playbackRate'])
+    }, interval) as unknown as number
     getCurrentTime()
   }
 

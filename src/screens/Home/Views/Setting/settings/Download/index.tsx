@@ -6,6 +6,7 @@ import MetadataOptions from './MetadataOptions'
 import DownloadPath from './DownloadPath'
 import Concurrency from './Concurrency'
 import Quality from './Quality'
+import SaveTarget from './SaveTarget'
 import { useI18n } from '@/lang'
 
 export default memo(() => {
@@ -18,6 +19,7 @@ export default memo(() => {
       <Quality />
       <FileNameStyle />
       <MetadataOptions />
+      <SaveTarget />
     </Section>
   )
 })

@@ -14,6 +14,7 @@ import Text from '@/components/common/Text'
 import { useSettingValue } from '@/store/setting/hook'
 import { navigations } from '@/navigation'
 import commonState from '@/store/common/state'
+import { loadBaiduPanAuth } from '@/core/baiduPan/auth'
 
 const styles = createStyle({
   container: {
@@ -127,6 +128,19 @@ export default memo(() => {
         global.app_event.changeMenuVisible(false)
         if (commonState.componentIds.home) navigations.pushLocalMusicScreen(commonState.componentIds.home)
         return
+      case 'nav_baidu_pan': {
+        // 百度网盘现在是首页的一个视图（和「下载」「设置」同级），
+        // 这样它自带左上角菜单按钮，底部也保留播放条。
+        // 未登录时先去登录页。
+        const homeId = commonState.componentIds.home
+        if (!homeId) return
+        void loadBaiduPanAuth().then((auth) => {
+          global.app_event.changeMenuVisible(false)
+          if (auth) setNavActiveId('nav_baidu_pan')
+          else navigations.pushBaiduPanLoginScreen(homeId)
+        })
+        return
+      }
       case 'nav_mine':
         // 我的音乐：各平台账号中心（每日推荐 / 关注歌手 / 云盘 / 我的歌单）
         global.app_event.changeMenuVisible(false)

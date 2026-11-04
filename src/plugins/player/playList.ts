@@ -5,6 +5,8 @@ import { defaultUrl } from '@/config'
 import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
 import { getWebDAVAuthHeader, getWebDAVServer, isSameOrigin } from '@/core/webdavMusic'
+import { safeNum } from '@/utils/safeNativeArgs'
+import { dlog } from '@/utils/debugLog'
 
 
 const list: LX.Player.Track[] = []
@@ -160,47 +162,113 @@ export const initTrackInfo = async(musicInfo: LX.Player.PlayMusic, mInfo: LX.Pla
 
 const handlePlayMusic = async(musicInfo: LX.Player.PlayMusic, url: string, time: number) => {
 // console.log(tracks, time)
+  const trackName = (musicInfo as any).name ?? (musicInfo as any).metadata?.musicInfo?.name
+  const startedAt = Date.now()
+  dlog('play', 'handlePlayMusic 开始', trackName, 'time=' + time, 'url=' + String(url).slice(0, 80))
   const tracks = buildTracks(musicInfo, url)
   const track = tracks[0]
+
+  // 每一步单独记时，卡在哪一步一眼能看出来
+  const step = async<T>(label: string, task: Promise<T>): Promise<T> => {
+    const start = Date.now()
+    try {
+      const result = await task
+      dlog('play', `  ${label} ok (${Date.now() - start}ms)`)
+      return result
+    } catch (err: any) {
+      dlog('play', `  ${label} 失败 (${Date.now() - start}ms)`, err?.message ?? err)
+      throw err
+    }
+  }
+
   // await updateMusicInfo(track)
-  const currentTrackIndex = await TrackPlayer.getCurrentTrack()
-  await TrackPlayer.add(tracks).then(() => list.push(...tracks))
-  const queue = await TrackPlayer.getQueue() as LX.Player.Track[]
-  await TrackPlayer.skip(queue.findIndex(t => t.id == track.id))
+  const currentTrackIndex = await step('getCurrentTrack', TrackPlayer.getCurrentTrack())
+  dlog('play', '  currentTrackIndex=' + String(currentTrackIndex))
+  await step('add', TrackPlayer.add(tracks).then(() => list.push(...tracks)))
+  const queue = await step('getQueue', TrackPlayer.getQueue()) as LX.Player.Track[]
+  dlog('play', '  queue.length=' + queue.length)
+  const targetIndex = queue.findIndex(t => t.id == track.id)
+  dlog('play', '  targetIndex=' + targetIndex)
+  await step('skip', TrackPlayer.skip(targetIndex))
 
   if (currentTrackIndex == null) {
     if (!isTempTrack(track.id as string)) {
-      if (time) await TrackPlayer.seekTo(time)
+      if (time) await step('seekTo(restore)', TrackPlayer.seekTo(safeNum(time, 0, 'TrackPlayer.seekTo(restore)')))
       if (global.lx.restorePlayInfo) {
-        await TrackPlayer.pause()
+        await step('pause(restore)', TrackPlayer.pause())
         // let startupAutoPlay = settingState.setting['player.startupAutoPlay']
         global.lx.restorePlayInfo = null
 
       // TODO startupAutoPlay
       // if (startupAutoPlay) store.dispatch(playerAction.playMusic())
       } else {
-        await TrackPlayer.play()
+        await step('play', TrackPlayer.play())
       }
+    } else {
+      dlog('play', '  当前是占位曲目(临时id)，跳过自动播放')
     }
   } else {
-    await TrackPlayer.pause()
+    await step('pause', TrackPlayer.pause())
     if (!isTempTrack(track.id as string)) {
-      await TrackPlayer.seekTo(time)
-      await TrackPlayer.play()
+      await step('seekTo', TrackPlayer.seekTo(safeNum(time, 0, 'TrackPlayer.seekTo')))
+      await step('play', TrackPlayer.play())
+    } else {
+      dlog('play', '  当前是占位曲目(临时id)，跳过自动播放')
     }
   }
 
   if (queue.length > 2) {
     void TrackPlayer.remove(Array(queue.length - 2).fill(null).map((_, i) => i)).then(() => list.splice(0, list.length - 2))
   }
+  dlog('play', 'handlePlayMusic 结束', trackName, '总耗时=' + (Date.now() - startedAt) + 'ms')
 }
+/**
+ * 单次播放流程的最长等待时间。
+ * 原生播放调用如果因为服务未就绪一直不回调，promise 会永远挂着，
+ * 而所有播放请求都排在同一条 playPromise 链上 —— 那就会出现「必须重启才能播」。
+ * 这里给它一个上限，超时就放弃这次、放行后面的请求。
+ */
+const PLAY_TIMEOUT = 15000
+
+const withPlayTimeout = <T>(task: Promise<T>, label: string): Promise<T> => {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      dlog('play', `${label} 超时(${PLAY_TIMEOUT}ms)，放行后续播放请求`)
+      reject(new Error(`${label} timeout`))
+    }, PLAY_TIMEOUT)
+    task.then((value) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve(value)
+    }, (err) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      reject(err)
+    })
+  })
+}
+
 let playPromise = Promise.resolve()
 let actionId = Math.random()
 export const playMusic = (musicInfo: LX.Player.PlayMusic, url: string, time: number) => {
   const id = actionId = Math.random()
+  dlog('play', 'playMusic 入队', (musicInfo as any).name, 'id=' + id.toFixed(3))
   void playPromise.finally(() => {
-    if (id != actionId) return
-    playPromise = handlePlayMusic(musicInfo, url, time)
+    if (id != actionId) {
+      dlog('play', 'playMusic 被更新的请求覆盖，丢弃', 'id=' + id.toFixed(3), 'latest=' + actionId.toFixed(3))
+      return
+    }
+    dlog('play', 'playMusic 开始执行', 'id=' + id.toFixed(3))
+    playPromise = withPlayTimeout(handlePlayMusic(musicInfo, url, time), 'handlePlayMusic').catch((err: any) => {
+      // 这里必须吞掉并记录：否则 playPromise 会变成 rejected，
+      // 后续所有播放请求都会挂在一条已失败的链上，表现出来就是「必须重启才能播」
+      dlog('play', 'handlePlayMusic 异常结束', err?.message ?? err)
+    })
   })
 }
 
@@ -245,54 +313,33 @@ const updateMetaInfo = async(mInfo: LX.Player.MusicInfo) => {
 
 
 // 解决快速切歌导致的通知栏歌曲信息与当前播放歌曲对不上的问题
+//
+// 原实现同样用 BackgroundTimer 的 500ms 定时器来复位 isDelayRun，一旦该定时器不触发，
+// 后续所有元数据更新都会被排进一个不会执行的定时器里 —— 表现是通知栏/媒体会话的
+// 标题、封面停在上一首，锁屏和背屏也跟着不刷新。这里改成纯 JS 定时器防抖。
 const debounceUpdateMetaInfoTools = {
-  updateMetaPromise: Promise.resolve(),
+  updateMetaPromise: Promise.resolve() as Promise<any>,
   musicInfo: null as LX.Player.MusicInfo | null,
-  debounce(fn: (musicInfo: LX.Player.MusicInfo) => void | Promise<void>) {
-    // let delayTimer = null
-    let isDelayRun = false
-    let timer: number | null = null
-    let _musicInfo: LX.Player.MusicInfo | null = null
-    return (musicInfo: LX.Player.MusicInfo) => {
-      // console.log('debounceUpdateMetaInfoTools', musicInfo)
-      if (timer) {
-        BackgroundTimer.clearTimeout(timer)
-        timer = null
-      }
-      // if (delayTimer) {
-      //   BackgroundTimer.clearTimeout(delayTimer)
-      //   delayTimer = null
-      // }
-      if (isDelayRun) {
-        _musicInfo = musicInfo
-        timer = BackgroundTimer.setTimeout(() => {
-          timer = null
-          let musicInfo = _musicInfo
-          _musicInfo = null
-          if (!musicInfo) return
-          // isDelayRun = false
-          void fn(musicInfo)
-        }, 500)
-      } else {
-        isDelayRun = true
-        void fn(musicInfo)
-        BackgroundTimer.setTimeout(() => {
-          // delayTimer = null
-          isDelayRun = false
-        }, 500)
-      }
-    }
+  timer: null as ReturnType<typeof setTimeout> | null,
+  debounce(musicInfo: LX.Player.MusicInfo) {
+    this.musicInfo = musicInfo
+    if (this.timer) clearTimeout(this.timer)
+    this.timer = setTimeout(() => {
+      this.timer = null
+      const target = this.musicInfo
+      if (!target) return
+      this.updateMetaPromise = this.updateMetaPromise.then(() => {
+        if (this.musicInfo?.id !== target.id) return
+        return updateMetaInfo(target)
+      }).catch((err: any) => {
+        dlog('play', '更新通知栏信息失败', err?.message ?? err)
+      })
+    }, 300)
   },
   init() {
-    return this.debounce(async(musicInfo: LX.Player.MusicInfo) => {
-      this.musicInfo = musicInfo
-      return this.updateMetaPromise.then(() => {
-        // console.log('run')
-        if (this.musicInfo?.id === musicInfo.id) {
-          this.updateMetaPromise = updateMetaInfo(musicInfo)
-        }
-      })
-    })
+    return (musicInfo: LX.Player.MusicInfo) => {
+      this.debounce(musicInfo)
+    }
   },
 }
 

@@ -123,13 +123,17 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode verCode
         versionName verName
+        // 应用名占位符：各变体可在自己的 flavor 里覆盖，避免装到同一台机器上分不清
+        manifestPlaceholders = [appLabel: "LX Music"]
     }
 
     // 产品变体：
     // - standard：正常包名（默认）
-    // - backscreen：小米背屏 / iQOO 原子随身听等按「包名白名单」渲染通知与歌词，
-    //   此变体借用汽水音乐的包名（com.luna.music）进入白名单，应用名同步跟随。
-    //   与正版汽水音乐互相覆盖，不能共存。
+    // - backscreen：小米背屏 / iQOO 原子随身听等按「包名白名单」渲染通知与歌词。
+    //   原实现借用汽水音乐的包名（com.luna.music）来命中白名单，但该包名与商店正版
+    //   汽水音乐完全冲突（会被覆盖安装或被系统拦下，导致装上去的仍是旧包）。
+    //   现改为独立包名 cn.lxmusic.mod，可与正版汽水音乐共存，
+    //   代价是不再命中那份包名白名单（背屏 / 原子随身听可能不渲染）。
     flavorDimensions "channel"
     productFlavors {
         standard {
@@ -137,7 +141,8 @@ android {
         }
         backscreen {
             dimension "channel"
-            applicationId "com.luna.music"
+            applicationId "cn.lxmusic.mod"
+            manifestPlaceholders = [appLabel: "LX Music 共存"]
             versionNameSuffix "-backscreen"
         }
     }
@@ -187,6 +192,12 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
 
             signingConfig signingConfigs.release
+
+            // 调试版：允许 run-as 取应用内文件，并放开 systrace/logcat 读取限制。
+            // 仍然使用 release 签名，所以可以直接覆盖安装、不清数据。
+            // 注意 MainApplication.getUseDeveloperSupport() 已固定返回 false，
+            // 不会走 Metro 开发服务器，JS 用的是打进 APK 的 bundle。
+            debuggable true
         }
     }
 

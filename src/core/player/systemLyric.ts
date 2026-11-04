@@ -1,6 +1,6 @@
 import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
-import { updateNowPlayingTitles } from '@/plugins/player/utils'
+import { NativeModules } from 'react-native'
 import {
   buildLyricInfoJson,
   buildEmptyLyricInfoJson,
@@ -46,8 +46,16 @@ const getTrackMeta = (): LyricTrackMeta => {
   }
 }
 
+// 原生模块上的专用歌词通道（见 MusicModule.setLyricInfo）。
+// 早期实现走 updateNowPlayingTitles({ lyricInfo })，而该方法签名是
+// (float duration, String title, String artist, String album)，
+// 传对象会在桥接层抛 ClassCastException 直接闪退；而且原生也没有 lyricInfo 参数位。
+const nativePlayerModule: any = NativeModules.TrackPlayerModule
+
 const send = (value: string) => {
-  void updateNowPlayingTitles({ lyricInfo: value }).catch(() => {})
+  const method = nativePlayerModule?.setLyricInfo
+  if (typeof method !== 'function') return
+  void Promise.resolve(method.call(nativePlayerModule, value)).catch(() => {})
 }
 
 const push = (value: string) => {

@@ -6,6 +6,7 @@ import Mylist from '../Views/Mylist'
 import Leaderboard from '../Views/Leaderboard'
 import Setting from '../Views/Setting'
 import Download from '../Views/Download'
+import BaiduPan from '../Views/BaiduPan'
 import commonState, { type InitState as CommonState } from '@/store/common/state'
 import { createStyle } from '@/utils/tools'
 import PagerView, { type PageScrollStateChangedNativeEvent, type PagerViewOnPageSelectedEvent } from 'react-native-pager-view'
@@ -179,6 +180,26 @@ const DownloadPage = () => {
   return visible ? component : null
 }
 
+const BaiduPanPage = () => {
+  const [visible, setVisible] = useState(commonState.navActiveId == 'nav_baidu_pan')
+  const component = useMemo(() => <BaiduPan />, [])
+  useEffect(() => {
+    const handleNavIdUpdate = (id: CommonState['navActiveId']) => {
+      if (id == 'nav_baidu_pan') {
+        requestAnimationFrame(() => {
+          setVisible(true)
+        })
+      }
+    }
+    global.state_event.on('navActiveIdUpdated', handleNavIdUpdate)
+
+    return () => {
+      global.state_event.off('navActiveIdUpdated', handleNavIdUpdate)
+    }
+  }, [])
+  return visible ? component : null
+}
+
 const SettingPage = () => {
   const [visible, setVisible] = useState(commonState.navActiveId == 'nav_setting')
   const component = useMemo(() => <Setting />, [])
@@ -211,8 +232,10 @@ const viewMap = {
   nav_local: 1,
   // 我的音乐 / 平台设置都是独立 push 页面，仅用于类型完整
   nav_mine: 1,
-  // 云盘是独立 push 页面（1.22.11 侧边栏入口）
+  // 云盘(WebDAV)是独立 push 页面（1.22.11 侧边栏入口）
   nav_cloud: 1,
+  // 百度网盘是首页 pager 视图
+  nav_baidu_pan: 6,
   nav_platform: 5,
   nav_setting: 5,
 }
@@ -223,6 +246,7 @@ const indexMap = [
   'nav_love',
   'nav_download',
   'nav_setting',
+  'nav_baidu_pan',
 ] as const
 
 const Main = () => {
@@ -323,6 +347,9 @@ const Main = () => {
       </View>
       <View collapsable={false} key="nav_setting" style={styles.pageStyle}>
         <SettingPage />
+      </View>
+      <View collapsable={false} key="nav_baidu_pan" style={styles.pageStyle}>
+        <BaiduPanPage />
       </View>
       {/* <View collapsable={false} key="nav_search" style={styles.pageStyle}>
         <Search />

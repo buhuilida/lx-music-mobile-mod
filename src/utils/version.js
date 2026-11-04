@@ -1,7 +1,7 @@
 import { httpGet } from '@/utils/request'
 import { author, name } from '../../package.json'
 import { downloadFile, stopDownload, temporaryDirectoryPath, readDir, stat, unlink } from '@/utils/fs'
-import { getSupportedAbis, installApk, getPackageName } from '@/utils/nativeModules/utils'
+import { getPackageName, getSupportedAbis, installApk } from '@/utils/nativeModules/utils'
 import { APP_PROVIDER_NAME } from '@/config/constant'
 
 const abis = [
@@ -197,8 +197,11 @@ export const downloadNewVersion = async(version, onDownload = noop) => {
 
 export const updateApp = async() => {
   if (!apkSavePath) throw new Error('apk Save Path is null')
-  // FileProvider 的 authority 是 `${applicationId}.provider`，
-  // backscreen 变体的 applicationId 不是 APP_PROVIDER_NAME 里的那个包名，必须取实际值
-  const packageName = await getPackageName().catch(() => null)
-  await installApk(apkSavePath, packageName ? `${packageName}.provider` : APP_PROVIDER_NAME)
+  // FileProvider authority 必须与实际包名一致，否则改过包名的变体（如 backscreen）安装会失败
+  let authority = APP_PROVIDER_NAME
+  try {
+    const packageName = await getPackageName()
+    if (packageName) authority = `${packageName}.provider`
+  } catch {}
+  await installApk(apkSavePath, authority)
 }

@@ -3,6 +3,9 @@ import BackgroundTimer from 'react-native-background-timer'
 import { playMusic as handlePlayMusic } from './playList'
 import { existsFile, moveFile, privateStorageDirectoryPath, temporaryDirectoryPath } from '@/utils/fs'
 import { toast } from '@/utils/tools'
+import { safeNum } from '@/utils/safeNativeArgs'
+import { dlog } from '@/utils/debugLog'
+import playerState from '@/store/player/state'
 // import { PlayerMusicInfo } from '@/store/modules/player/playInfo'
 
 
@@ -106,53 +109,20 @@ export const isTempId = (trackId = global.lx.playerTrackId) => !trackId || tempI
 //   },
 // }
 
-const playMusic = ((fn: (musicInfo: LX.Player.PlayMusic, url: string, time: number) => void, delay = 800) => {
-  let delayTimer: number | null = null
-  let isDelayRun = false
-  let timer: number | null = null
-  let _musicInfo: LX.Player.PlayMusic | null = null
-  let _url = ''
-  let _time = 0
-  return (musicInfo: LX.Player.PlayMusic, url: string, time: number) => {
-    _musicInfo = musicInfo
-    _url = url
-    _time = time
-    if (timer) {
-      BackgroundTimer.clearTimeout(timer)
-      timer = null
-    }
-    if (isDelayRun) {
-      if (delayTimer) {
-        BackgroundTimer.clearTimeout(delayTimer)
-        delayTimer = null
-      }
-      timer = BackgroundTimer.setTimeout(() => {
-        timer = null
-        let musicInfo = _musicInfo
-        let url = _url
-        let time = _time
-        _musicInfo = null
-        _url = ''
-        _time = 0
-        isDelayRun = false
-        fn(musicInfo!, url, time)
-      }, delay)
-    } else {
-      isDelayRun = true
-      fn(musicInfo, url, time)
-      delayTimer = BackgroundTimer.setTimeout(() => {
-        delayTimer = null
-        isDelayRun = false
-      }, 500)
-    }
-  }
-})((musicInfo, url, time) => {
-  handlePlayMusic(musicInfo, url, time)
-})
-
+/**
+ * 直接交给 playList 的串行队列播放。
+ *
+ * 这里原来有一层 800ms 延迟闸门：首次调用立刻播，500ms 内的重复调用延后 800ms。
+ * 闸门的开合依赖 BackgroundTimer 的定时器，而实测该定时器会晚几秒、甚至完全不触发，
+ * 结果是 isDelayRun 永远停在 true，之后每次播放都只会「排进 800ms 定时器」然后石沉大海
+ * —— 表现就是换音源后点歌一直卡在「歌曲链接获取中」，必须重启才恢复。
+ * playList.playMusic 内部本来就有 playPromise 串行 + actionId 去重，这层闸门是多余的。
+ */
 export const setResource = (musicInfo: LX.Player.PlayMusic, url: string, duration?: number) => {
-  playMusic(musicInfo, url, duration ?? 0)
+  dlog('play', 'setResource 交给播放队列', (musicInfo as any).name, 'duration=' + (duration ?? 0), String(url).slice(0, 70))
+  handlePlayMusic(musicInfo, url, duration ?? 0)
 }
+
 
 export const setPlay = async() => TrackPlayer.play()
 export const getPosition = async() => TrackPlayer.getPosition()
@@ -165,9 +135,9 @@ export const setLoop = async(loop: boolean) => TrackPlayer.setRepeatMode(loop ? 
 
 export const setPause = async() => TrackPlayer.pause()
 // export const skipToNext = () => TrackPlayer.skipToNext()
-export const setCurrentTime = async(time: number) => TrackPlayer.seekTo(time)
-export const setVolume = async(num: number) => TrackPlayer.setVolume(num)
-export const setPlaybackRate = async(num: number) => TrackPlayer.setRate(num)
+export const setCurrentTime = async(time: number) => TrackPlayer.seekTo(safeNum(time, 0, 'TrackPlayer.seekTo'))
+export const setVolume = async(num: number) => TrackPlayer.setVolume(safeNum(num, 0, 'TrackPlayer.setVolume'))
+export const setPlaybackRate = async(num: number) => TrackPlayer.setRate(safeNum(num, 1, 'TrackPlayer.setRate'))
 export interface NowPlayingTitles {
   title?: string
   artist?: string
@@ -175,10 +145,27 @@ export interface NowPlayingTitles {
   lyric?: string
   /** ColorOS / OPlus 原生歌词载荷（JSON 字符串） */
   lyricInfo?: string
+  /** 歌曲时长（秒），不传则取当前播放歌曲的时长 */
+  duration?: number
 }
 export const updateNowPlayingTitles = async(titles: NowPlayingTitles) => {
-  // console.log('set playing titles', titles)
-  return TrackPlayer.updateNowPlayingTitles(titles)
+  // 原生签名是 updateNowPlayingTitles(float duration, String title, String artist, String album, Promise)。
+  // 早期实现直接把这个对象整体传下去，第一个参数位（float）会收到 ReadableNativeMap，
+  // 桥接层抛 ClassCastException 且 JS 侧无法捕获 → 直接闪退。
+  // 歌词（lyric）没有独立参数位，按原语义落到 title（通知栏/媒体会话显示的那一行）。
+  // 在线歌曲的时长在 musicInfo.interval，本地歌曲在 meta.interval，类型上不统一，这里宽松取
+  const currentInfo: any = playerState.musicInfo
+  const duration = safeNum(
+    titles.duration ?? currentInfo?.interval ?? currentInfo?.meta?.interval,
+    0,
+    'TrackPlayer.updateNowPlayingTitles.duration',
+  )
+  return TrackPlayer.updateNowPlayingTitles(
+    duration,
+    titles.title ?? titles.lyric ?? '',
+    titles.artist ?? '',
+    titles.album ?? '',
+  )
 }
 
 export const resetPlay = async() => Promise.all([setPause(), setCurrentTime(0)])

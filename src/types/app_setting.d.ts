@@ -480,6 +480,23 @@ declare global {
       'download.savePath': string
       /** 同时下载的任务数 1-5 */
       'download.concurrency': number
+
+      /** 下载完成后写入歌曲信息（歌名/歌手/专辑） */
+      'download.writeTags': boolean
+      /** 下载完成后写入封面 */
+      'download.writeCover': boolean
+      /** 下载完成后写入歌词标签 */
+      'download.writeLyricTag': boolean
+      /** 歌词标签优先写逐字增强 LRC */
+      'download.writeWordLyric': boolean
+      /** 保存位置：本地 / 百度网盘 */
+      'download.saveTarget': 'local' | 'baiduPan'
+      /** 百度网盘保存目录 */
+      'download.baiduPanDir': string
+      /** 常用网盘目录（JSON 字符串数组；设置合并只接受原始类型） */
+      'download.baiduPanFavorites': string
+      /** 上传完成后删除本地文件 */
+      'download.deleteLocalAfterUpload': boolean
       /** 各平台账号 Cookie（用于在线歌单 / 私有歌单） */
       'platform.wyCookie': string
       'platform.txCookie': string

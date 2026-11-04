@@ -24,6 +24,8 @@ import {
   NETEASE_ALBUM_SONGS_SCREEN,
   PLATFORM_LIST_SCREEN,
   PLATFORM_SONGS_SCREEN,
+  BAIDU_PAN_LOGIN_SCREEN,
+  BAIDU_PAN_DIR_SCREEN,
   // SETTING_SCREEN,
 } from './screenNames'
 
@@ -693,6 +695,45 @@ export function pushTabBasedApp() {
   })
 }
  */
+
+/** 通用全屏页面 push（百度网盘登录 / 目录选择用） */
+const pushPlainScreen = (componentId: string, name: string) => {
+  requestAnimationFrame(() => {
+    const theme = themeState.theme
+    void Navigation.push(componentId, {
+      component: {
+        name,
+        options: {
+          topBar: {
+            visible: false,
+            height: 0,
+            drawBehind: false,
+          },
+          statusBar: {
+            drawBehind: true,
+            visible: true,
+            style: getStatusBarStyle(theme.isDark),
+            backgroundColor: 'transparent',
+          },
+          navigationBar: {
+            backgroundColor: theme['c-content-background'],
+          },
+          layout: {
+            componentBackgroundColor: theme['c-content-background'],
+          },
+        },
+      },
+    })
+  })
+}
+
+export function pushBaiduPanLoginScreen(componentId: string) {
+  pushPlainScreen(componentId, BAIDU_PAN_LOGIN_SCREEN)
+}
+
+export function pushBaiduPanDirScreen(componentId: string) {
+  pushPlainScreen(componentId, BAIDU_PAN_DIR_SCREEN)
+}
 
 export function pushDownloadScreen(componentId: string) {
   if (shouldSkipPush(componentId, DOWNLOAD_SCREEN)) return

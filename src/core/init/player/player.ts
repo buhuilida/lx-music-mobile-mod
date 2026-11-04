@@ -11,6 +11,9 @@ import settingState from '@/store/setting/state'
 export default async(setting: LX.AppSetting) => {
   const setPlayStatus = () => {
     setIsPlay(true)
+    // 真正开始播放后立刻清掉「歌曲链接获取中」等状态文字，
+    // 否则播放已经成功，播放页还挂着上一次的提示
+    setStatusText('')
   }
   const setPauseStatus = () => {
     setIsPlay(false)

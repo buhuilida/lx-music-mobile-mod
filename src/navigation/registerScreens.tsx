@@ -14,6 +14,8 @@ import {
   DirectoryPicker,
   ThemeManager,
   WebDAV,
+  BaiduPanLogin,
+  BaiduPanDir,
   NeteaseMine,
   NeteaseDaily,
   NeteaseFollowed,
@@ -41,6 +43,8 @@ import {
   DIRECTORY_PICKER_SCREEN,
   THEME_MANAGER_SCREEN,
   WEBDAV_SCREEN,
+  BAIDU_PAN_LOGIN_SCREEN,
+  BAIDU_PAN_DIR_SCREEN,
   NETEASE_MINE_SCREEN,
   NETEASE_DAILY_SCREEN,
   NETEASE_FOLLOWED_SCREEN,
@@ -87,6 +91,8 @@ export default () => {
   Navigation.registerComponent(DIRECTORY_PICKER_SCREEN, () => WrappedComponent(DirectoryPicker))
   Navigation.registerComponent(THEME_MANAGER_SCREEN, () => WrappedComponent(ThemeManager))
   Navigation.registerComponent(WEBDAV_SCREEN, () => WrappedComponent(WebDAV))
+  Navigation.registerComponent(BAIDU_PAN_LOGIN_SCREEN, () => WrappedComponent(BaiduPanLogin))
+  Navigation.registerComponent(BAIDU_PAN_DIR_SCREEN, () => WrappedComponent(BaiduPanDir))
   Navigation.registerComponent(NETEASE_MINE_SCREEN, () => WrappedComponent(NeteaseMine))
   Navigation.registerComponent(NETEASE_DAILY_SCREEN, () => WrappedComponent(NeteaseDaily))
   Navigation.registerComponent(NETEASE_FOLLOWED_SCREEN, () => WrappedComponent(NeteaseFollowed))

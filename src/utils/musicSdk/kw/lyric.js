@@ -1,6 +1,7 @@
 import { httpFetch } from '../../request'
 import { decodeLyric, lrcTools } from './util'
 import { decodeName } from '../../index'
+import { dlog } from '@/utils/debugLog'
 
 /*
 export default {
@@ -187,8 +188,13 @@ export default {
       const line = lines[i].trim()
       let result = timeExp.exec(line)
       if (result) {
+        // 注意：必须先把捕获组取出来再做 replace。
+        // 原写法是在 replace 之后读 RegExp.$1，而 replace 里用的 timeExpAll 也是正则，
+        // 会把 RegExp.$1 覆盖成空串 —— 结果每一行的时间都变成 ''，
+        // 去重后只剩一行，最终歌词只剩 [ti:]/[ar:] 这些标签头（表现为「歌词页没有歌词」）。
+        const matchedTime = result[1]
         const text = line.replace(timeExpAll, '').trim()
-        let time = RegExp.$1
+        let time = matchedTime
         if (/\.\d\d$/.test(time)) time += '0'
         lrcArr.push({
           time,
@@ -233,8 +239,13 @@ export default {
       binary: true,
     })
     requestObj.promise = requestObj.promise.then(async({ statusCode, body }) => {
+      // 调试：记录原始响应，用来区分「接口没有歌词」和「解码/解析失败」
+      dlog('lyric', 'kw 原始响应', 'rid=' + musicInfo.songmid, 'status=' + statusCode,
+        'isBuffer=' + Buffer.isBuffer(body), 'len=' + (body?.length ?? -1),
+        'head=' + (Buffer.isBuffer(body) ? body.subarray(0, 20).toString('utf8').replace(/[\r\n]/g, '|') : String(body).slice(0, 20)))
       if (statusCode != 200) return Promise.reject(new Error(JSON.stringify(body)))
       const lrcText = await decodeLyric({ lrcBuffer: body, isGetLyricx })
+      dlog('lyric', 'kw 解码完成', 'len=' + lrcText.length, 'head=' + lrcText.slice(0, 40).replace(/\n/g, '|'))
       // console.log(lrcText)
       // let lrcInfo
       // try {
@@ -247,6 +258,7 @@ export default {
       try {
         lrcInfo = this.parseLrc(lrcText)
       } catch (err) {
+        dlog('lyric', 'kw 解析歌词失败', err?.message ?? err)
         return Promise.reject(new Error('Get lyric failed'))
       }
       // console.log(lrcInfo)
@@ -257,7 +269,10 @@ export default {
         lrcInfo.lxlyric = ''
       }
       lrcInfo.lyric = lrcInfo.lyric.replace(lrcTools.rxps.wordTimeAll, '')
-      if (!existTimeExp.test(lrcInfo.lyric)) return Promise.reject(new Error('Get lyric failed'))
+      if (!existTimeExp.test(lrcInfo.lyric)) {
+        dlog('lyric', 'kw 歌词没有时间轴', 'len=' + lrcInfo.lyric.length, 'head=' + lrcInfo.lyric.slice(0, 60).replace(/\n/g, '|'))
+        return Promise.reject(new Error('Get lyric failed'))
+      }
       // console.log('kw', lrcInfo)
       return lrcInfo
     })

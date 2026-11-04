@@ -16,6 +16,7 @@ import { useI18n } from '@/lang'
 import Btn from './Btn'
 import TimeoutExitBtn from './TimeoutExitBtn'
 import DownloadBtn from '../../components/DownloadBtn'
+import PanDownloadBtn from '../../components/PanDownloadBtn'
 
 export const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
 
@@ -61,6 +62,7 @@ export default memo(() => {
           <Text size={12} color={theme['c-button-font']}>{t('listen_together')}</Text>
         </TouchableOpacity>
         <DownloadBtn />
+        <PanDownloadBtn />
         <TimeoutExitBtn />
         <Btn icon="slider" onPress={showSetting} />
       </View>

@@ -23,6 +23,7 @@ export default memo(() => {
   const saveLrcFile = useSettingValue('download.saveLrcFile')
   const writeEmbedLyric = useSettingValue('download.writeEmbedLyric')
   const writeRomaLyric = useSettingValue('download.writeRomaLyric')
+  const writeWordLyric = useSettingValue('download.writeWordLyric')
 
   return (
     <View style={styles.content}>
@@ -61,6 +62,13 @@ export default memo(() => {
         check={writeRomaLyric}
         onChange={(check) => { updateSetting({ 'download.writeRomaLyric': check }) }}
         label={t('setting_download_write_roma_lyric')}
+        disabled={!writeLyric && !writeEmbedLyric}
+      />
+      <CheckBoxItem
+        check={writeWordLyric}
+        onChange={(check) => { updateSetting({ 'download.writeWordLyric': check }) }}
+        label={t('setting_download_write_word_lyric')}
+        helpDesc={t('setting_download_write_word_lyric_tip')}
         disabled={!writeLyric && !writeEmbedLyric}
       />
     </View>

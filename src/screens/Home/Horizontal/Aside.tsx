@@ -6,7 +6,9 @@ import { Icon } from '@/components/common/Icon'
 import { confirmDialog, createStyle, exitApp as backHome } from '@/utils/tools'
 import { NAV_MENUS } from '@/config/constant'
 import type { InitState } from '@/store/common/state'
-// import commonState from '@/store/common/state'
+import commonState from '@/store/common/state'
+import { navigations } from '@/navigation'
+import { loadBaiduPanAuth } from '@/core/baiduPan/auth'
 import { exitApp, setNavActiveId } from '@/core/common'
 import { BorderWidths } from '@/theme'
 import { useSettingValue } from '@/store/setting/hook'
@@ -122,6 +124,17 @@ export default memo(() => {
       case 'back_home':
         backHome()
         return
+      case 'nav_baidu_pan': {
+        // 百度网盘：未登录先进登录页，已登录直接进目录选择页
+        global.app_event.changeMenuVisible(false)
+        const homeId = commonState.componentIds.home
+        if (!homeId) return
+        void loadBaiduPanAuth().then((auth) => {
+          if (auth) navigations.pushBaiduPanDirScreen(homeId)
+          else navigations.pushBaiduPanLoginScreen(homeId)
+        })
+        return
+      }
     }
 
     global.app_event.changeMenuVisible(false)

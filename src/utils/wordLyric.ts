@@ -310,3 +310,43 @@ export const buildAutoWordLyric = (lyric: string | null | undefined): string => 
   }
   return out.join('\n')
 }
+
+
+/** 毫秒 → `[mm:ss.mmm]` 时间标签 */
+export const msToLrcTag = (ms: number) => {
+  const total = Math.max(0, Math.round(ms))
+  const min = Math.floor(total / 60000)
+  const sec = Math.floor(total % 60000 / 1000)
+  const frac = total % 1000
+  return `[${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(frac).padStart(3, '0')}]`
+}
+
+/**
+ * 逐字歌词 → 绝对时间的增强 LRC（写标签用）
+ *
+ * 输入：洛雪逐字 `[00:12.34]<0,200>我` 或 A2 `[00:12.34]我<00:12.34>爱`
+ * 输出：`[00:12.340]<00:12.340>我<00:12.540>的...`
+ *
+ * 写进音频标签统一用 A2 绝对时间：兼容面比洛雪内部相对格式大得多。
+ * 没有逐字源时不伪造，只有歌词本身带逐字标签才解析。
+ */
+export const buildRawWordLyric = (lrc?: string | null, wordLyric?: string | null): string => {
+  let source = wordLyric ?? ''
+  if (!source) {
+    if (!lrc || !hasWordTags(lrc)) return ''
+    source = lrc
+  }
+  const lines = parseWordLyric(source)
+  if (!lines.length) return ''
+  const out: string[] = []
+  for (const line of lines) {
+    if (!line.words.length) continue
+    let body = msToLrcTag(line.time)
+    for (const word of line.words) body += `<${msToLrcTag(word.time).slice(1, -1)}>${word.text}`
+    const last = line.words[line.words.length - 1]
+    const endTime = Math.max(last.time + (last.duration || 0), line.time + 1)
+    body += `<${msToLrcTag(endTime).slice(1, -1)}>`
+    out.push(body)
+  }
+  return out.join('\n')
+}

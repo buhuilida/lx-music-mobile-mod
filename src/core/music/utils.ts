@@ -12,6 +12,7 @@ import settingState from '@/store/setting/state'
 import { requestMsg } from '@/utils/message'
 import BackgroundTimer from 'react-native-background-timer'
 import { apis } from '@/utils/musicSdk/api-source'
+import { dlog } from '@/utils/debugLog'
 
 
 const getOtherSourcePromises = new Map()
@@ -337,19 +338,26 @@ export const handleGetOnlineMusicUrl = async({ musicInfo, quality, onToggleSourc
   quality: LX.Quality
   isFromCache: boolean
 }> => {
-  if (!await global.lx.apiInitPromise[0]) throw new Error('source init failed')
+  dlog('source', 'handleGetOnlineMusicUrl 等待音源初始化', 'source=' + musicInfo.source, 'apiPending=' + !global.lx.apiInitPromise[1])
+  const apiReady = await global.lx.apiInitPromise[0]
+  dlog('source', '音源初始化结果', 'ready=' + apiReady)
+  if (!apiReady) throw new Error('source init failed')
   // console.log(musicInfo.source)
   const targetQuality = quality ?? getPlayQuality(settingState.setting['player.playQuality'], musicInfo)
 
   let reqPromise
+  const reqStart = Date.now()
+  dlog('source', '请求播放链接', musicInfo.source, musicInfo.name, targetQuality)
   try {
     reqPromise = musicSdk[musicInfo.source].getMusicUrl(toOldMusicInfo(musicInfo), targetQuality).promise
   } catch (err: any) {
     reqPromise = Promise.reject(err)
   }
   return reqPromise.then(({ url, type }: { url: string, type: LX.Quality }) => {
+    dlog('source', '播放链接返回', musicInfo.source, 'quality=' + type, (Date.now() - reqStart) + 'ms')
     return { musicInfo, url, quality: type, isFromCache: false }
   }).catch(async(err: any) => {
+    dlog('source', '播放链接失败', musicInfo.source, (Date.now() - reqStart) + 'ms', err?.message ?? err)
     console.log(err)
     if (!allowToggleSource || err.message == requestMsg.tooManyRequests) throw err
     onToggleSource()
@@ -516,6 +524,8 @@ export const handleGetOnlineLyricInfo = async({ musicInfo, onToggleSource, isRef
   isFromCache: boolean
 }> => {
   // console.log(musicInfo.source)
+  const reqStart = Date.now()
+  dlog('lyric', '请求歌词', musicInfo.source, musicInfo.name, 'isRefresh=' + isRefresh)
   let reqPromise
   try {
     // TODO: remove any type
@@ -524,12 +534,15 @@ export const handleGetOnlineLyricInfo = async({ musicInfo, onToggleSource, isRef
     reqPromise = Promise.reject(err)
   }
   return reqPromise.then(async(lyricInfo: LX.Music.LyricInfo) => {
+    dlog('lyric', '歌词返回', musicInfo.source, (Date.now() - reqStart) + 'ms',
+      'lrc=' + (lyricInfo?.lyric?.length ?? 0), 'hasTime=' + existTimeExp.test(lyricInfo?.lyric ?? ''))
     return existTimeExp.test(lyricInfo.lyric) ? {
       musicInfo,
       lyricInfo,
       isFromCache: false,
     } : Promise.reject(new Error('failed'))
   }).catch(async(err: any) => {
+    dlog('lyric', '歌词请求失败', musicInfo.source, (Date.now() - reqStart) + 'ms', err?.message ?? err)
     console.log(err)
     if (!allowToggleSource) throw err
 

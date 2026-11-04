@@ -15,6 +15,7 @@ import Btn from './Btn'
 import SettingPopup, { type SettingPopupType } from '../../components/SettingPopup'
 import DesktopLyricBtn from './DesktopLyricBtn'
 import DownloadBtn from '../../components/DownloadBtn'
+import PanDownloadBtn from '../../components/PanDownloadBtn'
 import { useI18n } from '@/lang'
 
 export const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
@@ -60,6 +61,7 @@ export default memo(() => {
           <Text size={12} color={theme['c-button-font']}>{t('listen_together')}</Text>
         </TouchableOpacity>
         <DownloadBtn />
+        <PanDownloadBtn />
         <DesktopLyricBtn />
         <CommentBtn />
         <Btn icon="slider" onPress={showSetting} />

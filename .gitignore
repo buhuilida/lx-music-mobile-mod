@@ -71,3 +71,11 @@ keystore.properties
 # 二改发布产物（APK / 源码包只放在发布站点，不入库）
 listen-together-server/web/downloads/*.apk
 listen-together-server/web/downloads/*.zip
+
+# 构建临时产物
+.tmp-bundle/
+build-*.log
+
+# 调试临时文件（含账号凭证，禁止入库）
+.pan/
+.dbg/

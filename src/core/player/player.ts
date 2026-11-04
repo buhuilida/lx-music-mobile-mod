@@ -20,11 +20,13 @@ import {
   removeTempPlayList,
 } from '@/core/player/tempPlayList'
 import { getMusicUrl, getPicPath, getLyricInfo } from '@/core/music'
+import { log } from '@/utils/log'
+import { dlog } from '@/utils/debugLog'
 import { requestMsg } from '@/utils/message'
 import { getRandom } from '@/utils/common'
 import { filterList } from './utils'
 import BackgroundTimer from 'react-native-background-timer'
-import { checkIgnoringBatteryOptimization, checkNotificationPermission, debounceBackgroundTimer, toast } from '@/utils/tools'
+import { checkIgnoringBatteryOptimization, checkNotificationPermission, toast } from '@/utils/tools'
 import { existsFile } from '@/utils/fs'
 import { findDownload } from '@/core/download'
 import playingInfoActions from '@/store/playingInfo/action'
@@ -98,6 +100,7 @@ const delayRetry = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, i
 }
 const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh = false, isRetryed = false): Promise<string | null> => {
   // this.musicInfo.url = await getMusicPlayUrl(targetSong, type)
+  dlog('play', '开始取播放链接', (musicInfo as any).name, 'isRefresh=' + isRefresh, 'isRetryed=' + isRetryed)
   setStatusText(global.i18n.t('player__getting_url'))
   addLoadTimeout()
 
@@ -137,14 +140,24 @@ const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListIt
 
 export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh?: boolean) => {
   // addLoadTimeout()
-  if (!diffCurrentMusicInfo(musicInfo)) return
+  const isDiff = diffCurrentMusicInfo(musicInfo)
+  dlog('play', 'setMusicUrl 进入', (musicInfo as any).name, 'isDiff=' + isDiff,
+    'isPlay=' + playerState.isPlay,
+    'currentId=' + (playerState.playMusicInfo.musicInfo?.id ?? 'null'),
+    'gettingUrlId=' + global.lx.gettingUrlId)
+  if (!isDiff) {
+    dlog('play', 'setMusicUrl 提前返回：当前歌曲未变化且未在播放')
+    return
+  }
   if (cancelDelayRetry) cancelDelayRetry()
   global.lx.gettingUrlId = createGettingUrlId(musicInfo)
   playingInfoActions.setPlayingInfo('', '')
   void getMusicPlayUrl(musicInfo, isRefresh).then((url) => {
+    dlog('play', '取链接结果', url ? 'ok' : 'null(被丢弃)', url ? '' : 'isPlay=' + playerState.isPlay + ' isPlayedStop=' + global.lx.isPlayedStop)
     if (!url) return
     setResource(musicInfo, url, playerState.progress.nowPlayTime)
   }).catch(async(err: any) => {
+    dlog('play', '取链接异常', err?.message ?? err)
     console.log(err)
     // 播放失败兜底：在线地址拿不到时，尝试播放本地已下载的同一首歌（1.15.0 移植自 LX-X）
     if (settingState.setting['player.failureFallback'] && !diffCurrentMusicInfo(musicInfo)) {
@@ -164,6 +177,7 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
     global.app_event.error()
     addDelayNextTimeout()
   }).finally(() => {
+    dlog('play', 'setMusicUrl 流程结束', 'isSame=' + (musicInfo === playerState.playMusicInfo.musicInfo))
     if (musicInfo === playerState.playMusicInfo.musicInfo) {
       global.lx.gettingUrlId = ''
       clearLoadTimeout()
@@ -192,6 +206,9 @@ const handleRestorePlay = async(restorePlayInfo: LX.Player.SavedPlayInfo) => {
     ) return
     setMusicInfo({ pic: url })
     global.app_event.picUpdated()
+  }).catch((err: any) => {
+    // 封面失败会静默变成「无封面」，这里留一条日志便于定位是源不支持还是网络问题
+    log.warn('get pic failed:', err?.message ?? err)
   })
 
   void getLyricInfo({ musicInfo }).then((lyricInfo) => {
@@ -214,7 +231,8 @@ const handleRestorePlay = async(restorePlayInfo: LX.Player.SavedPlayInfo) => {
 }
 
 
-const debouncePlay = debounceBackgroundTimer((musicInfo: LX.Player.PlayMusic) => {
+const runPlay = (musicInfo: LX.Player.PlayMusic) => {
+  dlog('play', 'debouncePlay 触发', (musicInfo as any).name)
   setMusicUrl(musicInfo)
 
   void getPicPath({ musicInfo, listId: playerState.playMusicInfo.listId }).then((url: string) => {
@@ -222,11 +240,18 @@ const debouncePlay = debounceBackgroundTimer((musicInfo: LX.Player.PlayMusic) =>
       musicInfo.id != playerState.playMusicInfo.musicInfo?.id ||
       playerState.musicInfo.pic == url ||
       playerState.loadErrorPicUrl == url) return
+    dlog('pic', '封面就绪', url)
     setMusicInfo({ pic: url })
     global.app_event.picUpdated()
+  }).catch((err: any) => {
+    dlog('pic', '封面失败', err?.message ?? err)
+    // 封面失败会静默变成「无封面」，这里留一条日志便于定位是源不支持还是网络问题
+    log.warn('get pic failed:', err?.message ?? err)
   })
 
   void getLyricInfo({ musicInfo }).then((lyricInfo) => {
+    dlog('lyric', '歌词就绪', 'lrc=' + (lyricInfo.lyric?.length ?? 0), 'tlrc=' + (lyricInfo.tlyric?.length ?? 0),
+      'lxlyric=' + (lyricInfo.lxlyric?.length ?? 0), 'rawlrc=' + (lyricInfo.rawlrcInfo?.lyric?.length ?? 0))
     if (musicInfo.id != playerState.playMusicInfo.musicInfo?.id) return
     setMusicInfo({
       lrc: lyricInfo.lyric,
@@ -237,14 +262,37 @@ const debouncePlay = debounceBackgroundTimer((musicInfo: LX.Player.PlayMusic) =>
     })
     global.app_event.lyricUpdated()
   }).catch((err) => {
+    dlog('lyric', '歌词加载异常', err?.message ?? err)
     console.log(err)
     if (musicInfo.id != playerState.playMusicInfo.musicInfo?.id) return
     setStatusText(global.i18n.t('lyric__load_error'))
   })
-}, 200)
+}
+
+/**
+ * 切歌时合并短时间内的重复请求。
+ *
+ * 原来用 BackgroundTimer 的 100ms 定时器，实测会延迟 3~7 秒才触发，
+ * 表现就是「点了歌没反应，再点一次才播」。这里改用 JS 定时器（JSTimers），
+ * 它由 JS 线程自己驱动，不受原生模块线程影响。
+ */
+let playDebounceTimer: ReturnType<typeof setTimeout> | null = null
+let playDebounceAt = 0
+const debouncePlay = (musicInfo: LX.Player.PlayMusic) => {
+  if (playDebounceTimer) clearTimeout(playDebounceTimer)
+  playDebounceAt = Date.now()
+  dlog('play', 'debouncePlay 已安排(100ms)', (musicInfo as any)?.name)
+  playDebounceTimer = setTimeout(() => {
+    playDebounceTimer = null
+    dlog('play', 'debouncePlay 实际延迟', (Date.now() - playDebounceAt) + 'ms')
+    runPlay(musicInfo)
+  }, 100)
+}
 
 // 处理音乐播放
 const handlePlay = async() => {
+  dlog('play', 'handlePlay 开始', 'isInit=' + isInitialized(), 'isPlayedStop=' + global.lx.isPlayedStop,
+    'music=' + (playerState.playMusicInfo.musicInfo as any)?.name)
   if (!isInitialized()) {
     await checkNotificationPermission()
     void checkIgnoringBatteryOptimization()
@@ -269,9 +317,18 @@ const handlePlay = async() => {
   const playMusicInfo = playerState.playMusicInfo
   const musicInfo = playMusicInfo.musicInfo
 
-  if (!musicInfo) return
+  if (!musicInfo) {
+    dlog('play', 'handlePlay 中止：没有歌曲信息')
+    return
+  }
 
-  await setStop()
+  try {
+    await setStop()
+    dlog('play', 'setStop 完成')
+  } catch (err: any) {
+    dlog('play', 'setStop 失败（后续步骤会中断）', err?.message ?? err)
+    throw err
+  }
   global.app_event.pause()
 
   clearDelayNextTimeout()
@@ -280,6 +337,7 @@ const handlePlay = async() => {
 
   if (settingState.setting['player.togglePlayMethod'] == 'random' && !playMusicInfo.isTempPlay) addPlayedList(playMusicInfo as LX.Player.PlayMusicInfo)
 
+  dlog('play', '调度 debouncePlay(100ms)', (musicInfo as any).name)
   debouncePlay(musicInfo)
 }
 

@@ -12,6 +12,16 @@ declare namespace LX {
       ext: string
       size: number
       createdAt: number
+      /** 本条目上传使用的网盘目录（任务创建时快照，重试沿用它） */
+      panDir?: string
+      /** 百度网盘上传状态（保存位置选网盘时才有） */
+      upload?: {
+        status: 'uploading' | 'success' | 'fail'
+        /** 0 - 100 */
+        progress: number
+        errorMsg?: string
+        remotePath?: string
+      }
     }
 
     type ExtTaskStatus = 'waiting' | 'downloading' | 'completed' | 'error'
@@ -26,6 +36,14 @@ declare namespace LX {
       /** bytes per second */
       speed: number
       message?: string
+      /** 百度网盘上传状态（保存位置选网盘时才有） */
+      upload?: {
+        status: 'uploading' | 'success' | 'fail'
+        /** 0 - 100 */
+        progress: number
+        errorMsg?: string
+        remotePath?: string
+      }
     }
   }
 }

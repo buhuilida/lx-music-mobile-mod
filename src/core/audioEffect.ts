@@ -1,5 +1,6 @@
 import settingState from '@/store/setting/state'
 import { audioEffectModule, parseEqualizerInfo } from '@/utils/nativeModules/audioEffect'
+import { safeNum } from '@/utils/safeNativeArgs'
 
 /**
  * 音效引擎（1.18.0）
@@ -166,7 +167,7 @@ export const buildBandGains = (nodes: EqNode[], centers: number[]): number[] => 
 const applyEqGains = async(gains: number[], minLevel: number, maxLevel: number) => {
   for (let i = 0; i < gains.length; i++) {
     const level = clamp(Math.round(gains[i] * 100), minLevel, maxLevel)
-    await audioEffectModule.setBandLevel(i, level).catch(() => {})
+    await audioEffectModule.setBandLevel(safeNum(i, 0, 'AudioEffect.band'), safeNum(level, 0, 'AudioEffect.level')).catch(() => {})
   }
 }
 
@@ -211,10 +212,10 @@ export const applyAudioEffect = async() => {
     await audioEffectModule.enable().catch(() => {})
     if (preset == 'custom') await applyCustomEq(setting['player.audioEffectEq']).catch(() => {})
     else await applyPresetEq(config.eq).catch(() => {})
-    await audioEffectModule.setBassBoost(config.bass).catch(() => {})
-    await audioEffectModule.setVirtualizer(config.virtualizer).catch(() => {})
+    await audioEffectModule.setBassBoost(safeNum(config.bass, 0, 'AudioEffect.bassBoost')).catch(() => {})
+    await audioEffectModule.setVirtualizer(safeNum(config.virtualizer, 0, 'AudioEffect.virtualizer')).catch(() => {})
     await audioEffectModule.setReverb(config.reverb).catch(() => {})
-    await audioEffectModule.setLoudnessGain(config.loudness).catch(() => {})
+    await audioEffectModule.setLoudnessGain(safeNum(config.loudness, 0, 'AudioEffect.loudness')).catch(() => {})
   } finally {
     releaseApplying()
   }

@@ -1,6 +1,7 @@
-import { memo } from 'react'
+import { memo, useCallback, useRef } from 'react'
 import { View } from 'react-native'
 import Button from '@/components/common/Button'
+import BatchDownloadLyricModal, { type BatchDownloadLyricModalType } from '@/components/BatchDownloadLyricModal'
 
 import { confirmDialog, createStyle, toast } from '@/utils/tools'
 import { pop } from '@/navigation'
@@ -18,6 +19,7 @@ export default memo(() => {
   const theme = useTheme()
   const t = useI18n()
   const info = useListInfo()
+  const batchModalRef = useRef<BatchDownloadLyricModalType>(null)
 
   const back = () => {
     void pop(commonState.componentIds.songlistDetail!)
@@ -34,19 +36,19 @@ export default memo(() => {
       toast(t('download_all_none'))
       return
     }
-    void confirmDialog({
-      message: t('download_all_confirm', { count: list.length }),
-      confirmButtonText: t('download_all'),
-    }).then((confirm) => {
-      if (!confirm) return
-      toast(t('download_all_started', { count: list.length }))
-      void downloadMusics(list as LX.Music.MusicInfo[]).then(({ success, failed }) => {
-        toast(t('download_all_done', { success, failed }), 'long')
-      }).catch((err: Error) => {
-        toast(err?.message ?? 'download failed', 'long')
-      })
-    })
+    // 先探测整张歌单的歌词情况，弹汇总窗让用户勾选后再下
+    batchModalRef.current?.show(list as LX.Music.MusicInfo[])
   }
+
+  const handleBatchConfirm = useCallback((musics: LX.Music.MusicInfo[]) => {
+    if (!musics.length) return
+    toast(t('download_all_started', { count: musics.length }))
+    void downloadMusics(musics).then(({ success, failed }) => {
+      toast(t('download_all_done', { success, failed }), 'long')
+    }).catch((err: Error) => {
+      toast(err?.message ?? 'download failed', 'long')
+    })
+  }, [t])
 
   const handleCollection = () => {
     if (!songlistState.listDetailInfo.info.name) return
@@ -67,6 +69,7 @@ export default memo(() => {
       <Button onPress={back} style={styles.controlBtn}>
         <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('back')}</Text>
       </Button>
+      <BatchDownloadLyricModal ref={batchModalRef} onConfirm={handleBatchConfirm} />
     </View>
   )
 })

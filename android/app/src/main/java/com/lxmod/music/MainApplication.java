@@ -23,7 +23,10 @@ public class MainApplication extends NavigationApplication {
       new NavigationReactNativeHost(this) {
         @Override
         public boolean getUseDeveloperSupport() {
-          return BuildConfig.DEBUG;
+          // 调试版 APK 开启了 debuggable，但不需要 Metro 开发服务器，
+          // 这里固定 false，保证始终加载 APK 内打包好的 JS bundle，
+          // 否则 debuggable 版本会一直去找 8081 端口的 dev server。
+          return false;
         }
 
         @Override

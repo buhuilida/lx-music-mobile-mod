@@ -1,4 +1,5 @@
 import { NativeModules, NativeEventEmitter } from 'react-native'
+import { safeNum } from '@/utils/safeNativeArgs'
 
 const { LyricModule } = NativeModules
 
@@ -107,7 +108,7 @@ export const hideDesktopLyricView = async(): Promise<void> => {
  * @returns {Promise} Promise
  */
 export const play = async(time: number): Promise<void> => {
-  return LyricModule.play(time)
+  return LyricModule.play(safeNum(time, 0, 'Lyric.play'))
 }
 
 /**
@@ -128,7 +129,7 @@ export const setLyric = async(lyric: string, translation: string, romalrc: strin
 }
 
 export const setPlaybackRate = async(rate: number): Promise<void> => {
-  return LyricModule.setPlaybackRate(rate)
+  return LyricModule.setPlaybackRate(safeNum(rate, 1, 'Lyric.setPlaybackRate'))
 }
 
 /**
@@ -170,7 +171,7 @@ export const setColor = async(unplayColor: string, playedColor: string, shadowCo
  * @param alpha text alpha
  */
 export const setAlpha = async(alpha: number): Promise<void> => {
-  return LyricModule.setAlpha(getAlpha(alpha))
+  return LyricModule.setAlpha(safeNum(getAlpha(alpha), 1, 'Lyric.setAlpha'))
 }
 
 /**
@@ -178,7 +179,7 @@ export const setAlpha = async(alpha: number): Promise<void> => {
  * @param size text size
  */
 export const setTextSize = async(size: number): Promise<void> => {
-  return LyricModule.setTextSize(getTextSize(size))
+  return LyricModule.setTextSize(safeNum(getTextSize(size), 6, 'Lyric.setTextSize'))
 }
 
 export const setShowToggleAnima = async(isShowToggleAnima: boolean): Promise<void> => {
@@ -190,15 +191,15 @@ export const setSingleLine = async(isSingleLine: boolean): Promise<void> => {
 }
 
 export const setPosition = async(x: number, y: number): Promise<void> => {
-  return LyricModule.setPosition(x, y)
+  return LyricModule.setPosition(safeNum(x, 0, 'Lyric.setPosition.x'), safeNum(y, 0, 'Lyric.setPosition.y'))
 }
 
 export const setMaxLineNum = async(maxLineNum: number): Promise<void> => {
-  return LyricModule.setMaxLineNum(maxLineNum)
+  return LyricModule.setMaxLineNum(safeNum(maxLineNum, 2, 'Lyric.setMaxLineNum'))
 }
 
 export const setWidth = async(width: number): Promise<void> => {
-  return LyricModule.setWidth(width)
+  return LyricModule.setWidth(safeNum(width, 0, 'Lyric.setWidth'))
 }
 
 // export const fixViewPosition = async(): Promise<void> => {

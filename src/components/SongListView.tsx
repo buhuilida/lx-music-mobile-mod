@@ -13,7 +13,8 @@ import { LIST_IDS } from '@/config/constant'
 import { downloadMusic, getBestQuality } from '@/core/download'
 import { pushPlatformSettingScreen } from '@/navigation'
 import { usePlayMusicInfo } from '@/store/player/hook'
-import { createStyle, toast } from '@/utils/tools'
+import { confirmDialog, createStyle, tipDialog, toast } from '@/utils/tools'
+import { probeLyric } from '@/core/download/probeLyric'
 
 interface Props {
   componentId: string
@@ -88,7 +89,19 @@ export default memo(({ componentId, title, listKey, loader, subtitle, emptyTip, 
     void setTempList(listKey, list).then(async() => playList(LIST_IDS.TEMP, index))
   }
 
-  const handleDownload = (item: LX.Music.MusicInfoOnline) => {
+  const handleDownload = async(item: LX.Music.MusicInfoOnline) => {
+    const lyricState = await probeLyric(item)
+    if (lyricState == 'none') {
+      await tipDialog({ message: t('download_no_lyric_tip') })
+      return
+    }
+    if (lyricState == 'line') {
+      const ok = await confirmDialog({
+        message: t('download_no_word_lyric_tip'),
+        cancelButtonText: t('download_cancel'),
+      })
+      if (!ok) return
+    }
     void downloadMusic(item, getBestQuality(item)).then((ok) => {
       if (ok) toast(t('online_download_started'))
     }).catch((err: Error) => {
