@@ -110,17 +110,24 @@ npm run build-android-arm64 -- -PorigPkg
 https://github.com/buhuilida/lx-music-mobile-mod/releases/latest/download/version.json
 ```
 
-**发版**（打 tag 触发 `.github/workflows/android-release.yml`，自动构建、生成清单、上传 Release）：
+**构建统一在 GitHub Actions 上做**（`.github/workflows/android-release.yml`），两种触发方式：
+
+| 触发 | 产物 | 是否发 Release |
+|---|---|---|
+| 打 tag `v*` 并推送 | 4 个 APK + `version.json` | 是，自动创建 Release |
+| Actions 页面手动 Run（或 `gh workflow run android-release.yml`） | 同上，作为运行产物保留 30 天 | 否 |
 
 ```bash
-# 1. 改 package.json 的 version / versionCode
-# 2. 提交后打 tag 并推送
-git tag v1.22.26-mod.1 && git push origin v1.22.26-mod.1
+# 发版：改 package.json 的 version / versionCode → 提交 → 打 tag
+git tag v1.22.27-mod.1 && git push origin v1.22.27-mod.1
+
+# 只想验证能否构建（不发版）
+gh workflow run android-release.yml
 ```
 
-CI 需要 4 个 secret：`ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`。签名与本地 `android/app/lxmod.keystore` 必须一致，否则装不上已有版本。
+CI 需要 4 个 secret：`ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`。签名必须与已有安装包一致，否则装不上。
 
-**本地构建**：
+**本地构建**（仅应急，日常不用）：
 
 ```bash
 cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a -I ../gradle-mirrors.gradle
