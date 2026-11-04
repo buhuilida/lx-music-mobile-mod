@@ -47,9 +47,11 @@ export const checkUpdate = async(): Promise<{ isLatest: boolean, isUnknown: bool
   } else {
     versionInfo.status = 'idle'
     versionInfo.isUnknown = false
-    if (compareVer(versionInfo.version, versionInfo.newVersion.version) != -1) {
-      versionInfo.isLatest = true
-    }
+    // 必须每次都显式赋值。
+    // 旧写法只在「发现新版」时置 true，不更新时沿用上一次的状态，
+    // 于是只要查过一次「已是最新」，isLatest 就永远是 true：
+    // 之后哪怕服务端版本号涨了、弹窗里也显示了新版本号，界面依旧写着「已是最新」。
+    versionInfo.isLatest = compareVer(versionInfo.version, versionInfo.newVersion.version) != -1
   }
 
   versionActions.setVersionInfo(versionInfo)
