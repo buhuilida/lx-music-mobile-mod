@@ -570,6 +570,7 @@
   "setting_backup_local_failed": "导出失败，请检查存储权限",
   "setting_backup_local_import_confirm": "将用这份备份覆盖当前歌单、设置、主题与音源，覆盖后无法撤销。\n\n备份时间：{time}\n歌单 {lists} 个 / 歌曲 {musics} 首 / 音源 {apis} 个 / 主题 {themes} 个",
   "setting_backup_local_import_done": "导入完成，建议重启应用使全部设置生效",
+  "setting_backup_local_import_partial": "部分数据未能恢复（其余已导入）：",
   "setting_backup_local_import_failed": "导入失败：文件不是有效的 lxmod 备份",
   "setting_backup": "备份与恢复",
   "setting_backup_all": "所有数据（列表数据与设置数据）",

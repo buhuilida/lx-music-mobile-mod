@@ -1,4 +1,4 @@
-import { memo, useMemo, useEffect, useRef, useCallback } from 'react'
+import { memo, useMemo, useEffect, useRef, useCallback, useState } from 'react'
 import { View, FlatList, type FlatListProps, type NativeSyntheticEvent, type NativeScrollEvent, type LayoutChangeEvent } from 'react-native'
 // import { useLayout } from '@/utils/hooks'
 import { type Line, useLrcPlay, useLrcSet, useWordLyricLines } from '@/plugins/lyric'
@@ -115,7 +115,35 @@ export default () => {
     if (Math.abs(a.length - b.length) > Math.max(2, b.length / 3)) return
     return wl
   }
-  const { line } = useLrcPlay()
+  const { line: lrcLine } = useLrcPlay()
+  // 同竖屏：逐字数据的最后一个字可能跨过下一行，宽限一下让最后一段唱完
+  const [graceLine, setGraceLine] = useState(-1)
+  useEffect(() => {
+    if (lrcLine <= 0 || !lyricLines.length) {
+      setGraceLine(-1)
+      return
+    }
+    const prevWord = wordLineFor(lyricLines[lrcLine - 1])
+    const last = prevWord?.words[prevWord.words.length - 1]
+    if (!last) {
+      setGraceLine(-1)
+      return
+    }
+    const over = last.time + Math.max(1, last.duration) - (lyricLines[lrcLine]?.time ?? 0)
+    if (over <= 0) {
+      setGraceLine(-1)
+      return
+    }
+    setGraceLine(lrcLine - 1)
+    const timer = setTimeout(() => {
+      setGraceLine(-1)
+    }, Math.min(over, 800))
+    return () => {
+      clearTimeout(timer)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lrcLine, lyricLines, wordLines])
+  const activeLine = graceLine >= 0 && graceLine == lrcLine - 1 ? graceLine : lrcLine
   const flatListRef = useRef<FlatList>(null)
   const playLineRef = useRef<PlayLineType>(null)
   const isPauseScrollRef = useRef(true)
@@ -256,12 +284,12 @@ export default () => {
   }, [lyricLines])
 
   useEffect(() => {
-    if (line < 0) return
+    if (lrcLine < 0) return
     lineRef.current.prevLine = lineRef.current.line
-    lineRef.current.line = line
+    lineRef.current.line = lrcLine
     if (!flatListRef.current || isPauseScrollRef.current) return
 
-    if (line - lineRef.current.prevLine != 1) {
+    if (lrcLine - lineRef.current.prevLine != 1) {
       handleScrollToActive()
       return
     }
@@ -272,7 +300,7 @@ export default () => {
       handleScrollToActive()
     }, 600)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [line])
+  }, [lrcLine])
 
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -314,7 +342,7 @@ export default () => {
 
   const renderItem: FlatListType['renderItem'] = ({ item, index }) => {
     return (
-      <LrcLine line={item} lineNum={index} activeLine={line} wordLine={wordLineFor(item)} onLayout={handleLineLayout} />
+      <LrcLine line={item} lineNum={index} activeLine={activeLine} wordLine={wordLineFor(item)} onLayout={handleLineLayout} />
     )
   }
   const getkey: FlatListType['keyExtractor'] = (item, index) => `${index}${item.text}`
@@ -337,7 +365,7 @@ export default () => {
         onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={onScrollEndDrag}
         fadingEdgeLength={100}
-        initialNumToRender={Math.max(line + 10, 10)}
+        initialNumToRender={Math.max(lrcLine + 10, 10)}
         onScrollToIndexFailed={handleScrollToIndexFailed}
         onScroll={handleScroll}
       />

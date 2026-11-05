@@ -570,6 +570,7 @@
   "setting_backup_local_failed": "匯出失敗，請檢查儲存權限",
   "setting_backup_local_import_confirm": "將用這份備份覆蓋目前歌單、設定、主題與音源，覆蓋後無法復原。\n\n備份時間：{time}\n歌單 {lists} 個 / 歌曲 {musics} 首 / 音源 {apis} 個 / 主題 {themes} 個",
   "setting_backup_local_import_done": "匯入完成，建議重新啟動應用使其全部生效",
+  "setting_backup_local_import_partial": "部分資料未能恢復（其餘已匯入）：",
   "setting_backup_local_import_failed": "匯入失敗：檔案不是有效的 lxmod 備份",
   "setting_backup": "備份與復原",
   "setting_backup_all": "所有資料（清單資料與設定資料）",

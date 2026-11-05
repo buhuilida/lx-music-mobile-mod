@@ -104,15 +104,19 @@ export const getUserLists = async() => {
 }
 
 
-export const listDataOverwrite = ({ defaultList, loveList, userList, tempList }: MakeOptional<LX.List.ListDataFull, 'tempList'>): string[] => {
+export const listDataOverwrite = ({ defaultList, loveList, userList = [], tempList }: MakeOptional<LX.List.ListDataFull, 'tempList'>): string[] => {
   const updatedListIds: string[] = []
   const newUserIds: string[] = []
-  const newUserListInfos = userList.map(({ list, ...listInfo }) => {
-    if (allMusicList.has(listInfo.id)) updatedListIds.push(listInfo.id)
-    newUserIds.push(listInfo.id)
-    setMusicList(listInfo.id, list)
-    return listInfo
-  })
+  const newUserListInfos = userList
+    // 兜底：null 项在下面的解构 `({ list, ...listInfo })` 处会直接抛 TypeError，
+    // 整个恢复流程中断。正常路径已经清洗过，这里防的是其它调用方（同步 / 迁移）。
+    .filter(listInfo => listInfo && typeof listInfo === 'object' && listInfo.id != null)
+    .map(({ list, ...listInfo }) => {
+      if (allMusicList.has(listInfo.id)) updatedListIds.push(listInfo.id)
+      newUserIds.push(listInfo.id)
+      setMusicList(listInfo.id, Array.isArray(list) ? list : [])
+      return listInfo
+    })
   for (const list of userLists) {
     if (!allMusicList.has(list.id) || newUserIds.includes(list.id)) continue
     removeMusicList(list.id)
@@ -121,8 +125,8 @@ export const listDataOverwrite = ({ defaultList, loveList, userList, tempList }:
   overwriteUserList(newUserListInfos)
 
   if (allMusicList.has(LIST_IDS.DEFAULT)) updatedListIds.push(LIST_IDS.DEFAULT)
-  setMusicList(LIST_IDS.DEFAULT, defaultList)
-  setMusicList(LIST_IDS.LOVE, loveList)
+  setMusicList(LIST_IDS.DEFAULT, Array.isArray(defaultList) ? defaultList : [])
+  setMusicList(LIST_IDS.LOVE, Array.isArray(loveList) ? loveList : [])
   updatedListIds.push(LIST_IDS.LOVE)
 
   if (tempList && allMusicList.has(LIST_IDS.TEMP)) {

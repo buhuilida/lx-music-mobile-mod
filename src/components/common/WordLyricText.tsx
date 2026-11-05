@@ -48,6 +48,8 @@ export default memo(({ wordLine, size, lineHeight, textAlign, activeColor, inact
   const rafRef = useRef<number | null>(null)
   const indexRef = useRef(-1)
   const progressRef = useRef(-1)
+  // 上一次进度采样的「位置 + 到达时刻」，用来判断音频是不是在缓冲（位置没前进）
+  const sampleRef = useRef({ pos: 0, at: 0 })
   const unitsRef = useRef(units)
   unitsRef.current = units
 
@@ -68,6 +70,42 @@ export default memo(({ wordLine, size, lineHeight, textAlign, activeColor, inact
   const frameRef = useRef<(now: number) => void>(() => {})
   frameRef.current = (now: number) => {
     const list = unitsRef.current
+    if (!list.length) return
+
+    /**
+     * 行末收尾：最后一个字的时长走完，整行必须处于「全部已唱」。
+     *
+     * 歌词行什么时候切走由 lrc-file-parser 决定，它和这里的逐字时钟不是同一个源，
+     * 切行最多可能早几十毫秒。没有这一步，最后一个字就会永远停在插值中途
+     * （半亮、或者干脆还是灰的），看起来就是「每句最后一个字没唱」。
+     *
+     * 行尾的空格是 0 时长，不能拿它算行末 —— 否则 lineEnd 会退回到空格的位置，
+     * 整行一开始就被判成「已唱完」。
+     */
+    let last = list[list.length - 1]
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (list[i].duration > 0) {
+        last = list[i]
+        break
+      }
+    }
+    const lineEnd = last.time + Math.max(1, last.duration)
+    /**
+     * 时钟根本不在这一行附近：切歌瞬间 store 里的进度还是上一首的位置
+     * （可能差几分钟），拿它去比，新歌第一行会被直接判成「整行已唱」，
+     * 表现为切歌后第一句一上来就是全亮的高亮态，直到下一句才恢复正常。
+     * 这里不推进，等下一次进度事件把时钟基准拉回来。
+     */
+    if (now > lineEnd + 3000 && indexRef.current < 0) return
+    if (now >= lineEnd) {
+      if (indexRef.current != list.length) {
+        indexRef.current = list.length
+        progressRef.current = -1
+        setActiveIndex(list.length)
+      }
+      return
+    }
+
     let index = -1
     for (let i = 0; i < list.length; i++) {
       if (list[i].time <= now) index = i
@@ -83,12 +121,14 @@ export default memo(({ wordLine, size, lineHeight, textAlign, activeColor, inact
       setActiveIndex(index)
     }
 
-    let p = 0
-    if (index >= 0) {
-      const unit = list[index]
-      p = (now - unit.time) / Math.max(1, unit.duration)
-      p = p < 0 ? 0 : p > 1 ? 1 : p
-    }
+    // 用 indexRef 而不是上面算出的 index 算进度：
+    // 采样抖动导致 index 暂时回退时，拿它算 p 会把「已经唱完的那个字」的进度
+    // 错误地套到当前字上，视觉上就是字突然灭一下。
+    const cur = indexRef.current
+    if (cur < 0 || cur >= list.length) return
+    const unit = list[cur]
+    let p = (now - unit.time) / Math.max(1, unit.duration)
+    p = p < 0 ? 0 : p > 1 ? 1 : p
     // 颜色精度 1/255，小于 0.004 的推进肉眼不可见，省掉一次 setNativeProps
     if (Math.abs(p - progressRef.current) > 0.004) {
       progressRef.current = p
@@ -117,22 +157,43 @@ export default memo(({ wordLine, size, lineHeight, textAlign, activeColor, inact
     } else {
       const predicted = base.time + (ts - base.at) * base.rate
       const diff = now - predicted
-      if (diff > 400) {
+      /**
+       * 缓冲 / 卡顿检测：看「进度采样前进了多少」和「墙钟过了多少」是否匹配。
+       *
+       * 音频缓冲时 getPosition 会停住不动（真实位置没前进），但这里的时间轴
+       * 是拿 Date.now() 自己往前插值的 —— 缓冲 1.2 秒，时钟就白白多跑 1.2 秒，
+       * 之后整首歌的逐字都比人声快 1.2 秒：字早早亮完，人声还在唱，
+       * 行尾更是提前跳。这就是「歌词渲染过快」。
+       *
+       * 不能靠 diff < 0 判断：getPosition 天生比本地时钟旧几十~几百毫秒，
+       * diff 一直是个负数常量，拿它做阈值会误纠、越纠越偏。
+       * 只有「墙钟走了 1 秒、采样位置却几乎没动」才是真的缓冲。
+       */
+      const prev = sampleRef.current
+      const dPos = now - prev.pos
+      const dTs = ts - prev.at
+      const stalled = prev.at > 0 && dTs > 400 && dPos < dTs * 0.7
+
+      if (stalled) {
+        // 停在原地：把时钟压到测量位置。缓冲结束后 diff 会自然变小，
+        // 下一拍按 diff > 30 / > 400 的规则跟上去，不会累积偏移。
+        baseRef.current = { time: now, at: ts, playing: true, rate: playbackRate }
+      } else if (diff > 400) {
         // 目标位置明显更靠前（拖进度条往后 / 缓冲结束后追上）：直接对齐
         baseRef.current = { time: now, at: ts, playing: true, rate: playbackRate }
       } else if (diff > 30) {
         // 目标略靠前：按一半权重追上，1~2 次事件内收敛，肉眼看不到跳变
         baseRef.current = { time: predicted + diff * 0.5, at: ts, playing: true, rate: playbackRate }
-      } else if (diff < -5000) {
-        // 只有整首重播 / 大幅拖动这种真正的回退才把时钟拉回来。
-        // 阈值放到 5s：采样位置本身可能就落后 1s 以上，用 -1200 这种小阈值
-        // 会在正常播放时误判成「回退」，一拉就又出现逐字倒退。
+      } else if (diff < -1500) {
+        // 明显超前（不是采样延迟能解释的量）：切歌残留 / 长时间卡顿后的残差
         baseRef.current = { time: now, at: ts, playing: true, rate: playbackRate }
       }
-      // -1200 <= diff <= 30：采样位置比本地时钟靠后，这是 getPosition 的异步延迟 + 1s 一次
-      // 的采样间隔造成的，属于「样本旧」而不是「播放位置真的退了」。
+      // -1500 <= diff <= 30 且没在缓冲：采样位置比本地时钟靠后，
+      // 这是 getPosition 的异步延迟造成的「样本旧」，不是「播放位置真的退了」。
       // 老实现这里按 35% 权重往回拉，每秒拉一次，逐字整体越唱越慢，
       // 到行尾还剩半句没亮就被下一行切走 —— 也就是「歌词只渲染一半就跳」。
+
+      if (dTs > 0) sampleRef.current = { pos: now, at: ts }
     }
 
     frameRef.current(readClock())
@@ -144,6 +205,11 @@ export default memo(({ wordLine, size, lineHeight, textAlign, activeColor, inact
     indexRef.current = -1
     progressRef.current = -1
     setActiveIndex(-1)
+    // 切歌瞬间 nowPlayTime 还是上一首的位置，先别急着重算，
+    // 等进度事件把时钟基准拉到新歌再推进（否则第一行会被误判成已唱完）
+    const t = nowPlayTime * 1000
+    const lineStart = units.length ? units[0].time : 0
+    if (Math.abs(t - lineStart) > 5000) return
     frameRef.current(readClock())
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [units])
@@ -151,8 +217,25 @@ export default memo(({ wordLine, size, lineHeight, textAlign, activeColor, inact
   // 播放中才跑 rAF：暂停时逐字进度是静止的，没必要每秒烧 60 帧
   useEffect(() => {
     if (!isPlay) return
+    let lastAt = 0
     const loop = () => {
-      frameRef.current(readClock())
+      const now = Date.now()
+      /**
+       * 限到 ~60fps。
+       *
+       * 高刷屏（90/120Hz）下 rAF 每秒回调 90~120 次，而颜色精度只有 1/255，
+       * 多出来的帧不会让画面更细腻，只会把 setValue 堆到 bridge 上。
+       * JS 线程被这些无用的 setValue 占满后，nowPlayTime 的进度回调会被延后，
+       * 本地时钟基准越来越旧 —— 逐字越唱越慢，到行尾还没亮完就被下一行切走。
+       *
+       * 这也是「一开录屏就正常」的原因：录屏会强制把刷新率锁到 60Hz
+       * （编码器限制），rAF 频率直接减半，bridge 压力骤降，看起来就好了。
+       * 换句话说，这个 bug 是「渲染频率绑架时序正确性」，不是歌词数据的问题。
+       */
+      if (now - lastAt >= 16) {
+        lastAt = now
+        frameRef.current(readClock())
+      }
       rafRef.current = requestAnimationFrame(loop)
     }
     rafRef.current = requestAnimationFrame(loop)

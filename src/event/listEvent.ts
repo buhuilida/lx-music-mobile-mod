@@ -50,7 +50,12 @@ export const checkUpdateList = async(changedIds: string[]) => {
 
 // 兼容v2.3.0之前版本插入数字类型的ID导致其意外在末尾追加 .0 的问题，确保所有ID都是字符串类型
 const fixListIdType = (lists: LX.List.UserListInfo[] | LX.List.UserListInfoFull[]) => {
+  // 备份恢复时 userList 来自外部 JSON，可能是 null / 非对象。
+  // 不拦的话这里 `list.sourceListId` 直接抛 TypeError，整个覆盖写入中断，
+  // 已经写进内存的试听列表却还在，用户看到的就是「导入失败 + 数据半残」。
+  if (!Array.isArray(lists)) return
   for (const list of lists) {
+    if (!list || typeof list != 'object') continue
     if (typeof list.sourceListId == 'number') {
       list.sourceListId = String(list.sourceListId)
       if (typeof list.id == 'number') {
