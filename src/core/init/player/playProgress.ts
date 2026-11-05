@@ -30,18 +30,30 @@ export default () => {
 
   const getCurrentTime = () => {
     let id = playerState.musicInfo.id
+    const readAt = Date.now()
     void getPosition().then(position => {
       if (!position || id != playerState.musicInfo.id) return
-      setNowPlayTime(position)
+      /**
+       * getPosition 是跨 bridge 的异步调用，返回的是「发起请求那一刻」的位置。
+       * 直接把它写进 store，进度/歌词就永远慢一个来回（低端机上能到几百毫秒），
+       * 逐字唱到句尾还差好几个字，看起来就是「后半句没唱就跳下一句」。
+       * 这里按实际耗时补回来。
+       */
+      const elapsed = (Date.now() - readAt) / 1000
+      const now = position + elapsed
+      setNowPlayTime(now)
       if (!playerState.isPlay) return
 
       // 位置大幅回退说明这首歌从头重播了（单曲循环、点上一首、拖回开头）。
       // 原生歌词播放器是按行排定时器自己往前跑的，不重新对齐就会一直停在
       // 上一轮的当前行上，表现就是「歌词卡在最后一句，切歌才变」。
       if (lastPosition >= 0 && position + 2 < lastPosition) {
-        global.app_event.lyricSeek(position * 1000)
+        global.app_event.lyricSeek(now * 1000)
       }
       lastPosition = position
+      // 正常播放时音频位置和歌词内部时钟也会有慢慢分叉（缓冲、解码抖动），
+      // 漂移超过 1.2s 才重排，避免频繁打断逐字动画。
+      global.app_event.lyricDrift(now * 1000)
 
       if (settingState.setting['player.isSavePlayTime'] && !playerState.playMusicInfo.isTempPlay && isScreenOn) {
         delaySavePlayInfo()

@@ -1,11 +1,11 @@
 import {
-  play as lrcPlay,
   setLyric as lrcSetLyric,
   pause as lrcPause,
   setPlaybackRate as lrcSetPlaybackRate,
   toggleTranslation as lrcToggleTranslation,
   toggleRoma as lrcToggleRoma,
   init as lrcInit,
+  resync as lrcResync,
 } from '@/plugins/lyric'
 import {
   playDesktopLyric,
@@ -89,8 +89,31 @@ export const clearLockedLyric = () => {
  * play lyric
  * @param time play time
  */
+/** 上次给原生歌词播放器对齐的位置（毫秒）与时刻，用于算它自己跑到了哪 */
+let lrcAnchor = { pos: -1, at: 0 }
+
 export const handlePlay = (time: number) => {
-  lrcPlay(time)
+  lrcAnchor = { pos: time, at: Date.now() }
+  lrcResync(time)
+  void playDesktopLyric(time)
+}
+
+const DRIFT_TOLERANCE = 800
+
+/**
+ * 校正歌词内部时钟的漂移（毫秒）
+ *
+ * lrc-file-parser 用 wall clock 自己往前跑，音频缓冲/解码卡顿时它会超前，
+ * 用户看到的就是「这句还没唱完就切到下一句」。这里拿真实播放位置比一下，
+ * 偏差超过 1.2s 才重排 —— 阈值太小会频繁打断逐字动画，反而更卡。
+ */
+export const syncLyricDrift = (time: number) => {
+  if (lrcAnchor.pos < 0) return
+  const predicted = lrcAnchor.pos + (Date.now() - lrcAnchor.at)
+  if (Math.abs(time - predicted) < DRIFT_TOLERANCE) return
+  // 重排前先更新基准，避免 handlePlay 里再次递归
+  lrcAnchor = { pos: time, at: Date.now() }
+  lrcResync(time)
   void playDesktopLyric(time)
 }
 

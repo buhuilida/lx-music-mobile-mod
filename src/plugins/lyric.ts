@@ -120,6 +120,22 @@ export const play = (time: number) => {
   lrcTools.isPlay = true
   lrcTools.lrc!.play(time)
 }
+
+/**
+ * 用指定位置重排歌词（不做「先暂停再播放」的中间态）
+ *
+ * `lrc.play()` 内部第一件事是 `pause()`，而 `pause()` 会用「当前内部时钟」算一次
+ * 行号并回调 onPlay。音频缓冲过之后内部时钟是超前的，这一下会先跳到后面那句，
+ * 再被 play 拉回来 —— 用户看到歌词闪一下。把 isPlay 先置 false，pause() 会直接
+ * return，跳过的只是这次多余的回调，时间轴仍然由 play(time) 完整重置。
+ */
+export const resync = (time: number) => {
+  const lrc = lrcTools.lrc
+  if (!lrc) return
+  lrc.isPlay = false
+  lrcTools.isPlay = true
+  lrc.play(time)
+}
 export const pause = () => {
   // console.log('pause')
   lrcTools.isPlay = false

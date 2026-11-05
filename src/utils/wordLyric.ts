@@ -300,16 +300,30 @@ export const buildAutoWordLyric = (lyric: string | null | undefined): string => 
   for (let i = 0; i < parsed.length; i++) {
     const cur = parsed[i]
     const next = parsed[i + 1]
-    let lineDuration = next ? next.time - cur.time : Math.min(cur.text.length * 220, 8000)
-    if (lineDuration < 300) lineDuration = 300
-    if (lineDuration > 12_000) lineDuration = 12_000
     const chars = Array.from(cur.text)
-    const per = Math.max(60, Math.round(lineDuration / Math.max(chars.length, 1)))
+    /**
+     * 行时长不能用「下一行时间 - 本行时间」直接算。
+     *
+     * 前奏 / 间奏后的第一句，行间隔动辄十几秒（这首歌的「编曲: DH」离下一句有 12.5 秒），
+     * 按间隔均分会让 7 个字每个字占 1.7 秒 —— 视觉上是「一个字一个字慢慢蹦」，
+     * 而且唱到第 3 个字时下一句的鼓点已经起来了，看起来就是「只渲染了一半」。
+     *
+     * 这里按语速估一个上限：中文慢歌约 260ms/字，再用行间隔封顶，
+     * 剩余时间让整行停在「全部唱完」的状态，符合直觉。
+     */
+    const estimated = Math.max(900, chars.length * 260)
+    let lineDuration = next ? Math.min(next.time - cur.time, estimated) : estimated
+    if (lineDuration < 300) lineDuration = 300
+    // 空格不发音，不该分走一个字的时间，否则「你也不疲倦吧 累了」中间会多停 160ms
+    const voiced = chars.filter(ch => ch != ' ' && ch != '\t').length || 1
+    // 下限只防 0，不要卡 60ms：快速英文行（一句 30 个字符只唱 1.5 秒）
+    // 按 60ms 排会排到 1.8 秒，行都切走了后面几个词还没亮
+    const per = Math.max(20, Math.round(lineDuration / voiced))
     let offset = 0
     let body = ''
     for (const ch of chars) {
       body += `<${offset},${per}>${ch}`
-      offset += per
+      if (ch != ' ' && ch != '\t') offset += per
     }
     out.push(`${msToTag(cur.time)}${body}`)
   }

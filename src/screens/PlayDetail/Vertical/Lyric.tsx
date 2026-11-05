@@ -112,7 +112,7 @@ const LrcLine = memo(({ line, lineNum, activeLine, wordLine, onLayout }: LinePro
               ...styles.lineText,
               textAlign,
               lineHeight,
-            }} textBreakStrategy="simple" color={colors[0]} opacity={colors[2]} size={size}>{line.text}</AnimatedColorText>
+            }} textBreakStrategy="simple" color={colors[0]} opacity={colors[2]} size={size} duration={220}>{line.text}</AnimatedColorText>
             )
       }
       {
@@ -121,7 +121,7 @@ const LrcLine = memo(({ line, lineNum, activeLine, wordLine, onLayout }: LinePro
             ...styles.lineTranslationText,
             textAlign,
             lineHeight: lineHeight * 0.8,
-          }} textBreakStrategy="simple" key={index} color={colors[1]} opacity={colors[2]} size={size * 0.8}>{lrc}</AnimatedColorText>)
+          }} textBreakStrategy="simple" key={index} color={colors[1]} opacity={colors[2]} size={size * 0.8} duration={220}>{lrc}</AnimatedColorText>)
         })
       }
     </View>
@@ -137,12 +137,27 @@ export default () => {
   const lyricLines = useLrcSet()
   const wordLines = useWordLyricLines()
   /**
-   * 主歌词（lrc）与逐字歌词（lxlyric）是两份文本，同一个音源给的时间戳也常有
-   * 几十毫秒出入。1.22.24 用 `Math.round(time / 20)` 做 Map key，只能容忍 ±10ms，
-   * 一旦对不上，这一行就悄悄退化成普通渲染（没有逐字、字号也不一样），
-   * 表现就是「有时有逐字有时没有」。这里改成按时间就近匹配（±400ms）。
+   * 按行找对应的逐字数据，并校验「确实是同一句」。
+   *
+   * 主歌词（lrc）与逐字歌词（lxlyric）是两份文本，时间戳常有几十毫秒出入，
+   * 所以按 ±400ms 就近匹配（1.22.24 用 `Math.round(time / 20)` 做 Map key 只容忍
+   * ±10ms，对不上就悄悄退化成整行渲染，表现为「有时有逐字有时没有」）。
+   *
+   * 但切歌瞬间两套 hook 的更新不是原子的，时间又刚好落在容差内时，
+   * 会把上一首（或上一段）的逐字贴到这一句上，表现为歌词串行、叠字、内容对不上。
+   * 所以这里再比一次文本，长度差太多就放弃逐字，退回整行渲染。
    */
-  const wordLineFor = (time: number) => findWordLine(wordLines, time)
+  const wordLineFor = (item: Line) => {
+    const wl = findWordLine(wordLines, item.time)
+    if (!wl) return
+    const a = wl.text.replace(/\s/g, '')
+    const b = item.text.replace(/\s/g, '')
+    if (!a || !b) return
+    if (a === b) return wl
+    // 标点、异体字允许有出入，长度差太远就判定为串行
+    if (Math.abs(a.length - b.length) > Math.max(2, b.length / 3)) return
+    return wl
+  }
   const { line } = useLrcPlay()
   const flatListRef = useRef<FlatList>(null)
   const playLineRef = useRef<PlayLineType>(null)
@@ -350,7 +365,7 @@ export default () => {
 
   const renderItem: FlatListType['renderItem'] = ({ item, index }) => {
     return (
-      <LrcLine line={item} lineNum={index} activeLine={line} wordLine={wordLineFor(item.time)} onLayout={handleLineLayout} />
+      <LrcLine line={item} lineNum={index} activeLine={line} wordLine={wordLineFor(item)} onLayout={handleLineLayout} />
     )
   }
   const getkey: FlatListType['keyExtractor'] = (item, index) => `${index}${item.text}`

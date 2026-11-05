@@ -73,8 +73,13 @@ export default memo(({ wordLine, size, lineHeight, textAlign, activeColor, inact
       if (list[i].time <= now) index = i
       else break
     }
-    if (index != indexRef.current) {
+    // 逐字只前进，不倒退。
+    // 进度采样（getPosition）是异步的，每次拿到的位置比本地时钟慢几十到几百毫秒，
+    // 时钟一抖动 index 就会往回退一格，用户看到的是「唱过的字又灭了」。
+    // 只有真的换行（units 变化）才允许重置，那由下面的 effect 负责。
+    if (index > indexRef.current) {
       indexRef.current = index
+      progressRef.current = -1
       setActiveIndex(index)
     }
 
@@ -112,22 +117,36 @@ export default memo(({ wordLine, size, lineHeight, textAlign, activeColor, inact
     } else {
       const predicted = base.time + (ts - base.at) * base.rate
       const diff = now - predicted
-      if (Math.abs(diff) > 400) {
-        // 拖进度 / 切歌：直接跳，别慢慢追
+      if (diff > 400) {
+        // 目标位置明显更靠前（拖进度条往后 / 缓冲结束后追上）：直接对齐
         baseRef.current = { time: now, at: ts, playing: true, rate: playbackRate }
-      } else if (Math.abs(diff) > 50) {
-        // 进度事件只有 1s 一次，且 getPosition 是异步的（读到的是几十毫秒前的位置）。
-        // 硬重置会让逐字进度往回跳，这里只按 35% 权重纠偏，视觉上完全无感。
-        baseRef.current = { time: predicted + diff * 0.35, at: ts, playing: true, rate: playbackRate }
-      } else {
-        base.rate = playbackRate
+      } else if (diff > 30) {
+        // 目标略靠前：按一半权重追上，1~2 次事件内收敛，肉眼看不到跳变
+        baseRef.current = { time: predicted + diff * 0.5, at: ts, playing: true, rate: playbackRate }
+      } else if (diff < -5000) {
+        // 只有整首重播 / 大幅拖动这种真正的回退才把时钟拉回来。
+        // 阈值放到 5s：采样位置本身可能就落后 1s 以上，用 -1200 这种小阈值
+        // 会在正常播放时误判成「回退」，一拉就又出现逐字倒退。
+        baseRef.current = { time: now, at: ts, playing: true, rate: playbackRate }
       }
+      // -1200 <= diff <= 30：采样位置比本地时钟靠后，这是 getPosition 的异步延迟 + 1s 一次
+      // 的采样间隔造成的，属于「样本旧」而不是「播放位置真的退了」。
+      // 老实现这里按 35% 权重往回拉，每秒拉一次，逐字整体越唱越慢，
+      // 到行尾还剩半句没亮就被下一行切走 —— 也就是「歌词只渲染一半就跳」。
     }
 
-    indexRef.current = -1
     frameRef.current(readClock())
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nowPlayTime, isPlay, playbackRate, units])
+
+  // 换行 / 切歌：渲染单元变了，逐字进度必须从头开始
+  useEffect(() => {
+    indexRef.current = -1
+    progressRef.current = -1
+    setActiveIndex(-1)
+    frameRef.current(readClock())
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [units])
 
   // 播放中才跑 rAF：暂停时逐字进度是静止的，没必要每秒烧 60 帧
   useEffect(() => {
