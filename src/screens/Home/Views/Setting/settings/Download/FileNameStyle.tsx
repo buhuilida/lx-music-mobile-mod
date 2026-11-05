@@ -22,7 +22,9 @@ export default memo(() => {
 
   return (
     <View style={styles.content}>
-      <Text size={13} color={theme['c-600']}>{t('setting_download_file_name')}</Text>
+      <Text size={13} color={theme['c-600']}>
+        {`${t('setting_download_file_name')}　${t('setting_download_current', { value: t(STYLES.find(item => item.id == style)?.labelKey as Parameters<typeof t>[0] ?? 'setting_download_name_name_singer') })}`}
+      </Text>
       <View style={styles.btns}>
         {STYLES.map(item => {
           const active = style == item.id
@@ -30,9 +32,14 @@ export default memo(() => {
             <CommonButton
               key={item.id}
               onPress={() => { updateSetting({ 'download.fileNameStyle': item.id }) }}
-              style={[styles.btn, { backgroundColor: active ? theme['c-primary-background-active'] : theme['c-button-background'] }]}
+              style={[styles.btn, {
+                backgroundColor: active ? theme['c-primary-background-active'] : theme['c-button-background'],
+                borderColor: active ? theme['c-primary'] : 'transparent',
+              }]}
             >
-              <Text size={12} color={active ? theme['c-primary-font'] : theme['c-button-font']}>{t(item.labelKey as Parameters<typeof t>[0])}</Text>
+              <Text size={12} color={active ? theme['c-primary-font'] : theme['c-button-font']}>
+                {`${active ? '✓ ' : ''}${t(item.labelKey as Parameters<typeof t>[0])}`}
+              </Text>
             </CommonButton>
           )
         })}
@@ -60,5 +67,6 @@ const styles = createStyle({
     paddingTop: 5,
     paddingBottom: 5,
     borderRadius: 4,
+    borderWidth: 1,
   },
 })

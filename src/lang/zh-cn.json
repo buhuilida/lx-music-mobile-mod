@@ -1180,5 +1180,13 @@
   "setting_about_update": "关于与更新",
   "setting_about_update_hint": "检查更新、版本与致谢",
   "setting_back": "返回",
-  "setting_download_hint": "保存位置、音质、标签、百度网盘"
+  "setting_download_hint": "保存位置、音质、标签、百度网盘",
+  "setting_download_current": "当前：{value}",
+  "setting_download_quality_current": "当前：{quality}",
+  "setting_download_baidu_section": "百度网盘上传",
+  "setting_download_baidu_tip": "下载保存到哪里，在「百度网盘」页面右上角的下载图标里切换。",
+  "baidu_pan_save_local_done": "已改为保存到本地",
+  "baidu_pan_save_here_done": "已设为保存到此目录",
+  "baidu_pan_save_local_desc": "下载后留在手机上，不上传",
+  "baidu_pan_save_here_desc": "上传到"
 }

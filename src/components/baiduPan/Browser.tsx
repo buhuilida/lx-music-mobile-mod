@@ -4,12 +4,14 @@ import { ActivityIndicator, FlatList, RefreshControl, TouchableOpacity, View } f
 import Text from '@/components/common/Text'
 import Input, { type InputType } from '@/components/common/Input'
 import ConfirmAlert, { type ConfirmAlertType } from '@/components/common/ConfirmAlert'
+import Popup, { type PopupType } from '@/components/common/Popup'
 import { Icon } from '@/components/common/Icon'
 import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { useI18n } from '@/lang'
 import { confirmDialog, createStyle, tipDialog, toast } from '@/utils/tools'
 import { updateSetting } from '@/core/common'
+import { useBaiduPanAuth } from '@/core/baiduPan/auth'
 import {
   createDir,
   deleteFiles,
@@ -53,7 +55,10 @@ export default memo(({ pickMode = false, onFinish }: { pickMode?: boolean, onFin
   const t = useI18n()
   const theme = useTheme()
   const alertRef = useRef<ConfirmAlertType>(null)
+  const posPopupRef = useRef<PopupType>(null)
   const nameInputRef = useRef<InputType>(null)
+  const auth = useBaiduPanAuth()
+  const saveTarget = useSettingValue('download.saveTarget')
   const favorites = parseFavorites(useSettingValue('download.baiduPanFavorites'))
   const [currentPath, setCurrentPath] = useState('/')
   const [dirs, setDirs] = useState<PanFile[]>([])
@@ -118,6 +123,27 @@ export default memo(({ pickMode = false, onFinish }: { pickMode?: boolean, onFin
     onFinish?.()
   }, [currentPath, onFinish, t])
 
+  /** 下载保存位置：本地 */
+  const setSaveLocal = useCallback(() => {
+    updateSetting({ 'download.saveTarget': 'local' })
+    posPopupRef.current?.setVisible(false)
+    toast(t('baidu_pan_save_local_done'))
+  }, [t])
+
+  /** 下载保存位置：百度网盘（= 当前所在目录） */
+  const setSaveHere = useCallback(() => {
+    if (!auth) {
+      toast(t('setting_download_save_target_baidu_tip'))
+      return
+    }
+    updateSetting({
+      'download.saveTarget': 'baiduPan',
+      'download.baiduPanDir': currentPath,
+    })
+    posPopupRef.current?.setVisible(false)
+    toast(`${t('baidu_pan_save_here_done')} · ${currentPath}`)
+  }, [auth, currentPath, t])
+
   const handleCreate = useCallback(async() => {
     const name = newName.trim()
     if (!name) {
@@ -171,6 +197,13 @@ export default memo(({ pickMode = false, onFinish }: { pickMode?: boolean, onFin
         <TouchableOpacity onPress={toggleFavorite} style={styles.toggleBtn}>
           <Text size={12} color={theme['c-primary']}>{isFavorite ? '★' : '☆'}</Text>
         </TouchableOpacity>
+        {!pickMode
+          ? (
+            <TouchableOpacity onPress={() => posPopupRef.current?.setVisible(true)} style={styles.toggleBtn}>
+              <Icon name="download-2" size={16} color={saveTarget == 'baiduPan' ? theme['c-primary'] : undefined} />
+            </TouchableOpacity>
+            )
+          : null}
         <TouchableOpacity
           onPress={() => {
             setNewName('')
@@ -272,6 +305,25 @@ export default memo(({ pickMode = false, onFinish }: { pickMode?: boolean, onFin
           />
           )}
 
+      <Popup ref={posPopupRef} title={t('setting_download_save_target')} position="bottom">
+        <TouchableOpacity style={styles.posItem} onPress={setSaveLocal} activeOpacity={0.6}>
+          <View style={styles.posInfo}>
+            <Text size={14}>{t('setting_download_save_target_local')}</Text>
+            <Text size={11} color={theme['c-font-label']} style={styles.fileMeta}>{t('baidu_pan_save_local_desc')}</Text>
+          </View>
+          {saveTarget == 'local' ? <Icon name="checkbox-marked" size={14} color={theme['c-primary']} /> : null}
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.posItem} onPress={setSaveHere} activeOpacity={0.6}>
+          <View style={styles.posInfo}>
+            <Text size={14}>{t('setting_download_save_target_baidu')}</Text>
+            <Text size={11} color={theme['c-font-label']} numberOfLines={1} style={styles.fileMeta}>
+              {`${t('baidu_pan_save_here_desc')} ${currentPath}`}
+            </Text>
+          </View>
+          {saveTarget == 'baiduPan' ? <Icon name="checkbox-marked" size={14} color={theme['c-primary']} /> : null}
+        </TouchableOpacity>
+      </Popup>
+
       <ConfirmAlert
         ref={alertRef}
         onConfirm={() => { void handleCreate() }}
@@ -367,6 +419,18 @@ const styles = createStyle({
   center: {
     paddingTop: 40,
     alignItems: 'center',
+  },
+  posItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 20,
+    paddingRight: 20,
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
+  posInfo: {
+    flex: 1,
+    marginRight: 10,
   },
   list: {
     flex: 1,

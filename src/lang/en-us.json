@@ -1180,5 +1180,13 @@
   "setting_about_update": "About & Update",
   "setting_about_update_hint": "Check update, version, credits",
   "setting_back": "Back",
-  "setting_download_hint": "Save target, quality, tags, cloud"
+  "setting_download_hint": "Save target, quality, tags, cloud",
+  "setting_download_current": "Current: {value}",
+  "setting_download_quality_current": "Current: {quality}",
+  "setting_download_baidu_section": "Baidu Pan upload",
+  "setting_download_baidu_tip": "Choose where downloads go from the download icon at the top right of the Baidu Pan page.",
+  "baidu_pan_save_local_done": "Saved to local storage",
+  "baidu_pan_save_here_done": "Saved to this folder",
+  "baidu_pan_save_local_desc": "Keep on this device, no upload",
+  "baidu_pan_save_here_desc": "Upload to"
 }

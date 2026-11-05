@@ -6,7 +6,7 @@ import MetadataOptions from './MetadataOptions'
 import DownloadPath from './DownloadPath'
 import Concurrency from './Concurrency'
 import Quality from './Quality'
-import SaveTarget from './SaveTarget'
+import BaiduPanUpload from './BaiduPanUpload'
 import DownloadManager from '../Other/DownloadManager'
 import { useI18n } from '@/lang'
 
@@ -15,12 +15,12 @@ export default memo(() => {
 
   return (
     <Section title={t('setting_download')}>
-      <SaveTarget />
       <DownloadPath />
       <Quality />
       <Concurrency />
       <FileNameStyle />
       <MetadataOptions />
+      <BaiduPanUpload />
       <DownloadManager />
     </Section>
   )

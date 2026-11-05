@@ -41,9 +41,14 @@ export default memo(() => {
             <CommonButton
               key={item.id}
               onPress={() => { updateSetting({ 'download.qualityMode': item.id }) }}
-              style={[styles.btn, { backgroundColor: active ? theme['c-primary-background-active'] : theme['c-button-background'] }]}
+              style={[styles.btn, {
+                backgroundColor: active ? theme['c-primary-background-active'] : theme['c-button-background'],
+                borderColor: active ? theme['c-primary'] : 'transparent',
+              }]}
             >
-              <Text size={12} color={active ? theme['c-primary-font'] : theme['c-button-font']}>{t(item.labelKey)}</Text>
+              <Text size={12} color={active ? theme['c-primary-font'] : theme['c-button-font']}>
+                {`${active ? '✓ ' : ''}${t(item.labelKey)}`}
+              </Text>
             </CommonButton>
           )
         })}
@@ -52,7 +57,9 @@ export default memo(() => {
       {mode == 'global'
         ? (
             <>
-              <Text size={13} color={theme['c-600']} style={styles.subTitle}>{t('setting_download_quality_global')}</Text>
+              <Text size={13} color={theme['c-600']} style={styles.subTitle}>
+                {`${t('setting_download_quality_global')}　${t('setting_download_quality_current', { quality: getQualityFullLabel(quality) })}`}
+              </Text>
               <View style={styles.btns}>
                 {QUALITYS.map(id => {
                   const active = quality == id
@@ -60,9 +67,14 @@ export default memo(() => {
                     <CommonButton
                       key={id}
                       onPress={() => { updateSetting({ 'download.quality': id }) }}
-                      style={[styles.btn, { backgroundColor: active ? theme['c-primary-background-active'] : theme['c-button-background'] }]}
+                      style={[styles.btn, {
+                        backgroundColor: active ? theme['c-primary-background-active'] : theme['c-button-background'],
+                        borderColor: active ? theme['c-primary'] : 'transparent',
+                      }]}
                     >
-                      <Text size={12} color={active ? theme['c-primary-font'] : theme['c-button-font']}>{getQualityFullLabel(id)}</Text>
+                      <Text size={12} color={active ? theme['c-primary-font'] : theme['c-button-font']}>
+                        {`${active ? '✓ ' : ''}${getQualityFullLabel(id)}`}
+                      </Text>
                     </CommonButton>
                   )
                 })}
@@ -98,6 +110,7 @@ const styles = createStyle({
     paddingTop: 5,
     paddingBottom: 5,
     borderRadius: 4,
+    borderWidth: 1,
   },
   tip: {
     marginTop: 8,

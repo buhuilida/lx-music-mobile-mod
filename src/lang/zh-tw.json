@@ -1180,5 +1180,13 @@
   "setting_about_update": "關於與更新",
   "setting_about_update_hint": "檢查更新、版本與致謝",
   "setting_back": "返回",
-  "setting_download_hint": "儲存位置、音質、標籤、百度網盤"
+  "setting_download_hint": "儲存位置、音質、標籤、百度網盤",
+  "setting_download_current": "目前：{value}",
+  "setting_download_quality_current": "目前：{quality}",
+  "setting_download_baidu_section": "百度網盤上傳",
+  "setting_download_baidu_tip": "下載儲存位置，在「百度網盤」頁面右上角的下載圖示裡切換。",
+  "baidu_pan_save_local_done": "已改為儲存到本機",
+  "baidu_pan_save_here_done": "已設為儲存到此目錄",
+  "baidu_pan_save_local_desc": "下載後留在手機上，不上傳",
+  "baidu_pan_save_here_desc": "上傳到"
 }

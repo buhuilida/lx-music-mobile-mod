@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import Lyric, { type Lines } from 'lrc-file-parser'
+// 用内置副本代替原包：原包的 timeoutTools 会积累野定时器，暂停后仍回调 null（Fatal 崩溃）。
+// 详见 src/vendor/lrcFileParser.js 文件头。
+import Lyric, { type Lines } from '@/vendor/lrcFileParser'
 import { parseWordLyric, type WordLyricLine } from '@/utils/wordLyric'
 // import { getStore, subscribe } from '@/store'
 export type Line = Lines[number]

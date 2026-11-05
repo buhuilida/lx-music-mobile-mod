@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react'
+import { memo, useCallback, useEffect, useState } from 'react'
 import { FlatList, ScrollView, TouchableOpacity, View } from 'react-native'
 
 import { Icon } from '@/components/common/Icon'
@@ -7,6 +7,7 @@ import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'
 import { useBackHandler } from '@/utils/hooks/useBackHandler'
+import type { InitState as CommonState } from '@/store/common/state'
 import { SETTING_SCREENS, SETTING_SCREEN_ICONS, type SettingScreenIds } from '../Main'
 import Appearance from '../settings/Appearance'
 import Interface from '../settings/Interface'
@@ -92,25 +93,52 @@ const Detail = memo(({ id, onBack }: { id: SettingScreenIds, onBack: () => void 
   )
 })
 
+/**
+ * 记住当前停留的分类。
+ *
+ * 「侧边栏项目」里勾选/取消的是首页可滑动页面，页面集合一变，PagerView 必须整体重建
+ * （原生层不重建会残留旧的子 View），连带把设置页也卸载重挂了。状态只放在组件里的话，
+ * 用户勾一下「搜索」就被踢回分类列表，看起来像「点一下设置就退出去了」。
+ * 存到模块作用域后重挂能接着显示原分类；真正离开设置页时清掉，下次进来仍从列表开始。
+ */
+let lastActiveId: SettingScreenIds | null = null
+
 export default () => {
   // null = 一级分类列表；有值 = 该类的详情页
-  const [activeId, setActiveId] = useState<SettingScreenIds | null>(null)
+  const [activeId, setActiveId] = useState<SettingScreenIds | null>(lastActiveId)
+
+  const updateActiveId = useCallback((id: SettingScreenIds | null) => {
+    lastActiveId = id
+    setActiveId(id)
+  }, [])
 
   const handleBack = useCallback(() => {
     if (activeId == null) return false
-    setActiveId(null)
+    updateActiveId(null)
     return true
-  }, [activeId])
+  }, [activeId, updateActiveId])
 
   // 详情页按返回键先回分类列表，而不是直接退出设置
   useBackHandler(handleBack)
 
+  useEffect(() => {
+    // 切到其它页面（搜索/歌单…）时清空，避免隔了很久再进设置还停在上次的分类
+    const handleNavActiveIdUpdate = (id: CommonState['navActiveId']) => {
+      if (id == 'nav_setting') return
+      lastActiveId = null
+    }
+    global.state_event.on('navActiveIdUpdated', handleNavActiveIdUpdate)
+    return () => {
+      global.state_event.off('navActiveIdUpdated', handleNavActiveIdUpdate)
+    }
+  }, [])
+
   const handlePress = useCallback((id: SettingScreenIds) => {
-    setActiveId(id)
-  }, [])
+    updateActiveId(id)
+  }, [updateActiveId])
   const handleCloseDetail = useCallback(() => {
-    setActiveId(null)
-  }, [])
+    updateActiveId(null)
+  }, [updateActiveId])
 
   return activeId == null
     ? <CategoryList onPress={handlePress} />
