@@ -7,6 +7,7 @@ import DownloadPath from './DownloadPath'
 import Concurrency from './Concurrency'
 import Quality from './Quality'
 import SaveTarget from './SaveTarget'
+import DownloadManager from '../Other/DownloadManager'
 import { useI18n } from '@/lang'
 
 export default memo(() => {
@@ -14,12 +15,13 @@ export default memo(() => {
 
   return (
     <Section title={t('setting_download')}>
-      <Concurrency />
+      <SaveTarget />
       <DownloadPath />
       <Quality />
+      <Concurrency />
       <FileNameStyle />
       <MetadataOptions />
-      <SaveTarget />
+      <DownloadManager />
     </Section>
   )
 })

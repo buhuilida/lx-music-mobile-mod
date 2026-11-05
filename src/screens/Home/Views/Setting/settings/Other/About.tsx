@@ -40,7 +40,7 @@ export default memo(() => {
   }
 
   return (
-    <SubTitle title={t('setting_about')}>
+    <SubTitle title={t('about_credit_title')}>
       <View style={styles.content}>
         <Text size={13}>{t('about_fork_intro')}</Text>
         <TouchableOpacity style={styles.linkBtn} activeOpacity={0.6} onPress={openApp}>
