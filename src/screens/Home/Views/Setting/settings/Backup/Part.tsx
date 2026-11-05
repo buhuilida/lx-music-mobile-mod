@@ -50,9 +50,14 @@ export default memo(() => {
         confirmButtonText: t('setting_backup_local_import'),
       })
       if (!ok) return
-      await importLocalBackup(path)
+      const result = await importLocalBackup(path)
       showImportTip('allData')
-      toast(t('setting_backup_local_import_done'), 'long')
+      // 有步骤失败时把具体项报出来，别再只给一句「导入失败」让用户猜
+      if (result.warnings?.length) {
+        toast(`${t('setting_backup_local_import_partial')}\n${result.warnings.join('\n')}`, 'long')
+      } else {
+        toast(t('setting_backup_local_import_done'), 'long')
+      }
     } catch (err) {
       console.log('local backup import failed', err)
       toast(t('setting_backup_local_import_failed'), 'long')

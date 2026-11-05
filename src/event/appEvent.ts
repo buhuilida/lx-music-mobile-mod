@@ -64,6 +64,18 @@ export class AppEvent extends Event {
   }
 
   /**
+   * 播放位置与歌词内部时钟漂移校正
+   *
+   * lrc-file-parser 是按行排定时器、用 wall clock 自己往前跑的，音频一旦缓冲，
+   * 它的时间就会比真实播放位置超前（最多能到好几秒），表现是「一句还没唱完，
+   * 歌词已经跳到下一句」。这里把真实位置送进去，漂移超过阈值才重排。
+   * @param progress 当前位置（毫秒）
+   */
+  lyricDrift(progress: number) {
+    this.emit('lyricDrift', progress)
+  }
+
+  /**
    * 设置音量大小
    * @param volume 音量大小
    */

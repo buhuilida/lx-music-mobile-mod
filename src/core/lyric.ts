@@ -1,11 +1,11 @@
 import {
-  play as lrcPlay,
   setLyric as lrcSetLyric,
   pause as lrcPause,
   setPlaybackRate as lrcSetPlaybackRate,
   toggleTranslation as lrcToggleTranslation,
   toggleRoma as lrcToggleRoma,
   init as lrcInit,
+  resync as lrcResync,
 } from '@/plugins/lyric'
 import {
   playDesktopLyric,
@@ -89,8 +89,44 @@ export const clearLockedLyric = () => {
  * play lyric
  * @param time play time
  */
+/** 上次给原生歌词播放器对齐的位置（毫秒）与时刻，用于算它自己跑到了哪 */
+let lrcAnchor = { pos: -1, at: 0 }
+
 export const handlePlay = (time: number) => {
-  lrcPlay(time)
+  lrcAnchor = { pos: time, at: Date.now() }
+  lrcResync(time)
+  void playDesktopLyric(time)
+}
+
+/**
+ * 允许的最大时钟偏差（毫秒）
+ *
+ * 这个值直接决定「一句歌词的最后一个字能不能唱完」。
+ *
+ * lrc-file-parser 内部是纯 wall clock 推算：`起始位置 + (now - 起始时刻)`，
+ * 与音频实际播放位置无关。音频一旦因缓冲、解码、网络抖动停顿 200~400ms，
+ * 它的时钟就永久超前同样多 —— 于是每句都在最后一个字唱完之前切到下一句，
+ * 表现就是「歌词只渲染了一半，最后几个字不亮直接跳走」。
+ *
+ * 这个偏差是恒定的，不是累积的，所以只要每秒校一次就能压住。
+ * 阈值取 60ms：小于一个字（中文歌约 150~250ms/字）的 1/3，
+ * 视觉上最后一次字能完整点亮；再小会撞上 getPosition 自身的 ±20~30ms 抖动。
+ */
+const DRIFT_TOLERANCE = 60
+
+/**
+ * 校正歌词内部时钟的漂移（毫秒）
+ *
+ * 只在播放中调用（每秒一次）。resync 是无感的：它只重置内部时间基准与行定时器，
+ * 行号没变就不会回调 onPlay，正在跑的逐字动画不受影响。
+ */
+export const syncLyricDrift = (time: number) => {
+  if (lrcAnchor.pos < 0) return
+  const predicted = lrcAnchor.pos + (Date.now() - lrcAnchor.at)
+  if (Math.abs(time - predicted) < DRIFT_TOLERANCE) return
+  // 重排前先更新基准，避免 handlePlay 里再次递归
+  lrcAnchor = { pos: time, at: Date.now() }
+  lrcResync(time)
   void playDesktopLyric(time)
 }
 

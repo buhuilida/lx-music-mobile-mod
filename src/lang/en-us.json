@@ -570,6 +570,7 @@
   "setting_backup_local_failed": "Export failed, please check storage permission",
   "setting_backup_local_import_confirm": "This backup will overwrite the current playlists, settings, themes and sources. This cannot be undone.\n\nBackup time: {time}\nPlaylists {lists} / Songs {musics} / Sources {apis} / Themes {themes}",
   "setting_backup_local_import_done": "Import finished. Restart the app to apply all settings.",
+  "setting_backup_local_import_partial": "Some data could not be restored (the rest was imported):",
   "setting_backup_local_import_failed": "Import failed: not a valid lxmod backup",
   "setting_backup": "Backup & Restore",
   "setting_backup_all": "All data (\"List\" data and \"Setting\" data)",

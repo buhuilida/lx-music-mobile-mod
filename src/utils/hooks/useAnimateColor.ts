@@ -4,7 +4,7 @@ import { Animated } from 'react-native'
 
 const ANIMATION_DURATION = 800
 
-export const useAnimateColor = (color: string) => {
+export const useAnimateColor = (color: string, duration = ANIMATION_DURATION) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const anim = useMemo(() => new Animated.Value(0), [color])
   const [finished, setFinished] = useState(true)
@@ -20,7 +20,7 @@ export const useAnimateColor = (color: string) => {
     setFinished(false)
     Animated.timing(anim, {
       toValue: 1,
-      duration: ANIMATION_DURATION,
+      duration,
       useNativeDriver: false,
     }).start((finished) => {
       if (!finished) return

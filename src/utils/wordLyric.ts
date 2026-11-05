@@ -253,6 +253,13 @@ export const parseWordLyric = (raw: string | null | undefined): WordLyricLine[] 
     if (isLyricPlaceholder(lineText)) continue
     // 补全缺失的 duration：下一个字开始时间 - 当前字开始时间
     for (let i = 0; i < words.length; i++) {
+      // 空格不发音，给它 0 时长。以前这里按「到下一个字的间隔」补，
+      // 空格被补成 60ms，一句里几个空格就能把整行的时间轴拖长 200~300ms，
+      // 结果是后半句整体滞后、行尾的字来不及亮。
+      if (words[i].text == ' ' || words[i].text == '\t') {
+        words[i].duration = 0
+        continue
+      }
       if (!words[i].duration) {
         const nextTime = i + 1 < words.length ? words[i + 1].time : lineTime + lineText.length * 200
         words[i].duration = Math.max(60, nextTime - words[i].time)
@@ -300,16 +307,45 @@ export const buildAutoWordLyric = (lyric: string | null | undefined): string => 
   for (let i = 0; i < parsed.length; i++) {
     const cur = parsed[i]
     const next = parsed[i + 1]
-    let lineDuration = next ? next.time - cur.time : Math.min(cur.text.length * 220, 8000)
-    if (lineDuration < 300) lineDuration = 300
-    if (lineDuration > 12_000) lineDuration = 12_000
     const chars = Array.from(cur.text)
-    const per = Math.max(60, Math.round(lineDuration / Math.max(chars.length, 1)))
+    let lineDuration = next ? next.time - cur.time : 4000
+    // 只防 0 / 负数。不要抬到 300ms：末尾那些制作信息行（「封面：xx」）行间隔
+    // 只有 40~50ms，硬抬到 300ms 会让它们排到下一行之后，末字永远来不及亮。
+    if (lineDuration < 1) lineDuration = 1
+    // 空格不发音，不该分走一个字的时间，否则「你也不疲倦吧 累了」中间会多停 160ms
+    const voiced = chars.filter(ch => ch != ' ' && ch != '\t').length || 1
+    /**
+     * 默认把整行时长**完整**分配给每个字，最后一个字正好唱到下一行开始。
+     *
+     * 这是 1.22.17 的行为，也是唯一不会「唱快了」的算法：逐字进度和行切换
+     * 用的是同一根时间轴，行内永远不会出现「早就唱完、干等十几秒」。
+     *
+     * 只在一种情况下压上限：单字超过 600ms。那意味着这一行的间隔远大于人声长度
+     * （前奏 / 间奏后的第一句，比如「编曲: DH」离下一句有 12.5 秒），
+     * 按完整时长均分会变成「一个字一个字慢慢蹦十几秒」。
+     * 压到 600ms/字后，唱完剩余时间整行停在「全部已唱」，符合直觉。
+     *
+     * 注意不要反过来按「语速 260ms/字」估算总时长 —— 短句慢歌（两个字的
+     * 「慢慢」要唱 6 秒）会被压成 0.9 秒唱完，剩下 5 秒空等，
+     * 用户看到的就是「歌词跑得比唱的快」。
+     */
+    let per = Math.round(lineDuration / voiced)
+    if (per > 600) per = 600
+    /**
+     * 下限只防 0，不能卡 20ms 以上。
+     *
+     * 末尾的制作信息行（「封面：泽丽LIX」）行间隔只有 40ms，8 个字按 20ms 排要
+     * 160ms，超出 4 倍 —— 行早就切走了，后面几个字永远不亮。
+     * 按 5ms/字排，40ms 内正好点亮全部，和行切换严丝合缝。
+     */
+    if (per < 1) per = 1
     let offset = 0
     let body = ''
     for (const ch of chars) {
-      body += `<${offset},${per}>${ch}`
-      offset += per
+      const isSpace = ch == ' ' || ch == '\t'
+      // 空格给 0 时长并且不推进 offset，否则它会把整行的时间轴拖长
+      body += `<${offset},${isSpace ? 0 : per}>${ch}`
+      if (!isSpace) offset += per
     }
     out.push(`${msToTag(cur.time)}${body}`)
   }

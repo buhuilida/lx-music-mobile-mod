@@ -127,7 +127,11 @@ export const toOldMusicInfo = (minfo: LX.Music.MusicInfo): any => {
  * @param musicInfo
  */
 export const fixNewMusicInfoQuality = (musicInfo: LX.Music.MusicInfo) => {
-  if (musicInfo.source == 'local') return musicInfo
+  if (!musicInfo || musicInfo.source == 'local') return musicInfo
+  // 备份文件里的 meta 可能缺字段（旧版本 / 第三方工具生成 / 手动编辑过）。
+  // 这里不加防护，导入时会在 `undefined.flac32bit` 上抛 TypeError，
+  // 整个恢复流程直接中断，用户看到的就是「导入失败」。
+  if (!musicInfo.meta || !musicInfo.meta._qualitys) return musicInfo
 
   // @ts-expect-error
   if (musicInfo.meta._qualitys.flac32bit && !musicInfo.meta._qualitys.flac24bit) {
@@ -149,7 +153,11 @@ export const fixNewMusicInfoQuality = (musicInfo: LX.Music.MusicInfo) => {
 
 export const filterMusicList = <T extends LX.Music.MusicInfo>(list: T[]): T[] => {
   const ids = new Set<string>()
+  if (!Array.isArray(list)) return []
   return list.filter(s => {
+    // 备份数据里出现过 null / 非对象项（JSON 手工编辑、旧版本写入中断），
+    // 直接读 s.id 会抛 TypeError 让整份恢复失败，这里按无效项跳过。
+    if (!s || typeof s !== 'object') return false
     if (!s.id || ids.has(s.id) || !s.name) return false
     if (s.singer == null) s.singer = ''
     ids.add(s.id)

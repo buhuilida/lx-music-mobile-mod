@@ -1,4 +1,4 @@
-import { init as initLyricPlayer, toggleTranslation, toggleRoma, play, pause, stop, setLyric, setPlaybackRate, syncLyricPosition } from '@/core/lyric'
+import { init as initLyricPlayer, toggleTranslation, toggleRoma, play, pause, stop, setLyric, setPlaybackRate, syncLyricPosition, syncLyricDrift } from '@/core/lyric'
 import { updateSetting } from '@/core/common'
 import { onDesktopLyricPositionChange, showDesktopLyric, onLyricLinePlay, showRemoteLyric } from '@/core/desktopLyric'
 import playerState from '@/store/player/state'
@@ -68,4 +68,6 @@ export default async(setting: LX.AppSetting) => {
   global.app_event.on('lyricUpdated', setLyric)
   // 播放位置回绕（单曲循环重播 / 拖回开头）：重新对齐歌词行
   global.app_event.on('lyricSeek', syncLyricPosition)
+  // 音频缓冲后歌词内部时钟会超前，偏差过大时重新对齐，避免「没唱完就跳下一句」
+  global.app_event.on('lyricDrift', syncLyricDrift)
 }

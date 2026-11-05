@@ -102,13 +102,17 @@ export interface AnimatedColorTextProps extends _AnimatedTextProps {
    * 字体透明度
    */
   opacity?: number
+  /**
+   * 颜色/透明度过渡时长（ms），默认 800；歌词切行用更短的值更跟手
+   */
+  duration?: number
 }
-export const AnimatedColorText = ({ style, size = 15, opacity: _opacity, color: _color, children, ...props }: AnimatedColorTextProps) => {
+export const AnimatedColorText = ({ style, size = 15, opacity: _opacity, color: _color, duration, children, ...props }: AnimatedColorTextProps) => {
   const theme = useTheme()
   const textShadow = useTextShadow()
 
-  const [color] = useAnimateColor(_color ?? theme['c-font'])
-  const [opacity] = useAnimateNumber(_opacity ?? 1, DEFAULT_DURATION, false)
+  const [color] = useAnimateColor(_color ?? theme['c-font'], duration)
+  const [opacity] = useAnimateNumber(_opacity ?? 1, duration ?? DEFAULT_DURATION, false)
 
   style = StyleSheet.compose(textShadow ? {
     // fontFamily: 'System',
