@@ -384,7 +384,15 @@ export const buildRawWordLyric = (lrc?: string | null, wordLyric?: string | null
     if (!line.words.length) continue
     let body = msToLrcTag(line.time)
     for (const word of line.words) body += `<${msToLrcTag(word.time).slice(1, -1)}>${word.text}`
-    const last = line.words[line.words.length - 1]
+    // 行尾收尾标签要跳过尾部空格：空格在 parseWordLyric 里时长已被清零，
+    // 直接拿最后一个 unit 算会把行结束时间提前到空格位置。
+    let last = line.words[line.words.length - 1]
+    for (let i = line.words.length - 1; i >= 0; i--) {
+      if (line.words[i].text.trim()) {
+        last = line.words[i]
+        break
+      }
+    }
     const endTime = Math.max(last.time + (last.duration || 0), line.time + 1)
     body += `<${msToLrcTag(endTime).slice(1, -1)}>`
     out.push(body)
