@@ -3,6 +3,7 @@ import { memo, useState } from 'react'
 import Section from '../../components/Section'
 import IsEnable from './IsEnable'
 import History from './History'
+import CloudSync from './CloudSync'
 import WebDAV from './WebDAV'
 import ListenTogether from '../Other/ListenTogether'
 import { useI18n } from '@/lang'
@@ -18,6 +19,7 @@ export default memo(() => {
       <IsEnable host={host} setHost={setHost} />
       <History setHost={setHost} />
       <ListenTogether />
+      <CloudSync />
       <WebDAV />
     </Section>
   )

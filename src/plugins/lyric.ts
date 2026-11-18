@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
-// 用内置副本代替原包：原包的 timeoutTools 会积累野定时器，暂停后仍回调 null（Fatal 崩溃）。
-// 详见 src/vendor/lrcFileParser.js 文件头。
-import Lyric, { type Lines } from '@/vendor/lrcFileParser'
+import Lyric, { type Lines } from 'lrc-file-parser'
 import { parseWordLyric, type WordLyricLine } from '@/utils/wordLyric'
 // import { getStore, subscribe } from '@/store'
 export type Line = Lines[number]
@@ -142,6 +140,22 @@ export const pause = () => {
   // console.log('pause')
   lrcTools.isPlay = false
   lrcTools.lrc!.pause()
+}
+
+/**
+ * 暂停状态下把歌词定位到指定位置（不启动播放）
+ *
+ * lrc-file-parser 没有「只 seek 不播放」的接口。play(time) 会按新位置重排行号
+ * 并回调 onPlay，紧接着 pause() 把刚排上的定时器清掉即可 —— 行号已经落位，
+ * 而且不会让歌词在暂停时自己往前跑。
+ * 拖动进度条后，App 内歌词不需要等下一次播放事件才跳行。
+ */
+export const seekPaused = (time: number) => {
+  const lrc = lrcTools.lrc
+  if (!lrc) return
+  lrcTools.isPlay = false
+  lrc.play(time)
+  lrc.pause()
 }
 
 // on lyric play hook

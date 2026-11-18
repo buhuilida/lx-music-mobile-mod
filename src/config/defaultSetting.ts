@@ -21,6 +21,8 @@ const defaultSetting: LX.AppSetting = {
   'player.startupPushPlayDetailScreen': false,
   'player.togglePlayMethod': 'listLoop',
   'player.playQuality': '128k',
+  // 合并优质源：单平台取链达标阈值（毫秒），只在「合并」时使用
+  'player.mergeSpeedLimit': 1000,
   'player.isSavePlayTime': false,
   'player.volume': 1,
   'player.playbackRate': 1,
@@ -50,7 +52,9 @@ const defaultSetting: LX.AppSetting = {
   'desktopLyric.width': 100,
   'desktopLyric.maxLineNum': 5,
   'desktopLyric.isSingleLine': false,
-  'desktopLyric.showToggleAnima': true,
+  // 1.22.40 起默认关闭：换行改成单视图直切，不再有交叉动画。
+  // 老版本这个开关是 true，TextSwitcher 会同时渲染新旧两句，造成重影。
+  'desktopLyric.showToggleAnima': false,
   'desktopLyric.position.x': 0,
   'desktopLyric.position.y': 0,
   'desktopLyric.textPosition.x': 'left',
@@ -80,6 +84,13 @@ const defaultSetting: LX.AppSetting = {
   'sync.webdavUser': '',
   'sync.webdavPassword': '',
   'sync.webdavAuto': 'off',
+
+  // 三端云同步（手机 / 电脑 / 网页版），走本项目自己的 /api/sync 接口
+  'sync.cloudUrl': 'https://af384ee6deb6e09e2.app.workbuddy.host/api/sync?sharecode=MKPWEVLBUS',
+  'sync.cloudCode': '',
+  'sync.cloudSecret': '',
+  'sync.cloudAuto': 'off',
+  'sync.cloudLastAt': 0,
 
   // 内置的公共一起听服务器（发布自本项目 listen-together-server），可随时在设置里改成自建地址
   'listenTogether.serverUrl': 'wss://af384ee6deb6e09e2.app.workbuddy.host?sharecode=MKPWEVLBUS',

@@ -6,12 +6,14 @@ import {
   toggleRoma as lrcToggleRoma,
   init as lrcInit,
   resync as lrcResync,
+  seekPaused as lrcSeekPaused,
 } from '@/plugins/lyric'
 import {
   playDesktopLyric,
   setDesktopLyric,
   pauseDesktopLyric,
   setDesktopLyricPlaybackRate,
+  seekDesktopLyric,
 } from '@/core/desktopLyric'
 import { getPosition } from '@/plugins/player'
 import playerState from '@/store/player/state'
@@ -20,6 +22,7 @@ import { updateNowPlayingTitles } from '@/plugins/player/utils'
 import { publishSystemLyric } from '@/core/player/systemLyric'
 import { hasWordTags, stripWordTags } from '@/utils/wordLyric'
 import { stripLyricPlaceholderLines } from '@/utils/lrcTools'
+import { sanitizeLyricText } from './lyricSanitize'
 
 /**
  * init lyric
@@ -37,13 +40,35 @@ const handleSetLyric = async(lyric: string, translation = '', romalrc = '') => {
   // 逐字歌词：优先用当前歌曲已加载的 lxlyric；歌词本身是逐字格式时直接解析它（1.17.0 修复 <0,200> 裸显）
   const lxlyric = playerState.musicInfo.lxlrc ?? undefined
   const inlineWord = !lxlyric && hasWordTags(lyric)
-  const cleanLrc = stripLyricPlaceholderLines(hasWordTags(lyric) ? stripWordTags(lyric) : lyric)
+  /**
+   * 解析前清洗：删掉开头连续的制作名单、合并时间相邻的重复行。
+   *
+   * 这两类脏数据都会让界面看起来「歌词渲染坏了」：
+   * - 制作名单（曲：/编曲：/混音：…）带递增时间戳，会被当成歌词逐句播放；
+   * - 同一句被音源写了两遍（正文与译文拼在一起、逐字稿整行追加），
+   *   解析器当成两条 line，界面就是当前句下方紧跟一条一模一样的字。
+   * 必须放在解析前，解析器内部的行号才不会与清洗后的数据错位。
+   */
+  const cleanLrc = sanitizeLyricText(stripLyricPlaceholderLines(hasWordTags(lyric) ? stripWordTags(lyric) : lyric))
   // `//` 是音源给的「本行无翻译 / 无音译」占位符，不清掉就会在每行歌词下面多出一行斜杠
-  const cleanTranslation = stripLyricPlaceholderLines(translation)
-  const cleanRoma = stripLyricPlaceholderLines(romalrc)
+  const cleanTranslation = sanitizeLyricText(stripLyricPlaceholderLines(translation), { dedupe: false })
+  const cleanRoma = sanitizeLyricText(stripLyricPlaceholderLines(romalrc), { dedupe: false })
   const wordSource = lxlyric ?? (inlineWord ? lyric : undefined)
+  // 切歌瞬间可能有两首歌的歌词回调交错（上一首的请求晚到），记录发起时的歌曲，
+  // 后续异步步骤发现歌曲已变就直接丢弃，避免旧歌词覆盖新歌
+  const musicId = playerState.musicInfo.id
   lrcSetLyric(cleanLrc, cleanTranslation, cleanRoma, wordSource)
+  if (musicId !== playerState.musicInfo.id) return
   await setDesktopLyric(cleanLrc, cleanTranslation, cleanRoma, wordSource)
+  if (musicId !== playerState.musicInfo.id) return
+  // 暂停时 setLyric 只会沿用上一次的行号（新歌是 0），和实际停留的进度对不上。
+  // 这里按播放器当前位置补一次「只定位不播放」，恢复播放位置后不用按播放也能看到正确的一句。
+  if (!playerState.isPlay) {
+    void getPosition().then(position => {
+      if (musicId !== playerState.musicInfo.id || playerState.isPlay) return
+      void seekDesktopLyric(position * 1000)
+    })
+  }
   // 按 ColorOS / OPlus 的 lyricInfo 契约，把整首歌词交给系统渲染
   publishSystemLyric(cleanLrc, cleanTranslation, wordSource)
   if (settingState.setting['player.isShowBluetoothFullLyric']) {
@@ -196,9 +221,17 @@ export const play = () => {
  * 原生歌词播放器是按行排定时器自己往前跑的，单曲循环重播、拖回开头这类
  * 「播放位置大幅回退」不会触发 play 事件，必须显式重新对齐，
  * 否则桌面歌词 / 通知栏会一直停在上一轮的当前行。
+ *
+ * 暂停时只能「定位」不能 play()：play 会启动原生定时器，歌词会在暂停状态下
+ * 自己往前跑；App 内歌词同理（用 seekPaused 走一次 play→pause）。
  */
 export const syncLyricPosition = (positionMs: number) => {
-  handlePlay(positionMs)
+  if (playerState.isPlay) {
+    handlePlay(positionMs)
+    return
+  }
+  lrcSeekPaused(positionMs)
+  void seekDesktopLyric(positionMs)
 }
 
 
@@ -214,6 +247,11 @@ export const setLyric = async() => {
     if (musicInfo.tlrc) tlrc = musicInfo.tlrc
     if (musicInfo.rlrc) rlrc = musicInfo.rlrc
     await handleSetLyric(musicInfo.lrc, tlrc, rlrc)
+  } else {
+    // 这首歌没有（或还没拿到）歌词：必须显式清空，
+    // 否则 App 内歌词 / 桌面歌词会一直停在上一次 setLyric 的内容上，
+    // 用户看到的就是「切歌后歌词卡住，还是上一首」
+    await handleSetLyric('')
   }
 
   if (playerState.isPlay) play()

@@ -131,6 +131,7 @@ declare global {
        * 优先播放的音质
        */
       'player.playQuality': LX.Quality
+      'player.mergeSpeedLimit': number
 
       /**
        * 启动软件时是否恢复上次播放进度
@@ -382,6 +383,31 @@ declare global {
        * WebDAV 自动备份频率：off / startup（每次启动）/ daily（每天）/ weekly（每周）
        */
       'sync.webdavAuto': 'off' | 'startup' | 'daily' | 'weekly'
+
+      /**
+       * 三端云同步服务地址（本项目 listen-together-server 的 /api/sync）
+       */
+      'sync.cloudUrl': string
+
+      /**
+       * 同步码（相当于「同一个账号」，多设备填同一个）
+       */
+      'sync.cloudCode': string
+
+      /**
+       * 同步密钥（与同步码配对，只在本机与同步服务之间传输）
+       */
+      'sync.cloudSecret': string
+
+      /**
+       * 自动同步频率：off / startup（启动时）/ always（进入后台/退出时也同步）
+       */
+      'sync.cloudAuto': 'off' | 'startup' | 'always'
+
+      /**
+       * 上次同步完成时间（毫秒时间戳）
+       */
+      'sync.cloudLastAt': number
 
       /**
        * 一起听服务器地址，例如 ws://192.168.1.10:23333

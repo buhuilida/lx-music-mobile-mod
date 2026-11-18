@@ -18,6 +18,8 @@ const rootPath = path.join(__dirname, './')
 const metadataManagerPath = './node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MetadataManager.java'
 const interfacesPath = './node_modules/react-native-track-player/lib/interfaces.d.ts'
 const errorScreenPath = './node_modules/react-native-exception-handler/android/src/main/java/com/masteratul/exceptionhandler/DefaultErrorScreen.java'
+const lrcParserPath = './node_modules/lrc-file-parser/dist/lrc-file-parser.js'
+const lrcParserEsmPath = './node_modules/lrc-file-parser/dist/lrc-file-parser.esm.js'
 
 // 已经打过补丁的标记：出现这些字符串就整块跳过
 // 注意：MetadataManager 有多个互不相邻的插入点，不能用同一个 guard，
@@ -116,6 +118,125 @@ const patchs = [
   // 6. 原生错误页按钮中文化
   [errorScreenPath, 'showDetailsButton.setText("SHOW DETAILS");', 'showDetailsButton.setText("查看错误详情");'],
   [errorScreenPath, 'showDetailsButton.setText("HIDE DETAILS");', 'showDetailsButton.setText("收起详情");'],
+  // 7. lrc-file-parser：修「切歌时 null is not a function」
+  //
+  // 崩溃链（栈顶落在 lrc-file-parser.js:69 的 this.callback(diff)）：
+  //   resync() 为了不闪歌词，会把 isPlay 置 false 再 play()，play() 内部的 pause()
+  //   因此直接 return，timeoutTools 里上一条 rAF/timeout 链不会被取消（孤儿链）。
+  //   紧接着切歌走 setLyric('') -> pause() -> clear()，把 callback 置 null；
+  //   孤儿链到期后 run() 再调 callback 就是 null()，抛 TypeError。
+  // 复现：play() -> isPlay=false + play() -> setLyric('')，~2s 后必现。
+  [
+    lrcParserPath,
+    '    run() {\n' +
+      '        this.animationFrameId = window.requestAnimationFrame(() => {\n' +
+      '            this.animationFrameId = null;\n' +
+      '            let diff = this.invokeTime - getNow();\n',
+    '    run() {\n' +
+      '        this.animationFrameId = window.requestAnimationFrame(() => {\n' +
+      '            this.animationFrameId = null;\n' +
+      '            // LX Mod: clear() 无法取消「已入队」的 rAF/timeout 回调，\n' +
+      '            // 此时 callback 已被置空，直接调用会抛 null is not a function\n' +
+      '            if (this.callback == null) return;\n' +
+      '            let diff = this.invokeTime - getNow();\n',
+  ],
+  [
+    lrcParserPath,
+    '    start(callback = noop, timeout = 0) {\n' +
+      '        // console.log(timeout)\n' +
+      '        this.callback = callback;\n',
+    '    start(callback = noop, timeout = 0) {\n' +
+      '        // LX Mod: 先清掉上一条定时器链。resync() 绕过 pause() 直接 play() 时，\n' +
+      '        // 旧链的 rAF/timeout 不会被取消，之后 pause() 把 callback 置空就会调 null 崩溃\n' +
+      '        this.clear();\n' +
+      '        // console.log(timeout)\n' +
+      '        this.callback = callback;\n',
+  ],
+  // 8. lrc-file-parser：修「[00:00.06] 被当成 600ms」
+  //
+  // formatTimeLabel 的 /\.0+(\d+)/ 会把小数位开头的 0 剥掉：
+  //   [00:00.06] -> .6 -> 再按「不足 3 位右补 0」-> 600ms（正确 60ms）
+  // 落在 0.01~0.09 秒的歌词因此整体推迟最多 900ms，正好卡在上一句上，
+  // 桌面歌词/App 内歌词都会「卡住等下一句」。小数位统一补到 3 位即可，
+  // 顺带让 [00:00.06] 与 [00:00.060] 这种不同精度的翻译行也能对上。
+  ...['./node_modules/lrc-file-parser/dist/lrc-file-parser.js', './node_modules/lrc-file-parser/dist/lrc-file-parser.esm.js'].flatMap((filePath) => [
+    [
+      filePath,
+      'const t_rxp_3 = /\\.0+(\\d+)/;\n' +
+        'const formatTimeLabel = (label) => {\n' +
+        "    return label.replace(t_rxp_1, '$1')\n" +
+        "        .replace(t_rxp_2, ':$1')\n" +
+        "        .replace(t_rxp_3, '.$1');\n" +
+        '};\n',
+      'const formatTimeLabel = (label) => {\n' +
+        '    // LX Mod: 不要剥掉小数位开头的 0（.06 是 60ms，不是 .6）\n' +
+        "    const normalized = label.replace(t_rxp_1, '$1').replace(t_rxp_2, ':$1')\n" +
+        "    const dot = normalized.lastIndexOf('.')\n" +
+        "    if (dot < 0) return normalized + '.000'\n" +
+        '    let frac = normalized.slice(dot + 1)\n' +
+        '    if (frac.length > 3) frac = frac.slice(0, 3)\n' +
+        "    while (frac.length < 3) frac += '0'\n" +
+        '    return normalized.slice(0, dot + 1) + frac\n' +
+        '};\n',
+    ],
+    [
+      filePath,
+      'time: parseInt(timeArr[0]) * 60 * 60 * 1000 + parseInt(timeArr[1]) * 60 * 1000 + parseInt(timeArr[2]) * 1000 + parseInt(isMsTime ? msTime : msTime.padEnd(3, \'0\')),',
+      'time: parseInt(timeArr[0]) * 60 * 60 * 1000 + parseInt(timeArr[1]) * 60 * 1000 + parseInt(timeArr[2]) * 1000 + parseInt(msTime),',
+    ],
+  ]),
+  // 9. lrc-file-parser：翻译行里的 "//" 占位不要当成译文
+  //
+  // LRC 的翻译 / 罗马音文件常用 [00:12.00]// 表示「这一行没有翻译」。
+  // 上游 parseExtendedLyric 只判断 text 非空，于是 // 会被挂到正文行下面，
+  // App 内歌词就会出现正文 + 一行光秃秃的「//」；桌面歌词（电脑版 line-player）
+  // 早就过滤了 //，两端行为不一致。
+  ...['./node_modules/lrc-file-parser/dist/lrc-file-parser.js', './node_modules/lrc-file-parser/dist/lrc-file-parser.esm.js'].flatMap((filePath) => [
+    [
+      filePath,
+      "            const text = line.replace(timeFieldExp, '').trim();\n" +
+        '            if (text) {\n',
+      "            const text = line.replace(timeFieldExp, '').trim();\n" +
+        "            // LX Mod: \"//\" 是「这一行没有翻译」的占位，不能当译文显示\n" +
+        "            if (text && text != '//') {\n",
+    ],
+  ]),
+  // 10. lrc-file-parser：译文与正文相同时不要重复挂载
+  //
+  // 翻译 / 罗马音文件里，没有翻译的句子常常直接复制原文（或者整份文件就是
+  // 原文的副本），上游只判空，于是同一句会显示两遍：正文一行大字 + 译文一行
+  // 小字。桌面歌词是 extendedLyrics.join('\n')，直接变成「一句歌词重复两行」。
+  ...['./node_modules/lrc-file-parser/dist/lrc-file-parser.js', './node_modules/lrc-file-parser/dist/lrc-file-parser.esm.js'].flatMap((filePath) => [
+    [
+      filePath,
+      '                    const targetLine = lrcLinesMap[timeStr];\n' +
+        '                    if (targetLine)\n' +
+        '                        targetLine.extendedLyrics.push(text);\n',
+      '                    const targetLine = lrcLinesMap[timeStr];\n' +
+        '                    // LX Mod: 与正文相同、或已经挂过的译文不再重复追加\n' +
+        "                    if (targetLine && targetLine.text !== text && !targetLine.extendedLyrics.includes(text))\n" +
+        '                        targetLine.extendedLyrics.push(text);\n',
+    ],
+  ]),
+  // 11. lrc-file-parser：同一时间戳的重复正文不要当译文
+  //
+  // 有些歌词把同一句打了两个一模一样的时间标签（[00:12.00][00:12.00]词），
+  // 或者同一秒里重复了一行，上游会把它 push 进 extendedLyrics，结果正文下面
+  // 又出现一行同样的字。
+  ...['./node_modules/lrc-file-parser/dist/lrc-file-parser.js', './node_modules/lrc-file-parser/dist/lrc-file-parser.esm.js'].flatMap((filePath) => [
+    [
+      filePath,
+      '                        if (linesMap[timeStr]) {\n' +
+        '                            linesMap[timeStr].extendedLyrics.push(text);\n' +
+        '                            continue;\n' +
+        '                        }\n',
+      '                        if (linesMap[timeStr]) {\n' +
+        '                            // LX Mod: 同时间戳且同一句，不再当译文重复挂载\n' +
+        '                            if (linesMap[timeStr].text !== text) linesMap[timeStr].extendedLyrics.push(text);\n' +
+        '                            continue;\n' +
+        '                        }\n',
+    ],
+  ]),
 ]
 
 // MetadataManager 同一个文件里有多个互不相邻的插入点，必须各自用独立标记判断，
@@ -126,6 +247,8 @@ const patchGuardsByIndex = new Map([
   [2, 'if (data.containsKey("lyricInfo")) {'],
   [3, 'String newTrackKey = trackKeyOf(track);'],
   [4, 'metadata.putString("lyricInfo", lyricInfo);\n        builder.setLargeIcon(bitmap);'],
+  [8, 'if (this.callback == null) return;'],
+  [9, 'this.clear();\n        // console.log(timeout)'],
 ])
 
 // 全局替换：所有 setMetadata 都走安全包装
@@ -136,6 +259,30 @@ const globalPatchs = [
 
 
 ;(async() => {
+  // 先清理历史半补丁残留：早期版本只在 prevMetadata 后插了 lyricInfo 声明，
+  // 新版把完整块（含 getActiveSession/safeSetMetadata）插到同一位置时，
+  // trackKeyOf 后面会留下一条重复声明，javac 直接报 "variable lyricInfo is already defined"。
+  // 特征片段带上前后行，避免误伤新块里的同名两行。
+  {
+    const residual = '      return String.valueOf(track.title) + "|" + String.valueOf(track.artist) + "|" + track.duration;\n' +
+      '    }\n' +
+      '    // 系统歌词：ColorOS / OPlus 从 MediaMetadata["lyricInfo"] 读取\n' +
+      '    private String lyricInfo = null;\n' +
+      '    private Uri prevArtwork = null;\n'
+    const cleaned = '      return String.valueOf(track.title) + "|" + String.valueOf(track.artist) + "|" + track.duration;\n' +
+      '    }\n' +
+      '    private Uri prevArtwork = null;\n'
+    try {
+      const file = (await fs.promises.readFile(metadataManagerPath)).toString()
+      if (file.includes(residual)) {
+        await fs.promises.writeFile(metadataManagerPath, file.replace(residual, cleaned))
+        console.log('Cleaned residual patch in MetadataManager.java')
+      }
+    } catch (err) {
+      console.error(`Clean residual failed: ${err.message}`)
+    }
+  }
+
   for (const [index, [filePath, fromStr, toStr]] of patchs.entries()) {
     console.log(`Patching ${filePath.replace(rootPath, '')}`)
     try {
